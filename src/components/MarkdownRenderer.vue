@@ -228,8 +228,8 @@ const html = computed(() => {
     font-size: 0.9em;
     padding: 0.15em 0.4em;
     border-radius: 5px;
-    background: var(--overlay-scrim);
-    color: #f0c674;
+    background: var(--code-inline-bg);
+    color: var(--code-inline-fg);
   }
 
   /* 代码块（highlight 输出） */
@@ -239,29 +239,28 @@ const html = computed(() => {
     padding: 12px 14px;
     border-radius: 10px;
     overflow-x: auto;
-    background: var(--overlay-scrim) !important;
+    background: var(--code-bg) !important;
     border: 1px solid var(--border-muted);
     line-height: 1.55;
 
     code {
       padding: 0;
       background: transparent;
-      color: #e6e6e6;
+      color: var(--code-fg);
       font-size: 12.5px;
     }
   }
 
-  /* highlight.js 暗色语法色 */
   :deep(.hljs-comment),
   :deep(.hljs-quote) {
-    color: #7a828e;
+    color: var(--hljs-comment);
     font-style: italic;
   }
 
   :deep(.hljs-keyword),
   :deep(.hljs-selector-tag),
   :deep(.hljs-addition) {
-    color: #c678dd;
+    color: var(--hljs-keyword);
   }
 
   :deep(.hljs-number),
@@ -270,7 +269,7 @@ const html = computed(() => {
   :deep(.hljs-literal),
   :deep(.hljs-doctag),
   :deep(.hljs-regexp) {
-    color: #98c379;
+    color: var(--hljs-string);
   }
 
   :deep(.hljs-title),
@@ -278,7 +277,7 @@ const html = computed(() => {
   :deep(.hljs-name),
   :deep(.hljs-selector-id),
   :deep(.hljs-selector-class) {
-    color: #61afef;
+    color: var(--hljs-title);
   }
 
   :deep(.hljs-attribute),
@@ -287,7 +286,7 @@ const html = computed(() => {
   :deep(.hljs-template-variable),
   :deep(.hljs-class .hljs-title),
   :deep(.hljs-type) {
-    color: #e5c07b;
+    color: var(--hljs-attr);
   }
 
   :deep(.hljs-symbol),
@@ -298,11 +297,11 @@ const html = computed(() => {
   :deep(.hljs-selector-pseudo),
   :deep(.hljs-built_in),
   :deep(.hljs-builtin-name) {
-    color: #56b6c2;
+    color: var(--hljs-built-in);
   }
 
   :deep(.hljs-deletion) {
-    color: #e06c75;
+    color: var(--hljs-deletion);
   }
 
   :deep(.hljs-emphasis) {

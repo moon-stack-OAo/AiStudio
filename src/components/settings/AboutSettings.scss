@@ -13,7 +13,7 @@
 }
 
 .version-card {
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 22px 20px;
   text-align: center;
   background:
@@ -68,15 +68,10 @@
   margin-top: 10px;
 }
 
-.field-label.tight {
-  margin: 0;
-  color: var(--text-2);
-}
-
 .status-bar {
   margin-top: 12px;
   padding: 10px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -120,9 +115,28 @@
   }
 }
 
+.select-turns {
+  width: 120px;
+}
+
+.select-close {
+  width: 200px;
+}
+
 @media (max-width: 767.98px) {
-  .update-card .update-row {
+  .update-card .update-row,
+  .data-card .data-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .select-turns,
+  .select-close {
+    width: 100%;
+  }
+
+  .update-card .update-row :deep(.n-button),
+  .data-card .data-row :deep(.n-button) {
+    width: 100%;
   }
 }

@@ -40,11 +40,26 @@ function renderIcon(icon) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
-const menuOptions = [
-  { label: '对话', key: 'chat', icon: renderIcon(ChatbubblesOutline) },
-  { label: '生图', key: 'image', icon: renderIcon(ImageOutline) },
-  { label: '设置', key: 'settings', icon: renderIcon(SettingsOutline) },
-]
+const menuOptions = computed(() => {
+  const showNew = settings.hasAvailableUpdate
+  return [
+    { label: '对话', key: 'chat', icon: renderIcon(ChatbubblesOutline) },
+    { label: '生图', key: 'image', icon: renderIcon(ImageOutline) },
+    {
+      label: () =>
+        h('span', { class: 'menu-label-with-badge' }, [
+          '设置',
+          showNew ? h('span', { class: 'menu-new-badge' }, 'NEW') : null,
+        ]),
+      key: 'settings',
+      icon: () =>
+        h('span', { class: 'menu-icon-wrap' }, [
+          h(NIcon, null, { default: () => h(SettingsOutline) }),
+          showNew ? h('span', { class: 'menu-icon-dot' }) : null,
+        ]),
+    },
+  ]
+})
 
 const activeKey = computed(() => String(route.name || 'chat'))
 const collapsed = computed(() => isCompact.value && !isMobile.value)
@@ -323,5 +338,52 @@ function onMenuUpdate(key) {
   .sidebar:not(.collapsed) {
     width: 196px;
   }
+}
+</style>
+
+<style lang="scss">
+.menu-label-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-new-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--on-primary, #fff);
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.menu-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-icon-dot {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 1.5px var(--color-bg-elevated, #1a1a1a);
+  pointer-events: none;
+}
+
+.sidebar:not(.collapsed) .menu-icon-dot {
+  display: none;
 }
 </style>

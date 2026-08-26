@@ -62,6 +62,7 @@ export const useSettingsStore = defineStore('settings', {
         activeProviderId: saved.activeProviderId || saved.providers[0].id,
         autoCheckUpdate: saved.autoCheckUpdate !== false,
         skippedUpdateVersion: saved.skippedUpdateVersion || '',
+        availableUpdateVersion: '',
         chatContextTrimEnabled: saved.chatContextTrimEnabled !== false,
         chatContextMaxTurns:
           Number(saved.chatContextMaxTurns) > 0
@@ -76,6 +77,7 @@ export const useSettingsStore = defineStore('settings', {
       activeProviderId: providers[0].id,
       autoCheckUpdate: true,
       skippedUpdateVersion: '',
+      availableUpdateVersion: '',
       chatContextTrimEnabled: true,
       chatContextMaxTurns: DEFAULT_CHAT_CONTEXT_MAX_TURNS,
       theme,
@@ -95,6 +97,12 @@ export const useSettingsStore = defineStore('settings', {
         value: p.id,
       }))
     },
+    hasAvailableUpdate(state) {
+      return Boolean(
+        state.availableUpdateVersion &&
+          state.availableUpdateVersion !== state.skippedUpdateVersion,
+      )
+    },
   },
   actions: {
     persist() {
@@ -107,6 +115,12 @@ export const useSettingsStore = defineStore('settings', {
         chatContextMaxTurns: this.chatContextMaxTurns,
         theme: this.theme,
       })
+    },
+    setAvailableUpdate(version) {
+      this.availableUpdateVersion = String(version || '')
+    },
+    clearAvailableUpdate() {
+      this.availableUpdateVersion = ''
     },
     setTheme(theme) {
       this.theme = theme === 'light' ? 'light' : 'dark'

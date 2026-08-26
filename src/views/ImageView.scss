@@ -168,7 +168,7 @@
   transition: all 0.15s ease;
 
   &.active {
-    color: var(--on-primary);
+    color: var(--color-primary);
     background: var(--primary-soft);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 35%, transparent);
   }

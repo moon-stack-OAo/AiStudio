@@ -52,6 +52,18 @@
   --on-primary: #fff;
   --shadow-send: 0 6px 16px rgba(124, 156, 255, 0.28);
 
+  --code-bg: rgba(0, 0, 0, 0.45);
+  --code-inline-bg: rgba(0, 0, 0, 0.35);
+  --code-fg: #e6e6e6;
+  --code-inline-fg: #f0c674;
+  --hljs-comment: #7a828e;
+  --hljs-keyword: #c678dd;
+  --hljs-string: #98c379;
+  --hljs-title: #61afef;
+  --hljs-attr: #e5c07b;
+  --hljs-built-in: #56b6c2;
+  --hljs-deletion: #e06c75;
+
   --radius-sm: 8px;
   --radius-md: 10px;
   --radius-lg: 12px;
@@ -84,8 +96,8 @@
 
   --text-1: rgba(15, 23, 42, 0.92);
   --text-2: rgba(15, 23, 42, 0.72);
-  --text-3: rgba(15, 23, 42, 0.48);
-  --text-4: rgba(15, 23, 42, 0.38);
+  --text-3: rgba(15, 23, 42, 0.56);
+  --text-4: rgba(15, 23, 42, 0.46);
 
   --scrollbar-thumb: rgba(15, 23, 42, 0.22);
   --glow-primary: rgba(91, 124, 250, 0.12);
@@ -107,6 +119,18 @@
   --chip-warning-bg: rgba(217, 119, 6, 0.92);
   --on-primary: #fff;
   --shadow-send: 0 6px 16px rgba(91, 124, 250, 0.28);
+
+  --code-bg: rgba(15, 23, 42, 0.06);
+  --code-inline-bg: rgba(15, 23, 42, 0.07);
+  --code-fg: rgba(15, 23, 42, 0.88);
+  --code-inline-fg: #b45309;
+  --hljs-comment: #6a737d;
+  --hljs-keyword: #a626a4;
+  --hljs-string: #22863a;
+  --hljs-title: #005cc5;
+  --hljs-attr: #e36209;
+  --hljs-built-in: #0550ae;
+  --hljs-deletion: #b31d28;
 }
 
 html,
@@ -169,13 +193,4 @@ textarea,
 
 .n-config-provider {
   height: 100%;
-}
-
-html.win-resizing::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 2147483647;
-  pointer-events: none;
-  background: var(--color-bg);
 }

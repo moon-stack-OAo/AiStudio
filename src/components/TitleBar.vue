@@ -15,7 +15,6 @@ const settings = useSettingsStore()
 const appWindow = getCurrentWindow()
 const maximized = ref(false)
 let unlistenResize = null
-let overlayTimer = null
 
 const themeToggleIcon = computed(() =>
   settings.theme === 'light' ? MoonOutline : SunnyOutline,
@@ -23,16 +22,6 @@ const themeToggleIcon = computed(() =>
 const themeToggleTip = computed(() =>
   settings.theme === 'light' ? '切换为深色' : '切换为浅色',
 )
-
-function flashResizeOverlay() {
-  const root = document.documentElement
-  root.classList.add('win-resizing')
-  if (overlayTimer) clearTimeout(overlayTimer)
-  overlayTimer = setTimeout(() => {
-    root.classList.remove('win-resizing')
-    overlayTimer = null
-  }, 120)
-}
 
 async function refreshMaximized() {
   try {
@@ -47,7 +36,6 @@ async function minimize() {
 }
 
 async function toggleMaximize() {
-  flashResizeOverlay()
   await appWindow.toggleMaximize()
   await refreshMaximized()
 }
@@ -59,12 +47,8 @@ async function close() {
 onMounted(async () => {
   await refreshMaximized()
   try {
-    unlistenResize = await appWindow.onResized(async () => {
-      const prev = maximized.value
-      await refreshMaximized()
-      if (prev !== maximized.value) {
-        flashResizeOverlay()
-      }
+    unlistenResize = await appWindow.onResized(() => {
+      void refreshMaximized()
     })
   } catch {
     // ignore
@@ -75,7 +59,6 @@ onUnmounted(() => {
   if (typeof unlistenResize === 'function') {
     unlistenResize()
   }
-  if (overlayTimer) clearTimeout(overlayTimer)
 })
 </script>
 

@@ -81,8 +81,10 @@ async function onCheckUpdate() {
     pendingUpdate.value = result.update
     if (result.hasUpdate) {
       settings.clearSkippedUpdateVersion()
+      settings.setAvailableUpdate(result.latest.version)
       message.success(`发现新版本 ${result.latest.version}`)
     } else {
+      settings.clearAvailableUpdate()
       message.info('当前已是最新版本')
     }
   } catch (e) {
@@ -236,8 +238,8 @@ function onClearLocalData() {
             :options="maxTurnsOptions"
             :render-label="renderSelectLabel"
             :value="settings.chatContextMaxTurns"
+            class="select-turns"
             size="small"
-            style="width: 120px"
             @update:value="(v) => settings.setChatContextMaxTurns(v)"
           />
         </div>
@@ -259,8 +261,8 @@ function onClearLocalData() {
             :options="closePrefOptions"
             :render-label="renderSelectLabel"
             :value="closePref"
+            class="select-close"
             size="small"
-            style="width: 200px"
             @update:value="onClosePrefChange"
           />
           <div class="hint">选择「每次询问」后，关闭时会再次弹出提示</div>

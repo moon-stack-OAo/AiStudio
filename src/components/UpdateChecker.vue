@@ -80,6 +80,7 @@ async function runCheck({ silent = false } = {}) {
   try {
     const result = await checkForUpdate()
     if (!result.hasUpdate || !result.update) {
+      settings.clearAvailableUpdate()
       if (!silent) message.info('当前已是最新版本')
       return
     }
@@ -91,6 +92,7 @@ async function runCheck({ silent = false } = {}) {
       return
     }
     if (!silent) settings.clearSkippedUpdateVersion()
+    settings.setAvailableUpdate(result.latest.version)
     showUpdateDialog(result)
   } catch (e) {
     if (!silent) message.error(e?.message || '检查更新失败')
