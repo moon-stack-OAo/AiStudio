@@ -4,9 +4,11 @@ import {useMessage} from 'naive-ui'
 import {ListOutline, SendOutline, StopOutline} from '@vicons/ionicons5'
 import SessionList from '@/components/SessionList.vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import PolishModal from '@/components/PolishModal.vue'
 import {useChatStore} from '@/stores/chat'
 import {useSettingsStore} from '@/stores/settings'
 import {streamChatCompletions} from '@/api/client'
+import {chatStyleOptions, polishText} from '@/utils/polish'
 import {useBreakpoints} from '@/composables/useBreakpoints'
 
 const chatStore = useChatStore()
@@ -20,8 +22,17 @@ const loading = ref(false)
 const listRef = ref(null)
 const abortRef = ref(null)
 
+const polishing = ref(false)
+const polishOpen = ref(false)
+const polishOriginal = ref('')
+const polishResult = ref('')
+const polishStyle = ref('clear')
+const prevBeforeReplace = ref(null)
+const polishAbortRef = ref(null)
+
 const session = computed(() => chatStore.activeSession)
 const provider = computed(() => settings.activeProvider)
+const busy = computed(() => loading.value || polishing.value)
 
 watch(
   () => session.value?.messages?.length,
@@ -48,12 +59,78 @@ function ensureProvider() {
   return true
 }
 
+async function runPolish(sourceText) {
+  const text = String(sourceText || '').trim()
+  if (!text || polishing.value) return
+  if (!ensureProvider()) return
+
+  polishing.value = true
+  const controller = new AbortController()
+  polishAbortRef.value = controller
+
+  try {
+    const result = await polishText(provider.value, {
+      text,
+      mode: 'chat',
+      style: polishStyle.value,
+      signal: controller.signal,
+    })
+    polishResult.value = result
+  } catch (err) {
+    if (err?.name !== 'AbortError' && err?.message !== 'canceled') {
+      message.error(err?.message || '润色失败')
+    }
+  } finally {
+    polishing.value = false
+    polishAbortRef.value = null
+  }
+}
+
+async function openPolish() {
+  const text = input.value.trim()
+  if (!text || busy.value) return
+  if (!ensureProvider()) return
+
+  polishOriginal.value = text
+  polishResult.value = ''
+  polishOpen.value = true
+  await runPolish(text)
+}
+
+async function rePolish() {
+  const text = (polishResult.value || polishOriginal.value).trim()
+  if (!text) return
+  polishOriginal.value = text
+  polishResult.value = ''
+  await runPolish(text)
+}
+
+function applyPolish() {
+  const next = polishResult.value.trim()
+  if (!next) return
+  prevBeforeReplace.value = input.value
+  input.value = next
+  polishOpen.value = false
+}
+
+function undoPolish() {
+  if (prevBeforeReplace.value == null) return
+  input.value = prevBeforeReplace.value
+  prevBeforeReplace.value = null
+}
+
+function cancelPolish() {
+  polishAbortRef.value?.abort()
+  polishOpen.value = false
+}
+
 async function send() {
   const text = input.value.trim()
-  if (!text || loading.value || !session.value) return
+  if (!text || busy.value || !session.value) return
   if (!ensureProvider()) return
 
   input.value = ''
+  prevBeforeReplace.value = null
   chatStore.appendMessage(session.value.id, {
     role: 'user',
     content: text,
@@ -213,19 +290,34 @@ function onKeydown(e) {
         <n-input
           v-model:value="input"
           :autosize="{ minRows: 4, maxRows: 8 }"
-          :disabled="loading"
+          :disabled="busy"
           placeholder="输入消息，Enter 发送，Shift+Enter 换行"
           type="textarea"
           @keydown="onKeydown"
         />
         <div class="composer-actions">
+          <n-button
+            v-if="prevBeforeReplace != null"
+            quaternary
+            @click="undoPolish"
+          >
+            撤销润色
+          </n-button>
+          <n-button
+            :disabled="!input.trim() || busy"
+            :loading="polishing"
+            quaternary
+            @click="openPolish"
+          >
+            润色
+          </n-button>
           <n-button v-if="loading" type="warning" @click="stop">
             <template #icon>
               <n-icon :component="StopOutline" />
             </template>
             停止
           </n-button>
-          <n-button :disabled="!input.trim()" :loading="loading" type="primary" @click="send">
+          <n-button :disabled="!input.trim() || busy" :loading="loading" type="primary" @click="send">
             <template #icon>
               <n-icon :component="SendOutline" />
             </template>
@@ -234,6 +326,18 @@ function onKeydown(e) {
         </div>
       </div>
     </div>
+
+    <PolishModal
+      v-model:show="polishOpen"
+      v-model:style-value="polishStyle"
+      :loading="polishing"
+      :original="polishOriginal"
+      :polished="polishResult"
+      :style-options="chatStyleOptions"
+      @cancel="cancelPolish"
+      @replace="applyPolish"
+      @repolish="rePolish"
+    />
   </div>
 </template>
 

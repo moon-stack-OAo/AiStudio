@@ -55,6 +55,8 @@ export const useSettingsStore = defineStore('settings', {
         }),
         activeProviderId: saved.activeProviderId || saved.providers[0].id,
         theme: saved.theme || 'dark',
+        autoCheckUpdate: saved.autoCheckUpdate !== false,
+        skippedUpdateVersion: saved.skippedUpdateVersion || '',
       }
     }
     const providers = PRESETS.map((p) => createProvider(p))
@@ -62,6 +64,8 @@ export const useSettingsStore = defineStore('settings', {
       providers,
       activeProviderId: providers[0].id,
       theme: 'dark',
+      autoCheckUpdate: true,
+      skippedUpdateVersion: '',
     }
   },
   getters: {
@@ -85,6 +89,8 @@ export const useSettingsStore = defineStore('settings', {
         providers: this.providers,
         activeProviderId: this.activeProviderId,
         theme: this.theme,
+        autoCheckUpdate: this.autoCheckUpdate,
+        skippedUpdateVersion: this.skippedUpdateVersion,
       })
       if (!isApplyingRemote()) {
         pushStorePatch('settings')
@@ -105,11 +111,31 @@ export const useSettingsStore = defineStore('settings', {
       if (data.theme) {
         this.theme = data.theme
       }
+      if (typeof data.autoCheckUpdate === 'boolean') {
+        this.autoCheckUpdate = data.autoCheckUpdate
+      }
+      if (typeof data.skippedUpdateVersion === 'string') {
+        this.skippedUpdateVersion = data.skippedUpdateVersion
+      }
       saveJSON('settings', {
         providers: this.providers,
         activeProviderId: this.activeProviderId,
         theme: this.theme,
+        autoCheckUpdate: this.autoCheckUpdate,
+        skippedUpdateVersion: this.skippedUpdateVersion,
       })
+    },
+    setAutoCheckUpdate(value) {
+      this.autoCheckUpdate = Boolean(value)
+      this.persist()
+    },
+    skipUpdateVersion(version) {
+      this.skippedUpdateVersion = String(version || '')
+      this.persist()
+    },
+    clearSkippedUpdateVersion() {
+      this.skippedUpdateVersion = ''
+      this.persist()
     },
     setActiveProvider(id) {
       this.activeProviderId = id

@@ -16,6 +16,9 @@ dist-ssr
 src-tauri/target
 src-tauri/gen/schemas
 
+# CI 临时产物
+release-notes.md
+
 # Editor directories and files
 .vscode/
 !.vscode/extensions.json

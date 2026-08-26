@@ -1,5 +1,11 @@
-# 推送 v* tag 时构建 Windows 安装包并上传 GitHub Release
-# 示例：git tag v0.1.0 && git push origin v0.1.0
+# 推送 v* tag 时构建 Windows 安装包、签名更新产物并上传 GitHub Release
+# 示例：git tag v0.1.1 && git push origin v0.1.1
+#
+# 仓库 Secrets（必需）：
+# - TAURI_SIGNING_PRIVATE_KEY：私钥全文（~/.tauri/ai-studio.key 内容）
+# - TAURI_SIGNING_PRIVATE_KEY_PASSWORD：私钥密码
+#
+# Release 正文：自动从 CHANGELOG.md 截取与 tag 对应的版本章节
 name: release
 
 on:
@@ -23,6 +29,17 @@ jobs:
           node-version: lts/*
           cache: npm
 
+      - name: Extract changelog for this version
+        id: changelog
+        shell: bash
+        run: |
+          node .github/scripts/extract-changelog.mjs "${{ github.ref_name }}"
+          {
+            echo "body<<EOF"
+            cat release-notes.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -38,20 +55,17 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: AI Studio ${{ github.ref_name }}
-          releaseBody: |
-            ## 下载
-
-            请下载下方 Assets 中的 Windows 安装包进行安装。
-
-            ## 说明
-
-            - 桌面端启动后，可在「设置 → 本地远程访问」复制带 token 的本机 URL，用浏览器打开同一套 UI。
-            - 修改端口 / 局域网访问后需重启应用。
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           projectPath: .
           tauriScript: npm run tauri
           args: --bundles nsis,msi
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+          updaterJsonPreferNsis: true

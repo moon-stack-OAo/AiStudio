@@ -3,10 +3,12 @@ import {computed, onBeforeUnmount, ref, watch} from 'vue'
 import {useMessage} from 'naive-ui'
 import {ImageOutline, ListOutline, TrashOutline} from '@vicons/ionicons5'
 import SessionList from '@/components/SessionList.vue'
+import PolishModal from '@/components/PolishModal.vue'
 import {useImageStore} from '@/stores/image'
 import {useSettingsStore} from '@/stores/settings'
 import {editImage, fileToPreview, generateImage} from '@/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@/utils/imageCache'
+import {imageStyleOptions, polishText} from '@/utils/polish'
 import {useBreakpoints} from '@/composables/useBreakpoints'
 
 const imageStore = useImageStore()
@@ -25,6 +27,14 @@ const quality = ref('medium')
 const imageFile = ref(null)
 const previewUrl = ref('')
 
+const polishing = ref(false)
+const polishOpen = ref(false)
+const polishOriginal = ref('')
+const polishResult = ref('')
+const polishStyle = ref('detail')
+const prevBeforeReplace = ref(null)
+const polishAbortRef = ref(null)
+
 /** itemId -> imageIndex -> objectURL，用于 idb 图片展示 */
 const resolvedMap = ref({})
 const createdObjectUrls = new Set()
@@ -38,6 +48,7 @@ const lightboxPayload = ref(null)
 const session = computed(() => imageStore.activeSession)
 const provider = computed(() => settings.activeProvider)
 const isXai = computed(() => provider.value?.provider === 'xai')
+const busy = computed(() => loading.value || polishing.value)
 
 const sizeOptions = [
   { label: '1024×1024', value: '1024x1024' },
@@ -70,6 +81,83 @@ function ensureProvider() {
     return false
   }
   return true
+}
+
+function ensureChatProvider() {
+  if (!provider.value?.baseUrl || !provider.value?.apiKey) {
+    message.warning('请先在设置中填写 Base URL 和 API Key')
+    return false
+  }
+  if (!provider.value?.chatModel) {
+    message.warning('请先设置对话模型（润色需使用对话模型）')
+    return false
+  }
+  return true
+}
+
+async function runPolish(sourceText) {
+  const text = String(sourceText || '').trim()
+  if (!text || polishing.value) return
+  if (!ensureChatProvider()) return
+
+  polishing.value = true
+  const controller = new AbortController()
+  polishAbortRef.value = controller
+
+  try {
+    const result = await polishText(provider.value, {
+      text,
+      mode: 'image',
+      style: polishStyle.value,
+      signal: controller.signal,
+    })
+    polishResult.value = result
+  } catch (err) {
+    if (err?.name !== 'AbortError' && err?.message !== 'canceled') {
+      message.error(err?.message || '润色失败')
+    }
+  } finally {
+    polishing.value = false
+    polishAbortRef.value = null
+  }
+}
+
+async function openPolish() {
+  const text = prompt.value.trim()
+  if (!text || busy.value) return
+  if (!ensureChatProvider()) return
+
+  polishOriginal.value = text
+  polishResult.value = ''
+  polishOpen.value = true
+  await runPolish(text)
+}
+
+async function rePolish() {
+  const text = (polishResult.value || polishOriginal.value).trim()
+  if (!text) return
+  polishOriginal.value = text
+  polishResult.value = ''
+  await runPolish(text)
+}
+
+function applyPolish() {
+  const next = polishResult.value.trim()
+  if (!next) return
+  prevBeforeReplace.value = prompt.value
+  prompt.value = next
+  polishOpen.value = false
+}
+
+function undoPolish() {
+  if (prevBeforeReplace.value == null) return
+  prompt.value = prevBeforeReplace.value
+  prevBeforeReplace.value = null
+}
+
+function cancelPolish() {
+  polishAbortRef.value?.abort()
+  polishOpen.value = false
 }
 
 async function onUpload({ file }) {
@@ -171,7 +259,7 @@ async function generate() {
     message.warning('请输入提示词')
     return
   }
-  if (!session.value) return
+  if (!session.value || busy.value) return
   if (!ensureProvider()) return
   if (mode.value === 'img2img' && !imageFile.value) {
     message.warning('图生图请先上传参考图')
@@ -179,6 +267,7 @@ async function generate() {
   }
 
   loading.value = true
+  prevBeforeReplace.value = null
   try {
     const rawImages =
       mode.value === 'txt2img'
@@ -471,22 +560,54 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
             <n-input
               v-model:value="prompt"
               :autosize="{ minRows: 4, maxRows: 8 }"
+              :disabled="busy"
               placeholder="描述你想生成的画面…"
               type="textarea"
             />
-            <n-button
-              :disabled="!prompt.trim()"
-              :loading="loading"
-              size="large"
-              type="primary"
-              @click="generate"
-            >
-              {{ mode === 'txt2img' ? '生成' : '图生图' }}
-            </n-button>
+            <div class="composer-actions">
+              <n-button
+                v-if="prevBeforeReplace != null"
+                quaternary
+                size="large"
+                @click="undoPolish"
+              >
+                撤销润色
+              </n-button>
+              <n-button
+                :disabled="!prompt.trim() || busy"
+                :loading="polishing"
+                quaternary
+                size="large"
+                @click="openPolish"
+              >
+                润色
+              </n-button>
+              <n-button
+                :disabled="!prompt.trim() || busy"
+                :loading="loading"
+                size="large"
+                type="primary"
+                @click="generate"
+              >
+                {{ mode === 'txt2img' ? '生成' : '图生图' }}
+              </n-button>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <PolishModal
+      v-model:show="polishOpen"
+      v-model:style-value="polishStyle"
+      :loading="polishing"
+      :original="polishOriginal"
+      :polished="polishResult"
+      :style-options="imageStyleOptions"
+      @cancel="cancelPolish"
+      @replace="applyPolish"
+      @repolish="rePolish"
+    />
 
     <n-modal
       v-model:show="lightboxShow"
@@ -756,6 +877,13 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   align-items: flex-end;
 }
 
+.composer-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: flex-end;
+}
+
 @media (max-width: 1279.98px) {
   .gallery {
     padding: 14px 16px;
@@ -833,6 +961,10 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   .composer-input {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .composer-actions {
+    justify-content: flex-end;
   }
 
   .img-wrap img {

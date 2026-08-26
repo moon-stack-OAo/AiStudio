@@ -20,7 +20,9 @@
         "minHeight": 640,
         "resizable": true,
         "fullscreen": false,
-        "center": true
+        "center": true,
+        "decorations": false,
+        "shadow": true
       }
     ],
     "security": {
@@ -30,6 +32,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -37,5 +40,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZGMUJCRjQyMzU3NkQ1QgpSV1JiYlZjajlMdnhCalBHQ3hHUldFdTFuSDdiMHkySW9wb0c0MGF6L0xtaEJxaHlVdzNEYTRiQgo=",
+      "endpoints": [
+        "https://github.com/moon-stack-OAo/AI_Studio/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
