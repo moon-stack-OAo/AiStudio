@@ -1,5 +1,5 @@
 <script setup>
-import {onMounted, ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {useSettingsStore} from '@/stores/settings'
 import {clearAppStorage} from '@/utils/storage'
@@ -7,6 +7,7 @@ import {clearImageCache} from '@/utils/imageCache'
 import {isTauri} from '@/utils/request'
 import {getAppVersion} from '@/utils/version'
 import {checkForUpdate, installUpdateAndRelaunch} from '@/utils/updater'
+import {CHAT_CONTEXT_MAX_TURNS_OPTIONS} from '@/utils/constants'
 
 const settings = useSettingsStore()
 const message = useMessage()
@@ -28,6 +29,13 @@ const closePrefOptions = [
   { label: '直接退出', value: 'quit' },
   { label: '最小化到托盘', value: 'tray' },
 ]
+
+const maxTurnsOptions = computed(() =>
+  CHAT_CONTEXT_MAX_TURNS_OPTIONS.map((n) => ({
+    label: `${n} 轮`,
+    value: n,
+  })),
+)
 
 onMounted(async () => {
   appVersion.value = await getAppVersion()
@@ -201,6 +209,38 @@ function onClearLocalData() {
           <template v-else>
             <div class="status-main">当前已是最新版本（v{{ updateResult.currentVersion }}）</div>
           </template>
+        </div>
+      </div>
+
+      <div class="section-card data-card">
+        <div class="section-head">
+          <div>
+            <div class="section-title">对话上下文</div>
+            <div class="section-desc">
+              发送请求时仅携带最近若干轮，避免超长历史撞上模型上限；本地会话记录仍完整保留
+            </div>
+          </div>
+        </div>
+        <div class="data-row">
+          <div class="inline-row">
+            <n-switch
+              :value="settings.chatContextTrimEnabled"
+              size="small"
+              @update:value="(v) => settings.setChatContextTrimEnabled(v)"
+            />
+            <span class="field-label tight">自动裁剪上下文</span>
+          </div>
+          <n-select
+            :disabled="!settings.chatContextTrimEnabled"
+            :options="maxTurnsOptions"
+            :value="settings.chatContextMaxTurns"
+            size="small"
+            style="width: 120px"
+            @update:value="(v) => settings.setChatContextMaxTurns(v)"
+          />
+        </div>
+        <div class="hint context-extra-hint">
+          1 轮 = 一次用户提问及其后回复；接近上限时对话页会提示
         </div>
       </div>
 

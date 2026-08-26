@@ -9,6 +9,7 @@ import {useChatStore} from '@/stores/chat'
 import {useSettingsStore} from '@/stores/settings'
 import {streamChatCompletions} from '@/api/client'
 import {useBreakpoints} from '@/composables/useBreakpoints'
+import {countChatTurns, trimChatMessages} from '@/utils/chatContext'
 
 const chatStore = useChatStore()
 const settings = useSettingsStore()
@@ -21,9 +22,39 @@ const input = ref('')
 const loading = ref(false)
 const listRef = ref(null)
 const abortRef = ref(null)
+const contextHintShown = ref(false)
 
 const session = computed(() => chatStore.activeSession)
 const provider = computed(() => settings.activeProvider)
+
+const contextInfo = computed(() => {
+  const msgs = (session.value?.messages || [])
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({ role: m.role, content: m.content }))
+  return trimChatMessages(msgs, {
+    enabled: settings.chatContextTrimEnabled,
+    maxTurns: settings.chatContextMaxTurns,
+  })
+})
+
+const contextHint = computed(() => {
+  if (!settings.chatContextTrimEnabled) return ''
+  const { totalTurns, maxTurns, nearLimit, truncated } = contextInfo.value
+  if (truncated) {
+    return `已启用上下文裁剪：保留最近 ${maxTurns} 轮（当前 ${totalTurns} 轮）`
+  }
+  if (nearLimit) {
+    return `上下文接近上限：${totalTurns} / ${maxTurns} 轮，建议新开会话或提高上限`
+  }
+  return ''
+})
+
+watch(
+  () => session.value?.id,
+  () => {
+    contextHintShown.value = false
+  },
+)
 
 function ensureProvider() {
   if (!provider.value?.baseUrl || !provider.value?.apiKey) {
@@ -63,9 +94,28 @@ async function send() {
     content: text,
   })
 
-  const history = session.value.messages
+  const rawHistory = session.value.messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({ role: m.role, content: m.content }))
+
+  const trimmed = trimChatMessages(rawHistory, {
+    enabled: settings.chatContextTrimEnabled,
+    maxTurns: settings.chatContextMaxTurns,
+  })
+
+  if (trimmed.truncated && !contextHintShown.value) {
+    message.info(
+      `上下文已裁剪：仅发送最近 ${trimmed.keptTurns} 轮（共 ${trimmed.totalTurns} 轮），本地记录仍完整保留`,
+      { duration: 4000 },
+    )
+    contextHintShown.value = true
+  } else if (trimmed.nearLimit && !trimmed.truncated && !contextHintShown.value) {
+    message.warning(
+      `上下文接近上限（${trimmed.totalTurns} / ${trimmed.maxTurns} 轮），建议新开会话`,
+      { duration: 3500 },
+    )
+    contextHintShown.value = true
+  }
 
   const assistant = chatStore.appendMessage(sessionId, {
     role: 'assistant',
@@ -79,7 +129,7 @@ async function send() {
 
   try {
     await streamChatCompletions(provider.value, {
-      messages: history,
+      messages: trimmed.messages,
       signal: controller.signal,
       onDelta: (_delta, full) => {
         chatStore.updateMessage(
@@ -270,7 +320,13 @@ onBeforeUnmount(() => {
             </n-button>
           </div>
         </div>
-        <div class="composer-hint">Enter 发送 · Shift+Enter 换行</div>
+        <div class="composer-hint">
+          <span>Enter 发送 · Shift+Enter 换行</span>
+          <span v-if="contextHint" class="context-hint">{{ contextHint }}</span>
+          <span v-else-if="settings.chatContextTrimEnabled" class="context-meta">
+            上下文 {{ countChatTurns(session?.messages || []) }} / {{ settings.chatContextMaxTurns }} 轮
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -464,9 +520,22 @@ onBeforeUnmount(() => {
 
 .composer-hint {
   margin-top: 8px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
   font-size: 11px;
   color: var(--text-4);
+}
+
+.context-hint {
+  color: #fbbf24;
+}
+
+.context-meta {
+  color: var(--text-4);
+  opacity: 0.9;
 }
 
 @media (max-width: 1279.98px) {

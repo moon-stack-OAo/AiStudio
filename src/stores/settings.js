@@ -1,6 +1,7 @@
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
+import {DEFAULT_CHAT_CONTEXT_MAX_TURNS} from '@/utils/constants'
 
 const PRESETS = [
   {
@@ -60,6 +61,11 @@ export const useSettingsStore = defineStore('settings', {
         activeProviderId: saved.activeProviderId || saved.providers[0].id,
         autoCheckUpdate: saved.autoCheckUpdate !== false,
         skippedUpdateVersion: saved.skippedUpdateVersion || '',
+        chatContextTrimEnabled: saved.chatContextTrimEnabled !== false,
+        chatContextMaxTurns:
+          Number(saved.chatContextMaxTurns) > 0
+            ? Number(saved.chatContextMaxTurns)
+            : DEFAULT_CHAT_CONTEXT_MAX_TURNS,
       }
     }
     const providers = PRESETS.map((p) => createProvider(p))
@@ -68,6 +74,8 @@ export const useSettingsStore = defineStore('settings', {
       activeProviderId: providers[0].id,
       autoCheckUpdate: true,
       skippedUpdateVersion: '',
+      chatContextTrimEnabled: true,
+      chatContextMaxTurns: DEFAULT_CHAT_CONTEXT_MAX_TURNS,
     }
   },
   getters: {
@@ -92,10 +100,21 @@ export const useSettingsStore = defineStore('settings', {
         activeProviderId: this.activeProviderId,
         autoCheckUpdate: this.autoCheckUpdate,
         skippedUpdateVersion: this.skippedUpdateVersion,
+        chatContextTrimEnabled: this.chatContextTrimEnabled,
+        chatContextMaxTurns: this.chatContextMaxTurns,
       })
     },
     setAutoCheckUpdate(value) {
       this.autoCheckUpdate = Boolean(value)
+      this.persist()
+    },
+    setChatContextTrimEnabled(value) {
+      this.chatContextTrimEnabled = Boolean(value)
+      this.persist()
+    },
+    setChatContextMaxTurns(value) {
+      const n = Math.max(1, Math.floor(Number(value) || DEFAULT_CHAT_CONTEXT_MAX_TURNS))
+      this.chatContextMaxTurns = n
       this.persist()
     },
     skipUpdateVersion(version) {
