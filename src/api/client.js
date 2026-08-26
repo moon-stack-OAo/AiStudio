@@ -1,30 +1,135 @@
 import axios from 'axios'
-import {formatNetworkError, proxyHeaders, resolveBaseUrl,} from '@/utils/request'
+import {appFetch} from '@/utils/http'
+import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl,} from '@/utils/request'
+import {API_TIMEOUT_MS, DEFAULT_TEMPERATURE} from '@/utils/constants'
+
+function extractApiErrorMessage(data) {
+  if (!data || typeof data !== 'object') return ''
+  if (typeof data.error === 'string') return data.error
+  if (typeof data.error?.message === 'string') return data.error.message
+  if (typeof data.message === 'string') return data.message
+  return ''
+}
+
+function authHeaders(apiKey, extra = {}) {
+  const key = String(apiKey || '').trim()
+  const headers = { ...extra }
+  if (key) {
+    headers.Authorization = `Bearer ${key}`
+    // 部分中转站只认 x-api-key；与 Bearer 一并带上提高兼容性
+    headers['x-api-key'] = key
+  }
+  return headers
+}
+
+function buildAxiosConfig(provider) {
+  const useCorsProxy = Boolean(provider.useCorsProxy)
+  const config = {
+    baseURL: resolveBaseUrl(provider.baseUrl, useCorsProxy),
+    timeout: API_TIMEOUT_MS,
+    headers: proxyHeaders(
+      provider.baseUrl,
+      useCorsProxy,
+      authHeaders(provider.apiKey, {
+        'Content-Type': 'application/json',
+      }),
+    ),
+  }
+
+  // 桌面端：axios 走 Tauri Rust HTTP，不受 WebView CORS 限制
+  if (isTauri()) {
+    config.adapter = 'fetch'
+    config.env = {
+      fetch: appFetch,
+      Request,
+      Response,
+      Headers,
+    }
+  }
+
+  return config
+}
 
 export function createApiClient(provider) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
-  const client = axios.create({
-    baseURL: resolveBaseUrl(provider.baseUrl, useCorsProxy),
-    timeout: 180000,
-    headers: proxyHeaders(provider.baseUrl, useCorsProxy, {
-      Authorization: `Bearer ${provider.apiKey || ''}`,
-      'Content-Type': 'application/json',
-    }),
-  })
+  const client = axios.create(buildAxiosConfig(provider))
 
   client.interceptors.response.use(
     (res) => res,
     (error) => {
       const data = error.response?.data
       const msg =
-        data?.error?.message ||
-        data?.message ||
+        extractApiErrorMessage(data) ||
+        (typeof data === 'string' ? data : '') ||
         formatNetworkError(error, useCorsProxy)
       return Promise.reject(new Error(msg))
     },
   )
 
   return client
+}
+
+/**
+ * 拉取提供商模型列表（OpenAI 兼容 /models）
+ * @returns {Promise<Array<{ id: string, ownedBy?: string }>>}
+ */
+export async function listProviderModels(provider) {
+  if (!provider?.baseUrl) {
+    throw new Error('请先填写 Base URL')
+  }
+  const client = createApiClient(provider)
+  const { data } = await client.get('/models', { timeout: 20000 })
+  const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+  return list
+    .map((item) => {
+      if (typeof item === 'string') return { id: item }
+      const id = item?.id || item?.name
+      if (!id) return null
+      return {
+        id: String(id),
+        ownedBy: item?.owned_by ? String(item.owned_by) : '',
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.id.localeCompare(b.id))
+}
+
+/**
+ * 测试提供商连通性：优先 GET /models，失败再试最小 chat
+ * @returns {Promise<{ ok: true, detail: string }>}
+ */
+export async function testProviderConnection(provider) {
+  if (!provider?.baseUrl) {
+    throw new Error('请先填写 Base URL')
+  }
+  try {
+    const models = await listProviderModels(provider)
+    return {
+      ok: true,
+      detail: `可达，模型列表约 ${models.length} 个`,
+    }
+  } catch (modelsErr) {
+    try {
+      const client = createApiClient(provider)
+      await client.post(
+        '/chat/completions',
+        {
+          model: provider.chatModel,
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 1,
+          stream: false,
+        },
+        { timeout: 30000 },
+      )
+      return { ok: true, detail: '对话接口可达' }
+    } catch (chatErr) {
+      const msg =
+        chatErr?.message ||
+        modelsErr?.message ||
+        '连接失败'
+      throw new Error(msg)
+    }
+  }
 }
 
 export async function chatCompletions(provider, { messages, stream = false, signal }) {
@@ -35,7 +140,7 @@ export async function chatCompletions(provider, { messages, stream = false, sign
       model: provider.chatModel,
       messages,
       stream,
-      temperature: 0.7,
+      temperature: DEFAULT_TEMPERATURE,
     },
     { signal },
   )
@@ -48,21 +153,26 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
 
   let res
   try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
+    res = await appFetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: proxyHeaders(provider.baseUrl, useCorsProxy, {
-        Authorization: `Bearer ${provider.apiKey || ''}`,
-        'Content-Type': 'application/json',
-      }),
+      headers: proxyHeaders(
+        provider.baseUrl,
+        useCorsProxy,
+        authHeaders(provider.apiKey, {
+          'Content-Type': 'application/json',
+        }),
+      ),
       body: JSON.stringify({
         model: provider.chatModel,
         messages,
         stream: true,
-        temperature: 0.7,
+        temperature: DEFAULT_TEMPERATURE,
       }),
       signal,
+      connectTimeout: API_TIMEOUT_MS,
     })
   } catch (error) {
+    if (error?.name === 'AbortError' || signal?.aborted) throw error
     throw new Error(formatNetworkError(error, useCorsProxy))
   }
 
@@ -70,7 +180,7 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
     let message = `HTTP ${res.status}`
     try {
       const err = await res.json()
-      message = err?.error?.message || err?.message || message
+      message = extractApiErrorMessage(err) || message
     } catch {
       // ignore
     }
@@ -129,6 +239,7 @@ export async function generateImage(provider, options) {
     aspectRatio,
     quality,
     responseFormat = 'b64_json',
+    signal,
   } = options
 
   const client = createApiClient(provider)
@@ -147,7 +258,7 @@ export async function generateImage(provider, options) {
     if (quality) body.quality = quality
   }
 
-  const { data } = await client.post('/images/generations', body)
+  const { data } = await client.post('/images/generations', body, { signal })
   return normalizeImageResponse(data)
 }
 
@@ -160,6 +271,7 @@ export async function editImage(provider, options) {
     aspectRatio,
     quality,
     responseFormat = 'b64_json',
+    signal,
   } = options
 
   const useCorsProxy = Boolean(provider.useCorsProxy)
@@ -179,7 +291,7 @@ export async function editImage(provider, options) {
     }
     if (aspectRatio) body.aspect_ratio = aspectRatio
     if (quality) body.quality = quality
-    const { data } = await client.post('/images/edits', body)
+    const { data } = await client.post('/images/edits', body, { signal })
     return normalizeImageResponse(data)
   }
 
@@ -196,14 +308,19 @@ export async function editImage(provider, options) {
 
   let res
   try {
-    res = await fetch(`${baseUrl}/images/edits`, {
+    res = await appFetch(`${baseUrl}/images/edits`, {
       method: 'POST',
-      headers: proxyHeaders(provider.baseUrl, useCorsProxy, {
-        Authorization: `Bearer ${provider.apiKey || ''}`,
-      }),
+      headers: proxyHeaders(
+        provider.baseUrl,
+        useCorsProxy,
+        authHeaders(provider.apiKey),
+      ),
       body: form,
+      signal,
+      connectTimeout: API_TIMEOUT_MS,
     })
   } catch (error) {
+    if (error?.name === 'AbortError' || signal?.aborted) throw error
     throw new Error(formatNetworkError(error, useCorsProxy))
   }
 
@@ -211,7 +328,7 @@ export async function editImage(provider, options) {
     let message = `HTTP ${res.status}`
     try {
       const err = await res.json()
-      message = err?.error?.message || err?.message || message
+      message = extractApiErrorMessage(err) || message
     } catch {
       // ignore
     }

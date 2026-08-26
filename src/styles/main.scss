@@ -4,6 +4,36 @@
   padding: 0;
 }
 
+:root {
+  --color-bg: #0f1115;
+  --color-bg-elevated: rgba(16, 18, 24, 0.72);
+  --color-text: #e8eaed;
+  --color-primary: #7c9cff;
+  --color-primary-hover: #9bb2ff;
+  --color-primary-pressed: #5f7fe6;
+  --color-accent: #8b5cf6;
+  --color-success: #34d399;
+
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-muted: rgba(255, 255, 255, 0.08);
+  --surface-1: rgba(255, 255, 255, 0.03);
+  --surface-2: rgba(255, 255, 255, 0.04);
+  --surface-3: rgba(255, 255, 255, 0.05);
+
+  --text-1: rgba(255, 255, 255, 0.92);
+  --text-2: rgba(255, 255, 255, 0.72);
+  --text-3: rgba(255, 255, 255, 0.45);
+  --text-4: rgba(255, 255, 255, 0.35);
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 64px;
+}
+
 html,
 body,
 #app {
@@ -11,8 +41,14 @@ body,
   height: 100%;
   overflow: hidden;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: #0f1115;
-  color: #e8eaed;
+  background: var(--color-bg);
+  color: var(--color-text);
+  /* 最大化瞬间 WebView 重绘时减少露白 */
+  background-color: #0f1115;
+}
+
+html {
+  color-scheme: dark;
 }
 
 ::-webkit-scrollbar {
@@ -31,4 +67,14 @@ body,
 
 .n-config-provider {
   height: 100%;
+}
+
+/* 最大化/还原过渡帧：用深色遮罩盖住 WebView 闪白 */
+html.win-resizing::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  background: #0f1115;
 }

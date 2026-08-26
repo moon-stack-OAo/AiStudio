@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-confirm-close-action"
+description = "Enables the confirm_close_action command without any pre-configured scope."
+commands.allow = ["confirm_close_action"]
+
+[[permission]]
+identifier = "deny-confirm-close-action"
+description = "Denies the confirm_close_action command without any pre-configured scope."
+commands.deny = ["confirm_close_action"]

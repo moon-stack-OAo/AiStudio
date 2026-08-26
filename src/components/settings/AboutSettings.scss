@@ -1,0 +1,124 @@
+@use './settings-shared.scss';
+
+.about-pane {
+  align-items: center;
+}
+
+.about-wrap {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.version-card {
+  border-radius: var(--radius-xl);
+  padding: 22px 20px;
+  text-align: center;
+  background:
+    radial-gradient(600px 180px at 50% 0%, rgba(124, 156, 255, 0.18), transparent 70%),
+    var(--surface-1);
+  border: 1px solid var(--border-subtle);
+}
+
+.version-badge {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-primary-hover);
+  line-height: 1.2;
+}
+
+.version-app {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.version-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-4);
+  line-height: 1.5;
+}
+
+.update-card {
+  .update-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+}
+
+.data-card {
+  .data-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+}
+
+.field-label.tight {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.status-bar {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-ok {
+  background: rgba(80, 200, 140, 0.1);
+  border: 1px solid rgba(80, 200, 140, 0.22);
+}
+
+.status-updatable {
+  background: rgba(124, 156, 255, 0.12);
+  border: 1px solid rgba(124, 156, 255, 0.28);
+}
+
+.status-main {
+  font-size: 13px;
+  color: var(--text-1);
+
+  strong {
+    color: var(--color-primary-hover);
+    font-weight: 600;
+  }
+}
+
+.status-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+
+.update-notes {
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow: auto;
+}
+
+@media (max-width: 1023.98px) {
+  .about-wrap {
+    max-width: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .update-card .update-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -1,6 +1,6 @@
 <script setup>
-import {computed, h} from 'vue'
-import {useDialog, useMessage} from 'naive-ui'
+import {computed, h, ref} from 'vue'
+import {NInput, useDialog, useMessage} from 'naive-ui'
 import {AddOutline, CreateOutline, TrashOutline,} from '@vicons/ionicons5'
 
 const props = defineProps({
@@ -15,6 +15,7 @@ const emit = defineEmits(['create', 'select', 'rename', 'remove'])
 
 const dialog = useDialog()
 const message = useMessage()
+const renameValue = ref('')
 
 const options = computed(() =>
   props.sessions.map((s) => ({
@@ -34,22 +35,21 @@ function onCreate() {
 function onRename() {
   const current = props.sessions.find((s) => s.id === props.activeId)
   if (!current) return
+  renameValue.value = current.title || ''
   dialog.create({
     title: '重命名会话',
     content: () =>
-      h('div', { style: 'margin-top: 8px' }, [
-        h('input', {
-          id: 'rename-input',
-          value: current.title,
-          style:
-            'width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:#1a1d24;color:#fff;outline:none;',
-        }),
-      ]),
+      h(NInput, {
+        value: renameValue.value,
+        'onUpdate:value': (v) => {
+          renameValue.value = v
+        },
+        placeholder: '会话标题',
+      }),
     positiveText: '保存',
     negativeText: '取消',
     onPositiveClick: () => {
-      const el = document.getElementById('rename-input')
-      const title = el?.value?.trim()
+      const title = renameValue.value.trim()
       if (!title) {
         message.warning('标题不能为空')
         return false
@@ -94,24 +94,26 @@ function onRemove() {
       </div>
     </div>
 
-    <n-menu
-      :options="options"
-      :value="activeId"
-      @update:value="onSelect"
-    />
+    <div class="session-list">
+      <n-menu
+        :options="options"
+        :value="activeId"
+        @update:value="onSelect"
+      />
+    </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .session-panel {
-  width: 220px;
+  width: var(--sidebar-width);
   flex-shrink: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-1);
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: auto;
+  overflow: hidden;
 
   &.embedded {
     width: 100%;
@@ -124,17 +126,24 @@ function onRemove() {
   align-items: center;
   justify-content: space-between;
   padding: 14px 12px 8px;
+  flex-shrink: 0;
 }
 
 .session-title {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-2);
 }
 
 .actions {
   display: flex;
   gap: 2px;
+}
+
+.session-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 @media (max-width: 1279.98px) {

@@ -1,7 +1,6 @@
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
-import {isApplyingRemote, pushStorePatch} from '@/utils/syncClient'
 
 const PRESETS = [
   {
@@ -11,16 +10,23 @@ const PRESETS = [
     chatModel: 'gpt-4o',
     imageModel: 'gpt-image-1',
     provider: 'openai',
+    builtin: true,
   },
   {
     id: 'xai',
     name: 'xAI Grok',
     baseUrl: 'https://api.x.ai/v1',
-    chatModel: 'grok-4',
+    chatModel: 'grok-4.5',
     imageModel: 'grok-imagine-image',
     provider: 'xai',
+    builtin: true,
   },
 ]
+
+/** 内置预设不可删除 */
+export function isBuiltinProvider(provider) {
+  return Boolean(provider?.builtin)
+}
 
 function createProvider(partial = {}) {
   return {
@@ -31,9 +37,17 @@ function createProvider(partial = {}) {
     chatModel: 'gpt-4o',
     imageModel: 'dall-e-3',
     provider: 'openai-compatible',
-    // 浏览器开发时经 Vite 代理转发，绕过中转站 CORS
     useCorsProxy: true,
+    builtin: false,
     ...partial,
+  }
+}
+
+function normalizeProvider(p) {
+  return {
+    useCorsProxy: true,
+    builtin: false,
+    ...p,
   }
 }
 
@@ -42,19 +56,8 @@ export const useSettingsStore = defineStore('settings', {
     const saved = loadJSON('settings', null)
     if (saved?.providers?.length) {
       return {
-        providers: saved.providers.map((p) => {
-          const next = {
-            useCorsProxy: true,
-            ...p,
-          }
-          // 兼容旧预设模型名
-          if (next.imageModel === 'grok-imagine-image-2.0') {
-            next.imageModel = 'grok-imagine-image'
-          }
-          return next
-        }),
+        providers: saved.providers.map(normalizeProvider),
         activeProviderId: saved.activeProviderId || saved.providers[0].id,
-        theme: saved.theme || 'dark',
         autoCheckUpdate: saved.autoCheckUpdate !== false,
         skippedUpdateVersion: saved.skippedUpdateVersion || '',
       }
@@ -63,7 +66,6 @@ export const useSettingsStore = defineStore('settings', {
     return {
       providers,
       activeProviderId: providers[0].id,
-      theme: 'dark',
       autoCheckUpdate: true,
       skippedUpdateVersion: '',
     }
@@ -88,39 +90,6 @@ export const useSettingsStore = defineStore('settings', {
       saveJSON('settings', {
         providers: this.providers,
         activeProviderId: this.activeProviderId,
-        theme: this.theme,
-        autoCheckUpdate: this.autoCheckUpdate,
-        skippedUpdateVersion: this.skippedUpdateVersion,
-      })
-      if (!isApplyingRemote()) {
-        pushStorePatch('settings')
-      }
-    },
-    /** 应用远端完整 settings（写 localStorage，不回推） */
-    applyRemoteState(data) {
-      if (!data || typeof data !== 'object') return
-      if (Array.isArray(data.providers)) {
-        this.providers = data.providers.map((p) => ({
-          useCorsProxy: true,
-          ...p,
-        }))
-      }
-      if (data.activeProviderId) {
-        this.activeProviderId = data.activeProviderId
-      }
-      if (data.theme) {
-        this.theme = data.theme
-      }
-      if (typeof data.autoCheckUpdate === 'boolean') {
-        this.autoCheckUpdate = data.autoCheckUpdate
-      }
-      if (typeof data.skippedUpdateVersion === 'string') {
-        this.skippedUpdateVersion = data.skippedUpdateVersion
-      }
-      saveJSON('settings', {
-        providers: this.providers,
-        activeProviderId: this.activeProviderId,
-        theme: this.theme,
         autoCheckUpdate: this.autoCheckUpdate,
         skippedUpdateVersion: this.skippedUpdateVersion,
       })
@@ -141,11 +110,12 @@ export const useSettingsStore = defineStore('settings', {
       this.activeProviderId = id
       this.persist()
     },
-    updateProvider(id, patch) {
+    updateProvider(id, patch, options = {}) {
+      const { persist = true } = options
       const target = this.providers.find((p) => p.id === id)
       if (!target) return
       Object.assign(target, patch)
-      this.persist()
+      if (persist) this.persist()
     },
     addProvider(partial = {}) {
       const item = createProvider(partial)
@@ -155,6 +125,9 @@ export const useSettingsStore = defineStore('settings', {
       return item
     },
     removeProvider(id) {
+      const target = this.providers.find((p) => p.id === id)
+      if (!target) return false
+      if (isBuiltinProvider(target)) return false
       if (this.providers.length <= 1) return false
       this.providers = this.providers.filter((p) => p.id !== id)
       if (this.activeProviderId === id) {

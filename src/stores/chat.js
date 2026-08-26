@@ -1,7 +1,6 @@
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
-import {isApplyingRemote, pushStorePatch} from '@/utils/syncClient'
 
 function createSession(title = '新对话') {
   return {
@@ -39,25 +38,6 @@ export const useChatStore = defineStore('chat', {
   },
   actions: {
     persist() {
-      saveJSON('chat_sessions', {
-        sessions: this.sessions,
-        activeId: this.activeId,
-      })
-      if (!isApplyingRemote()) {
-        pushStorePatch('chat')
-      }
-    },
-    /** 应用远端完整 chat（写 localStorage，不回推） */
-    applyRemoteState(data) {
-      if (!data || typeof data !== 'object') return
-      if (Array.isArray(data.sessions)) {
-        this.sessions = data.sessions
-      }
-      if (data.activeId) {
-        this.activeId = data.activeId
-      } else if (this.sessions.length) {
-        this.activeId = this.sessions[0].id
-      }
       saveJSON('chat_sessions', {
         sessions: this.sessions,
         activeId: this.activeId,
@@ -119,25 +99,15 @@ export const useChatStore = defineStore('chat', {
       this.persist()
       return item
     },
-    updateMessage(sessionId, messageId, patch) {
+    updateMessage(sessionId, messageId, patch, options = {}) {
+      const { persist = true } = options
       const session = this.sessions.find((s) => s.id === sessionId)
       if (!session) return
       const msg = session.messages.find((m) => m.id === messageId)
       if (!msg) return
       Object.assign(msg, patch)
       session.updatedAt = Date.now()
-      // 流式中节流同步；streaming 结束或非流式则立即推送
-      saveJSON('chat_sessions', {
-        sessions: this.sessions,
-        activeId: this.activeId,
-      })
-      if (!isApplyingRemote()) {
-        if (msg.streaming === true) {
-          pushStorePatch('chat', {throttle: true})
-        } else {
-          pushStorePatch('chat', {immediate: true})
-        }
-      }
+      if (persist) this.persist()
     },
   },
 })

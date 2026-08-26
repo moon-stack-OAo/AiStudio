@@ -1,7 +1,7 @@
 {
   "name": "ai_studio",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,10 +9,13 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:build:win": "tauri build --bundles nsis,msi",
+    "tauri:build:check": "node .github/scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-http": "^2.5.9",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@vicons/ionicons5": "^0.13.0",
@@ -21,13 +24,11 @@
     "markdown-it": "^15.0.0",
     "naive-ui": "^2.45.2",
     "pinia": "^4.0.3",
-    "uuid": "^14.0.2",
     "vue": "^3.5.41",
     "vue-router": "^5.2.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
-    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-vue": "^6.0.8",
     "sass": "^1.103.1",
     "unplugin-auto-import": "^21.1.0",

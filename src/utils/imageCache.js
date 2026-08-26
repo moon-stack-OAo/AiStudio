@@ -140,6 +140,17 @@ export async function deleteImages(ids = []) {
   })
 }
 
+/** 清空生图 IndexedDB 缓存库 */
+export async function clearImageCache() {
+  dbPromise = null
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME)
+    req.onsuccess = () => resolve()
+    req.onerror = () => reject(req.error || new Error('清空图片缓存失败'))
+    req.onblocked = () => resolve()
+  })
+}
+
 /**
  * 收集条目中的 idb 图片 id
  */

@@ -1,0 +1,150 @@
+.settings-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.header-text {
+  min-width: 0;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-4);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-tabs {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  // Naive 自身已是 flex；勿再强制 column，以免 left 布局被挤压
+
+  // left：固定侧栏宽度，右侧 pane 单独滚动
+  &.n-tabs--left {
+    :deep(.n-tabs-nav) {
+      flex: 0 0 148px;
+      width: 148px;
+      min-width: 148px;
+      max-width: 148px;
+      align-self: stretch;
+      height: auto;
+      max-height: 100%;
+      padding: 10px 0 10px 8px;
+      border-right: 1px solid var(--border-subtle);
+      box-sizing: border-box;
+    }
+
+    :deep(.n-tabs-tab) {
+      justify-content: flex-start;
+    }
+
+    :deep(.n-tabs-tab--active) {
+      background: rgba(124, 156, 255, 0.08);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+
+    :deep(.n-tabs-pane-wrapper) {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: auto;
+      padding: 14px 18px 20px;
+      box-sizing: border-box;
+    }
+  }
+
+  // top（窄屏）：仅内容区滚动
+  &.n-tabs--top {
+    :deep(.n-tabs-nav) {
+      width: 100%;
+      flex: 0 0 auto;
+      padding: 8px 12px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    :deep(.n-tabs-pane-wrapper) {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px 14px 16px;
+      box-sizing: border-box;
+    }
+  }
+
+  :deep(.n-tabs-tab) {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  :deep(.n-tabs-tab--active) {
+    color: var(--color-primary);
+  }
+
+  :deep(.n-tabs-bar) {
+    background-color: var(--color-primary);
+  }
+
+  :deep(.n-tab-pane) {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  // 窄屏仍只让 tabs content 滚动，避免整页双重滚动
+  .scroll {
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .actions {
+    flex-wrap: wrap;
+  }
+}

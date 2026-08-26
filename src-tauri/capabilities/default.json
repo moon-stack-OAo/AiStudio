@@ -1,8 +1,10 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "主窗口默认能力：核心能力 + 本地服务相关 commands",
-  "windows": ["main"],
+  "description": "主窗口默认能力：核心能力 + 关闭偏好相关 commands",
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "core:window:default",
@@ -13,10 +15,24 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-is-maximized",
     "core:window:allow-start-dragging",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "core:event:default",
     "updater:default",
     "process:default",
-    "allow-get-local-server-info",
-    "allow-regenerate-local-token",
-    "allow-set-local-server-config"
+    "allow-confirm-close-action",
+    "allow-get-close-action-pref",
+    "allow-set-close-action-pref",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://**" },
+        { "url": "http://**" },
+        { "url": "https://*:*/**" },
+        { "url": "http://*:*/**" }
+      ]
+    }
   ]
 }

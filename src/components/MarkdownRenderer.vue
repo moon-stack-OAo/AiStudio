@@ -61,6 +61,13 @@ const md = new MarkdownIt({
   },
 })
 
+// 仅允许安全协议，拦截 javascript: / data: / vbscript: 等
+md.validateLink = (url) => {
+  const u = String(url || '').trim().toLowerCase()
+  if (u.startsWith('javascript:') || u.startsWith('data:') || u.startsWith('vbscript:')) return false
+  return /^(https?:|mailto:|#)/i.test(u) || !/^[a-z][a-z0-9+.-]*:/i.test(u)
+}
+
 // 外链在新标签打开，并加 rel 防钓鱼
 const defaultLinkOpen =
   md.renderer.rules.link_open ||

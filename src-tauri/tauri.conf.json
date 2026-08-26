@@ -22,7 +22,8 @@
         "fullscreen": false,
         "center": true,
         "decorations": false,
-        "shadow": true
+        "shadow": true,
+        "backgroundColor": "#0f1115"
       }
     ],
     "security": {

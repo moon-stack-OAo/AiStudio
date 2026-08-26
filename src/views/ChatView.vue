@@ -1,19 +1,19 @@
 <script setup>
-import {computed, nextTick, ref, watch} from 'vue'
-import {useMessage} from 'naive-ui'
+import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
+import {useDialog, useMessage} from 'naive-ui'
 import {ListOutline, SendOutline, StopOutline} from '@vicons/ionicons5'
 import SessionList from '@/components/SessionList.vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
-import PolishModal from '@/components/PolishModal.vue'
+import ModelSelect from '@/components/ModelSelect.vue'
 import {useChatStore} from '@/stores/chat'
 import {useSettingsStore} from '@/stores/settings'
 import {streamChatCompletions} from '@/api/client'
-import {chatStyleOptions, polishText} from '@/utils/polish'
 import {useBreakpoints} from '@/composables/useBreakpoints'
 
 const chatStore = useChatStore()
 const settings = useSettingsStore()
 const message = useMessage()
+const dialog = useDialog()
 const { isMobile, isCompact } = useBreakpoints()
 const historyShow = ref(false)
 
@@ -22,17 +22,20 @@ const loading = ref(false)
 const listRef = ref(null)
 const abortRef = ref(null)
 
-const polishing = ref(false)
-const polishOpen = ref(false)
-const polishOriginal = ref('')
-const polishResult = ref('')
-const polishStyle = ref('clear')
-const prevBeforeReplace = ref(null)
-const polishAbortRef = ref(null)
-
 const session = computed(() => chatStore.activeSession)
 const provider = computed(() => settings.activeProvider)
-const busy = computed(() => loading.value || polishing.value)
+
+function ensureProvider() {
+  if (!provider.value?.baseUrl || !provider.value?.apiKey) {
+    message.warning('请先在设置中填写 Base URL 和 API Key')
+    return false
+  }
+  if (!provider.value?.chatModel) {
+    message.warning('请先设置对话模型')
+    return false
+  }
+  return true
+}
 
 watch(
   () => session.value?.messages?.length,
@@ -47,91 +50,15 @@ function scrollToBottom() {
   if (el) el.scrollTop = el.scrollHeight
 }
 
-function ensureProvider() {
-  if (!provider.value?.baseUrl || !provider.value?.apiKey) {
-    message.warning('请先在设置中填写 Base URL 和 API Key')
-    return false
-  }
-  if (!provider.value?.chatModel) {
-    message.warning('请先设置对话模型')
-    return false
-  }
-  return true
-}
-
-async function runPolish(sourceText) {
-  const text = String(sourceText || '').trim()
-  if (!text || polishing.value) return
-  if (!ensureProvider()) return
-
-  polishing.value = true
-  const controller = new AbortController()
-  polishAbortRef.value = controller
-
-  try {
-    const result = await polishText(provider.value, {
-      text,
-      mode: 'chat',
-      style: polishStyle.value,
-      signal: controller.signal,
-    })
-    polishResult.value = result
-  } catch (err) {
-    if (err?.name !== 'AbortError' && err?.message !== 'canceled') {
-      message.error(err?.message || '润色失败')
-    }
-  } finally {
-    polishing.value = false
-    polishAbortRef.value = null
-  }
-}
-
-async function openPolish() {
-  const text = input.value.trim()
-  if (!text || busy.value) return
-  if (!ensureProvider()) return
-
-  polishOriginal.value = text
-  polishResult.value = ''
-  polishOpen.value = true
-  await runPolish(text)
-}
-
-async function rePolish() {
-  const text = (polishResult.value || polishOriginal.value).trim()
-  if (!text) return
-  polishOriginal.value = text
-  polishResult.value = ''
-  await runPolish(text)
-}
-
-function applyPolish() {
-  const next = polishResult.value.trim()
-  if (!next) return
-  prevBeforeReplace.value = input.value
-  input.value = next
-  polishOpen.value = false
-}
-
-function undoPolish() {
-  if (prevBeforeReplace.value == null) return
-  input.value = prevBeforeReplace.value
-  prevBeforeReplace.value = null
-}
-
-function cancelPolish() {
-  polishAbortRef.value?.abort()
-  polishOpen.value = false
-}
-
 async function send() {
   const text = input.value.trim()
-  if (!text || busy.value || !session.value) return
+  if (!text || loading.value || !session.value) return
   if (!ensureProvider()) return
 
+  const sessionId = session.value.id
+
   input.value = ''
-  prevBeforeReplace.value = null
-  chatStore.appendMessage(session.value.id, {
+  chatStore.appendMessage(sessionId, {
     role: 'user',
     content: text,
   })
@@ -140,7 +67,7 @@ async function send() {
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({ role: m.role, content: m.content }))
 
-  const assistant = chatStore.appendMessage(session.value.id, {
+  const assistant = chatStore.appendMessage(sessionId, {
     role: 'assistant',
     content: '',
     streaming: true,
@@ -155,25 +82,29 @@ async function send() {
       messages: history,
       signal: controller.signal,
       onDelta: (_delta, full) => {
-        chatStore.updateMessage(session.value.id, assistant.id, {
-          content: full,
-          streaming: true,
-        })
+        chatStore.updateMessage(
+          sessionId,
+          assistant.id,
+          { content: full, streaming: true },
+          { persist: false },
+        )
         scrollToBottom()
       },
     })
-    chatStore.updateMessage(session.value.id, assistant.id, {
+    chatStore.updateMessage(sessionId, assistant.id, {
       streaming: false,
     })
   } catch (err) {
-    const latest = session.value?.messages?.find((m) => m.id === assistant.id)
+    const target = chatStore.sessions
+      .find((s) => s.id === sessionId)
+      ?.messages?.find((m) => m.id === assistant.id)
     if (err.name === 'AbortError') {
-      chatStore.updateMessage(session.value.id, assistant.id, {
+      chatStore.updateMessage(sessionId, assistant.id, {
         streaming: false,
-        content: `${latest?.content || ''}\n\n[已停止]`,
+        content: `${target?.content || ''}\n\n[已停止]`,
       })
     } else {
-      chatStore.updateMessage(session.value.id, assistant.id, {
+      chatStore.updateMessage(sessionId, assistant.id, {
         streaming: false,
         content: `请求失败：${err.message}`,
         error: true,
@@ -196,6 +127,21 @@ function onKeydown(e) {
     send()
   }
 }
+
+function clearMessages() {
+  if (!session.value) return
+  dialog.warning({
+    title: '清空消息',
+    content: '确定清空当前会话的所有消息？',
+    positiveText: '清空',
+    negativeText: '取消',
+    onPositiveClick: () => chatStore.clearMessages(session.value.id),
+  })
+}
+
+onBeforeUnmount(() => {
+  abortRef.value?.abort()
+})
 </script>
 
 <template>
@@ -240,9 +186,6 @@ function onKeydown(e) {
             </template>
           </n-button>
           <div class="session-name">{{ session?.title || '对话' }}</div>
-          <n-tag :bordered="false" size="small" type="info">
-            {{ provider?.chatModel || '未设置模型' }}
-          </n-tag>
         </div>
         <div class="right">
           <n-select
@@ -252,10 +195,11 @@ function onKeydown(e) {
             size="small"
             @update:value="settings.setActiveProvider"
           />
+          <ModelSelect kind="chat" />
           <n-button
             quaternary
             size="small"
-            @click="session && chatStore.clearMessages(session.id)"
+            @click="clearMessages"
           >
             清空
           </n-button>
@@ -287,57 +231,48 @@ function onKeydown(e) {
       </div>
 
       <div class="composer">
-        <n-input
-          v-model:value="input"
-          :autosize="{ minRows: 4, maxRows: 8 }"
-          :disabled="busy"
-          placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-          type="textarea"
-          @keydown="onKeydown"
-        />
-        <div class="composer-actions">
-          <n-button
-            v-if="prevBeforeReplace != null"
-            quaternary
-            @click="undoPolish"
-          >
-            撤销润色
-          </n-button>
-          <n-button
-            :disabled="!input.trim() || busy"
-            :loading="polishing"
-            quaternary
-            @click="openPolish"
-          >
-            润色
-          </n-button>
-          <n-button v-if="loading" type="warning" @click="stop">
-            <template #icon>
-              <n-icon :component="StopOutline" />
-            </template>
-            停止
-          </n-button>
-          <n-button :disabled="!input.trim() || busy" :loading="loading" type="primary" @click="send">
-            <template #icon>
-              <n-icon :component="SendOutline" />
-            </template>
-            发送
-          </n-button>
+        <div class="composer-card">
+          <n-input
+            v-model:value="input"
+            :autosize="{ minRows: 3, maxRows: 8 }"
+            :disabled="loading"
+            class="composer-field"
+            placeholder="输入消息，Enter 发送，Shift+Enter 换行"
+            type="textarea"
+            @keydown="onKeydown"
+          />
+          <div class="composer-actions">
+            <n-button
+              v-if="loading"
+              class="action-btn"
+              round
+              size="small"
+              type="warning"
+              @click="stop"
+            >
+              <template #icon>
+                <n-icon :component="StopOutline" />
+              </template>
+              停止
+            </n-button>
+            <n-button
+              :disabled="!input.trim() || loading"
+              :loading="loading"
+              circle
+              class="action-btn send-btn"
+              size="medium"
+              type="primary"
+              @click="send"
+            >
+              <template #icon>
+                <n-icon :component="SendOutline" />
+              </template>
+            </n-button>
+          </div>
         </div>
+        <div class="composer-hint">Enter 发送 · Shift+Enter 换行</div>
       </div>
     </div>
-
-    <PolishModal
-      v-model:show="polishOpen"
-      v-model:style-value="polishStyle"
-      :loading="polishing"
-      :original="polishOriginal"
-      :polished="polishResult"
-      :style-options="chatStyleOptions"
-      @cancel="cancelPolish"
-      @replace="applyPolish"
-      @repolish="rePolish"
-    />
   </div>
 </template>
 
@@ -350,6 +285,7 @@ function onKeydown(e) {
 .chat-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -360,7 +296,7 @@ function onKeydown(e) {
   justify-content: space-between;
   gap: 10px;
   padding: 12px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .left,
@@ -380,11 +316,12 @@ function onKeydown(e) {
 }
 
 .provider-select {
-  width: 180px;
+  width: 160px;
 }
 
 .message-list {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 18px 22px;
 }
@@ -392,14 +329,14 @@ function onKeydown(e) {
 .empty {
   margin-top: 18vh;
   text-align: center;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-3);
 }
 
 .empty-title {
-  font-size: 20px;
-  font-weight: 650;
+  font-size: 18px;
+  font-weight: 600;
   margin-bottom: 8px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-1);
 }
 
 .empty-desc {
@@ -421,7 +358,7 @@ function onKeydown(e) {
 .role {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   font-size: 11px;
@@ -437,9 +374,9 @@ function onKeydown(e) {
 
 .bubble {
   padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
   max-width: min(720px, 78vw);
 }
 
@@ -453,17 +390,83 @@ function onKeydown(e) {
 }
 
 .composer {
-  padding: 12px 18px 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 18px 14px;
+  background: transparent;
+}
+
+.composer-card {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: flex-end;
+  padding: 10px 10px 10px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(22, 24, 32, 0.92);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:focus-within {
+    border-color: rgba(124, 156, 255, 0.45);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.32),
+      0 0 0 1px rgba(124, 156, 255, 0.18);
+  }
+}
+
+.composer-field {
+  flex: 1;
+  min-width: 0;
+
+  :deep(.n-input) {
+    --n-border: transparent !important;
+    --n-border-hover: transparent !important;
+    --n-border-focus: transparent !important;
+    --n-color: transparent !important;
+    --n-color-focus: transparent !important;
+    --n-box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  :deep(.n-input__border),
+  :deep(.n-input__state-border) {
+    display: none;
+  }
+
+  :deep(textarea) {
+    padding: 2px 4px !important;
+    font-size: 14px;
+    line-height: 1.55;
+  }
 }
 
 .composer-actions {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
+  align-items: center;
+  min-width: 0;
+}
+
+.action-btn {
+  border-radius: 999px !important;
+  font-weight: 600;
+}
+
+.send-btn {
+  width: 40px;
+  height: 40px;
+  box-shadow: 0 6px 16px rgba(124, 156, 255, 0.28);
+}
+
+.composer-hint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-4);
 }
 
 @media (max-width: 1279.98px) {
@@ -484,11 +487,19 @@ function onKeydown(e) {
 
   .right {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .provider-select {
     flex: 1;
     width: auto;
+    min-width: 120px;
+  }
+
+  .right :deep(.model-select) {
+    flex: 1;
+    width: auto;
+    min-width: 140px;
   }
 
   .message-list {
@@ -504,13 +515,20 @@ function onKeydown(e) {
   }
 
   .composer {
-    padding: 10px 12px 12px;
+    padding: 8px 12px 12px;
+  }
+
+  .composer-card {
+    border-radius: 16px;
+    padding: 10px;
     flex-direction: column;
     align-items: stretch;
   }
 
   .composer-actions {
+    flex-direction: row;
     justify-content: flex-end;
+    min-width: 0;
   }
 }
 </style>

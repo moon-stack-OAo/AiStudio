@@ -8,6 +8,7 @@ import {useBreakpoints} from '@/composables/useBreakpoints'
 import {isTauri} from '@/utils/request'
 import TitleBar from '@/components/TitleBar.vue'
 import UpdateChecker from '@/components/UpdateChecker.vue'
+import CloseConfirm from '@/components/CloseConfirm.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,7 +23,11 @@ const themeOverrides = {
     primaryColor: '#7c9cff',
     primaryColorHover: '#9bb2ff',
     primaryColorPressed: '#5f7fe6',
+    primaryColorSuppl: '#7c9cff',
     borderRadius: '10px',
+    bodyColor: '#0f1115',
+    cardColor: 'rgba(16, 18, 24, 0.72)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
 }
 
@@ -63,6 +68,7 @@ function onMenuUpdate(key) {
       <n-dialog-provider>
         <n-notification-provider>
           <UpdateChecker />
+          <CloseConfirm v-if="desktopFrame" />
           <div
             :class="{ compact: isCompact, mobile: isMobile, framed: desktopFrame }"
             class="app-shell"
@@ -151,10 +157,10 @@ function onMenuUpdate(key) {
   background:
     radial-gradient(1200px 600px at 10% -10%, rgba(124, 156, 255, 0.16), transparent 60%),
     radial-gradient(900px 500px at 100% 0%, rgba(120, 80, 200, 0.12), transparent 55%),
-    #0f1115;
+    var(--color-bg);
 
   &.framed {
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-muted);
   }
 }
 
@@ -176,30 +182,30 @@ function onMenuUpdate(key) {
   align-items: center;
   gap: 10px;
   padding: 0 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-subtle);
   background: rgba(16, 18, 24, 0.9);
 }
 
 .mobile-title {
   flex: 1;
-  font-weight: 650;
+  font-weight: 600;
   font-size: 15px;
 }
 
 .sidebar {
-  width: 220px;
+  width: var(--sidebar-width);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   padding: 18px 12px;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(16, 18, 24, 0.72);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--color-bg-elevated);
   backdrop-filter: blur(10px);
   transition: width 0.2s ease;
 
   &.collapsed {
-    width: 72px;
-    padding: 14px 8px;
+    width: var(--sidebar-collapsed-width);
+    padding: 14px 0;
   }
 }
 
@@ -213,23 +219,23 @@ function onMenuUpdate(key) {
 .logo {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: grid;
   place-items: center;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #7c9cff, #8b5cf6);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   flex-shrink: 0;
 }
 
 .brand-text .title {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .brand-text .sub {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-3);
   margin-top: 2px;
 }
 
@@ -248,9 +254,9 @@ function onMenuUpdate(key) {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
   margin-bottom: 8px;
 }
 
@@ -258,7 +264,7 @@ function onMenuUpdate(key) {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #34d399;
+  background: var(--color-success);
   box-shadow: 0 0 8px rgba(52, 211, 153, 0.7);
 }
 
@@ -272,7 +278,7 @@ function onMenuUpdate(key) {
 
 .hint {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-4);
   padding-left: 4px;
 }
 
@@ -284,10 +290,6 @@ function onMenuUpdate(key) {
 }
 
 .app-shell.mobile .main {
-  height: calc(100% - 52px);
-}
-
-.app-shell.framed.mobile .main {
   height: calc(100% - 52px);
 }
 

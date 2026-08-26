@@ -1,16 +1,22 @@
 <script setup>
 import {onMounted, onUnmounted, ref} from 'vue'
 import {getCurrentWindow} from '@tauri-apps/api/window'
-import {
-  RemoveOutline,
-  SquareOutline,
-  CloseOutline,
-  CopyOutline,
-} from '@vicons/ionicons5'
+import {CloseOutline, CopyOutline, RemoveOutline, SquareOutline,} from '@vicons/ionicons5'
 
 const appWindow = getCurrentWindow()
 const maximized = ref(false)
 let unlistenResize = null
+let overlayTimer = null
+
+function flashResizeOverlay() {
+  const root = document.documentElement
+  root.classList.add('win-resizing')
+  if (overlayTimer) clearTimeout(overlayTimer)
+  overlayTimer = setTimeout(() => {
+    root.classList.remove('win-resizing')
+    overlayTimer = null
+  }, 120)
+}
 
 async function refreshMaximized() {
   try {
@@ -25,6 +31,8 @@ async function minimize() {
 }
 
 async function toggleMaximize() {
+  // 最大化瞬间 WebView 可能闪白：先压住绘制，再切尺寸
+  flashResizeOverlay()
   await appWindow.toggleMaximize()
   await refreshMaximized()
 }
@@ -36,8 +44,13 @@ async function close() {
 onMounted(async () => {
   await refreshMaximized()
   try {
-    unlistenResize = await appWindow.onResized(() => {
-      refreshMaximized()
+    unlistenResize = await appWindow.onResized(async () => {
+      const prev = maximized.value
+      await refreshMaximized()
+      // 系统快捷键 / 拖到顶边最大化等路径也会闪白
+      if (prev !== maximized.value) {
+        flashResizeOverlay()
+      }
     })
   } catch {
     // ignore
@@ -48,6 +61,7 @@ onUnmounted(() => {
   if (typeof unlistenResize === 'function') {
     unlistenResize()
   }
+  if (overlayTimer) clearTimeout(overlayTimer)
 })
 </script>
 
@@ -81,7 +95,7 @@ onUnmounted(() => {
   display: flex;
   align-items: stretch;
   user-select: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-subtle);
   background: rgba(14, 16, 22, 0.92);
 }
 
@@ -103,19 +117,19 @@ onUnmounted(() => {
 .logo {
   width: 18px;
   height: 18px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   font-size: 9px;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #7c9cff, #8b5cf6);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
 }
 
 .title {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--text-2);
   letter-spacing: 0.02em;
 }
 
@@ -129,15 +143,15 @@ onUnmounted(() => {
   width: 46px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-2);
   display: grid;
   place-items: center;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.92);
+    background: var(--border-muted);
+    color: var(--text-1);
   }
 
   &:active {

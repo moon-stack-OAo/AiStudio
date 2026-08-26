@@ -2,7 +2,6 @@ import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
 import {collectCacheIds, deleteImages} from '@/utils/imageCache'
-import {isApplyingRemote, pushStorePatch} from '@/utils/syncClient'
 
 function createSession(title = '新生图') {
   return {
@@ -20,12 +19,31 @@ function collectSessionCacheIds(session) {
   return session.items.flatMap((item) => collectCacheIds(item.images || []))
 }
 
+/** 裁剪超长 refPreview（多为 dataURL），避免撑爆 localStorage */
+const MAX_REF_PREVIEW = 256
+
+function sanitizeItem(item) {
+  if (!item || typeof item !== 'object') return item
+  const ref = item.refPreview
+  if (typeof ref === 'string' && ref.length > MAX_REF_PREVIEW) {
+    return { ...item, refPreview: '' }
+  }
+  return item
+}
+
+function sanitizeSessions(sessions) {
+  return (sessions || []).map((session) => ({
+    ...session,
+    items: (session.items || []).map(sanitizeItem),
+  }))
+}
+
 export const useImageStore = defineStore('image', {
   state: () => {
     const saved = loadJSON('image_sessions', null)
     if (saved?.sessions?.length) {
       return {
-        sessions: saved.sessions,
+        sessions: sanitizeSessions(saved.sessions),
         activeId: saved.activeId || saved.sessions[0].id,
       }
     }
@@ -45,25 +63,6 @@ export const useImageStore = defineStore('image', {
   },
   actions: {
     persist() {
-      saveJSON('image_sessions', {
-        sessions: this.sessions,
-        activeId: this.activeId,
-      })
-      if (!isApplyingRemote()) {
-        pushStorePatch('image')
-      }
-    },
-    /** 应用远端完整 image 元数据（IndexedDB Blob 不同步） */
-    applyRemoteState(data) {
-      if (!data || typeof data !== 'object') return
-      if (Array.isArray(data.sessions)) {
-        this.sessions = data.sessions
-      }
-      if (data.activeId) {
-        this.activeId = data.activeId
-      } else if (this.sessions.length) {
-        this.activeId = this.sessions[0].id
-      }
       saveJSON('image_sessions', {
         sessions: this.sessions,
         activeId: this.activeId,
@@ -111,10 +110,11 @@ export const useImageStore = defineStore('image', {
     addItem(sessionId, item) {
       const session = this.sessions.find((s) => s.id === sessionId)
       if (!session) return null
+      const safe = sanitizeItem(item)
       const record = {
         id: createId('gen'),
         createdAt: Date.now(),
-        ...item,
+        ...safe,
       }
       session.items.unshift(record)
       session.updatedAt = Date.now()

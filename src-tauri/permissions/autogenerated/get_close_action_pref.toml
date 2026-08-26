@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-close-action-pref"
+description = "Enables the get_close_action_pref command without any pre-configured scope."
+commands.allow = ["get_close_action_pref"]
+
+[[permission]]
+identifier = "deny-get-close-action-pref"
+description = "Denies the get_close_action_pref command without any pre-configured scope."
+commands.deny = ["get_close_action_pref"]

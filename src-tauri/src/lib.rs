@@ -1,68 +1,47 @@
-//! AI Studio 桌面端入口：启动本机 HTTP 服务并注册 Tauri commands
+//! AI Studio 桌面端入口：托盘与 Tauri commands
 
-mod local_server;
+mod tray;
 
-use local_server::{LocalServerHandle, LocalServerInfo, SetLocalServerConfigResult};
-use tauri::Manager;
-
-/// 获取本地服务信息（含带 token 的访问 URL）
-#[tauri::command]
-fn get_local_server_info(handle: tauri::State<'_, LocalServerHandle>) -> LocalServerInfo {
-  handle.info()
-}
-
-/// 重新生成访问 token
-#[tauri::command]
-fn regenerate_local_token(handle: tauri::State<'_, LocalServerHandle>) -> LocalServerInfo {
-  handle.regenerate_token()
-}
-
-/// 更新本地服务配置（端口 / 局域网 / API 代理）；端口与局域网需重启生效
-#[tauri::command]
-fn set_local_server_config(
-  handle: tauri::State<'_, LocalServerHandle>,
-  port: Option<u16>,
-  lan_enabled: Option<bool>,
-  proxy_enabled: Option<bool>,
-) -> Result<SetLocalServerConfigResult, String> {
-  handle.set_config(port, lan_enabled, proxy_enabled)
-}
+use tauri::{Manager, WindowEvent};
+use tray::{
+    confirm_close_action, get_close_action_pref, handle_close_requested, set_close_action_pref,
+    setup_tray, WindowPrefsState,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
-    .plugin(tauri_plugin_process::init())
-    .plugin(tauri_plugin_updater::Builder::new().build())
-    .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
+    tauri::Builder::default()
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
 
-      let app_config_dir = app.path().app_config_dir().ok();
+            let app_config_dir = app.path().app_config_dir().ok();
+            app.manage(WindowPrefsState::load(app_config_dir));
 
-      // 绑定端口并启动 axum（serve 在内部 spawn）
-      let handle =
-        tauri::async_runtime::block_on(local_server::start_local_server(app_config_dir))
-          .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
-      let info = handle.info();
-      log::info!(
-        "[local-server] port={} token 已就绪，URL={}",
-        info.port,
-        info.url
-      );
-      app.manage(handle);
+            setup_tray(app.handle())?;
 
-      Ok(())
-    })
-    .invoke_handler(tauri::generate_handler![
-      get_local_server_info,
-      regenerate_local_token,
-      set_local_server_config
-    ])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    handle_close_requested(window.app_handle(), api);
+                }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            confirm_close_action,
+            get_close_action_pref,
+            set_close_action_pref
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

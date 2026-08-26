@@ -2,15 +2,14 @@
 
 本地 AI 客户端：多轮对话、文生图、图生图。支持 OpenAI / xAI Grok / 任意 OpenAI 兼容接口。
 
-可在浏览器中以 Web 方式开发，也可通过 Tauri 2 打包为桌面应用（自定义标题栏、本机远程访问、应用内自动更新）。
+可在浏览器中以 Web 方式开发，也可通过 Tauri 2 打包为桌面应用（自定义标题栏、应用内自动更新）。
 
 ## 功能概览
 
 - **对话**：流式输出、停止生成、会话历史本地保存
 - **生图**：文生图 / 图生图，数量、尺寸或比例、质量等参数
-- **润色**：聊天与生图输入框均可一键润色（风格、替换、撤销）
 - **多提供商**：OpenAI、xAI、OpenAI 兼容中转；密钥仅存本机
-- **桌面端**：无边框自定义标题栏；本机 HTTP/WS 远程访问与 API 代理
+- **桌面端**：无边框自定义标题栏；托盘最小化
 - **自动更新**：Tauri Updater（检查 → 下载安装 → 重启）
 
 ## 技术栈
@@ -53,9 +52,22 @@ node -v && npm -v && rustc --version && cargo --version
 
 ```bash
 npm install
-npm run tauri:dev    # Vite + 原生窗口
-npm run tauri:build  # 安装包输出在 src-tauri/target/release/bundle
+npm run tauri:dev         # Vite + 原生窗口
+npm run tauri:build       # 默认打包
+npm run tauri:build:win   # Windows：NSIS + MSI（本地完整打包测试）
+npm run tauri:build:check # 检查安装包 / 签名产物是否生成
 ```
+
+本地完整打包（需签名密钥，与 CI 相同）：
+
+```powershell
+$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -LiteralPath "$env:USERPROFILE\.tauri\ai-studio.key" -Raw
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = Get-Content -LiteralPath "$env:USERPROFILE\.tauri\ai-studio.key.password" -Raw
+npm run tauri:build:win
+npm run tauri:build:check
+```
+
+产物目录：`src-tauri/target/release/bundle/`（`nsis/`、`msi/`，以及对应 `.sig`）。
 
 - `tauri:dev` 会先跑 `npm run dev`，再加载 `http://localhost:5173`
 - `tauri:build` 会先跑 `npm run build`，再打包 `dist`
@@ -67,21 +79,23 @@ npm run tauri:build  # 安装包输出在 src-tauri/target/release/bundle
 - 默认窗口：1280×800（最小 960×640），无系统边框（自定义标题栏）
 - Updater 端点：GitHub Releases `latest.json`
 - CSP 已放行 `https:` / `http:` 的 `connect-src`
+- 桌面端 API 请求走 `@tauri-apps/plugin-http`（Rust），不依赖上游 CORS
 
 ## 使用说明
 
 1. 「设置」填写 Base URL、API Key、对话/生图模型
 2. 「对话」或「生图」中切换提供商后使用
-3. 桌面端可在「设置 → 本地远程访问」复制带 token 的 URL，用浏览器打开同一套 UI
-4. 「设置 → 关于与更新」可检查并安装更新（仅桌面端）
+3. 「设置 → 关于与更新」可检查并安装更新（仅桌面端）
+
+> 浏览器 `npm run dev` 访问无 CORS 的中转站时，请开启设置里的「开发代理」。`tauri:dev` / 打包版无需该开关。
 
 ### 预设示例
 
-| 提供商      | Base URL                    | 对话模型示例   | 生图模型示例                     |
-|----------|-----------------------------|----------|----------------------------|
-| OpenAI   | `https://api.openai.com/v1` | `gpt-4o` | `gpt-image-1` / `dall-e-3` |
-| xAI Grok | `https://api.x.ai/v1`       | `grok-4` | `grok-imagine-image`       |
-| 兼容中转     | 你的中转地址 `/v1`                | 按中转文档    | 按中转文档                      |
+| 提供商      | Base URL                    | 对话模型示例     | 生图模型示例                     |
+|----------|-----------------------------|------------|----------------------------|
+| OpenAI   | `https://api.openai.com/v1` | `gpt-4o`   | `gpt-image-1` / `dall-e-3` |
+| xAI Grok | `https://api.x.ai/v1`       | `grok-4.5` | `grok-imagine-image`       |
+| 兼容中转     | 你的中转地址 `/v1`                | 按中转文档      | 按中转文档                      |
 
 ## 接口约定
 
@@ -134,7 +148,7 @@ git push origin v0.1.1
 安装 Visual Studio Build Tools，勾选「使用 C++ 的桌面开发」。
 
 **浏览器 `net::ERR_FAILED` / CORS**  
-开发态开启「开发代理」；或经桌面端本地服务打开并启用 API 代理；或直接用 `npm run tauri:dev`。
+开发态开启「开发代理」；或直接用 `npm run tauri:dev`（桌面端直连上游，无浏览器 CORS 限制）。
 
 **检查更新失败 / 没有更新**  
 确认已发带签名产物与 `latest.json` 的 Release，且应用版本低于最新版；仅桌面安装包支持应用内更新。
