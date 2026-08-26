@@ -21,3 +21,16 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.11.3" }
 tauri-plugin-log = "2"
+
+# 本地 HTTP 服务（一期）+ WS/代理骨架
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.8", features = ["ws"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs", "trace"] }
+http = "1"
+http-body-util = "0.1"
+futures-util = "0.3"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "multipart", "rustls-tls"] }
+mime_guess = "2"
+hex = "0.4"

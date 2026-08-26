@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-regenerate-local-token"
+description = "Enables the regenerate_local_token command without any pre-configured scope."
+commands.allow = ["regenerate_local_token"]
+
+[[permission]]
+identifier = "deny-regenerate-local-token"
+description = "Denies the regenerate_local_token command without any pre-configured scope."
+commands.deny = ["regenerate_local_token"]

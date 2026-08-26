@@ -1,6 +1,7 @@
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
+import {isApplyingRemote, pushStorePatch} from '@/utils/syncClient'
 
 const PRESETS = [
   {
@@ -80,6 +81,30 @@ export const useSettingsStore = defineStore('settings', {
   },
   actions: {
     persist() {
+      saveJSON('settings', {
+        providers: this.providers,
+        activeProviderId: this.activeProviderId,
+        theme: this.theme,
+      })
+      if (!isApplyingRemote()) {
+        pushStorePatch('settings')
+      }
+    },
+    /** 应用远端完整 settings（写 localStorage，不回推） */
+    applyRemoteState(data) {
+      if (!data || typeof data !== 'object') return
+      if (Array.isArray(data.providers)) {
+        this.providers = data.providers.map((p) => ({
+          useCorsProxy: true,
+          ...p,
+        }))
+      }
+      if (data.activeProviderId) {
+        this.activeProviderId = data.activeProviderId
+      }
+      if (data.theme) {
+        this.theme = data.theme
+      }
       saveJSON('settings', {
         providers: this.providers,
         activeProviderId: this.activeProviderId,

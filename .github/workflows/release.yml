@@ -1,0 +1,57 @@
+# 推送 v* tag 时构建 Windows 安装包并上传 GitHub Release
+# 示例：git tag v0.1.0 && git push origin v0.1.0
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri app & create Release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: AI Studio ${{ github.ref_name }}
+          releaseBody: |
+            ## 下载
+
+            请下载下方 Assets 中的 Windows 安装包进行安装。
+
+            ## 说明
+
+            - 桌面端启动后，可在「设置 → 本地远程访问」复制带 token 的本机 URL，用浏览器打开同一套 UI。
+            - 修改端口 / 局域网访问后需重启应用。
+          releaseDraft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          projectPath: .
+          tauriScript: npm run tauri
+          args: --bundles nsis,msi

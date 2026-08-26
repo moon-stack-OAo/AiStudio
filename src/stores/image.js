@@ -2,6 +2,7 @@ import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
 import {collectCacheIds, deleteImages} from '@/utils/imageCache'
+import {isApplyingRemote, pushStorePatch} from '@/utils/syncClient'
 
 function createSession(title = '新生图') {
   return {
@@ -44,6 +45,25 @@ export const useImageStore = defineStore('image', {
   },
   actions: {
     persist() {
+      saveJSON('image_sessions', {
+        sessions: this.sessions,
+        activeId: this.activeId,
+      })
+      if (!isApplyingRemote()) {
+        pushStorePatch('image')
+      }
+    },
+    /** 应用远端完整 image 元数据（IndexedDB Blob 不同步） */
+    applyRemoteState(data) {
+      if (!data || typeof data !== 'object') return
+      if (Array.isArray(data.sessions)) {
+        this.sessions = data.sessions
+      }
+      if (data.activeId) {
+        this.activeId = data.activeId
+      } else if (this.sessions.length) {
+        this.activeId = this.sessions[0].id
+      }
       saveJSON('image_sessions', {
         sessions: this.sessions,
         activeId: this.activeId,

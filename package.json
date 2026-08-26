@@ -12,6 +12,7 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
     "@vicons/ionicons5": "^0.13.0",
     "axios": "^1.19.0",
     "highlight.js": "^11.12.0",
