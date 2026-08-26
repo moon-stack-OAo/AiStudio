@@ -108,14 +108,14 @@ const html = computed(() => {
 .md-placeholder {
   font-size: 14px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-3);
 }
 
 .markdown-body {
   font-size: 14px;
   line-height: 1.65;
   word-break: break-word;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--text-1);
 
   :deep(p) {
     margin: 0 0 0.75em;
@@ -134,7 +134,7 @@ const html = computed(() => {
     margin: 1em 0 0.5em;
     font-weight: 650;
     line-height: 1.35;
-    color: rgba(255, 255, 255, 0.95);
+    color: var(--text-1);
 
     &:first-child {
       margin-top: 0;
@@ -170,9 +170,9 @@ const html = computed(() => {
   :deep(blockquote) {
     margin: 0.75em 0;
     padding: 0.4em 0.9em;
-    border-left: 3px solid rgba(124, 156, 255, 0.55);
-    background: rgba(124, 156, 255, 0.08);
-    color: rgba(255, 255, 255, 0.7);
+    border-left: 3px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+    background: var(--primary-soft);
+    color: var(--text-2);
     border-radius: 0 8px 8px 0;
 
     p {
@@ -181,19 +181,19 @@ const html = computed(() => {
   }
 
   :deep(a) {
-    color: #9bb2ff;
+    color: var(--color-primary-hover);
     text-decoration: none;
 
     &:hover {
       text-decoration: underline;
-      color: #c5d2ff;
+      color: var(--color-primary);
     }
   }
 
   :deep(hr) {
     margin: 1em 0;
     border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border-muted);
   }
 
   :deep(table) {
@@ -207,13 +207,13 @@ const html = computed(() => {
 
   :deep(th),
   :deep(td) {
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--border-muted);
     padding: 6px 10px;
     text-align: left;
   }
 
   :deep(th) {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-3);
     font-weight: 600;
   }
 
@@ -228,7 +228,7 @@ const html = computed(() => {
     font-size: 0.9em;
     padding: 0.15em 0.4em;
     border-radius: 5px;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--overlay-scrim);
     color: #f0c674;
   }
 
@@ -239,8 +239,8 @@ const html = computed(() => {
     padding: 12px 14px;
     border-radius: 10px;
     overflow-x: auto;
-    background: rgba(0, 0, 0, 0.45) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--overlay-scrim) !important;
+    border: 1px solid var(--border-muted);
     line-height: 1.55;
 
     code {

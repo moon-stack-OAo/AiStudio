@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "mobile",
+  "description": "Android/iOS 主界面能力：核心 + HTTP（无托盘/updater）",
+  "platforms": ["android", "iOS"],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://**" },
+        { "url": "http://**" },
+        { "url": "https://*:*/**" },
+        { "url": "http://*:*/**" }
+      ]
+    }
+  ]
+}

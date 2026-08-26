@@ -2,13 +2,13 @@
 import {onMounted, onUnmounted} from 'vue'
 import {useRouter} from 'vue-router'
 import {listen} from '@tauri-apps/api/event'
-import {isTauri} from '@/utils/request'
+import {isDesktopTauri} from '@/utils/request'
 
 const router = useRouter()
 let unlisten = null
 
 onMounted(async () => {
-  if (!isTauri()) return
+  if (!isDesktopTauri()) return
   try {
     unlisten = await listen('tray-action', (event) => {
       const action = event?.payload

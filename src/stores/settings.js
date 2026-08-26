@@ -55,6 +55,7 @@ function normalizeProvider(p) {
 export const useSettingsStore = defineStore('settings', {
   state: () => {
     const saved = loadJSON('settings', null)
+    const theme = saved?.theme === 'light' ? 'light' : 'dark'
     if (saved?.providers?.length) {
       return {
         providers: saved.providers.map(normalizeProvider),
@@ -66,6 +67,7 @@ export const useSettingsStore = defineStore('settings', {
           Number(saved.chatContextMaxTurns) > 0
             ? Number(saved.chatContextMaxTurns)
             : DEFAULT_CHAT_CONTEXT_MAX_TURNS,
+        theme,
       }
     }
     const providers = PRESETS.map((p) => createProvider(p))
@@ -76,6 +78,7 @@ export const useSettingsStore = defineStore('settings', {
       skippedUpdateVersion: '',
       chatContextTrimEnabled: true,
       chatContextMaxTurns: DEFAULT_CHAT_CONTEXT_MAX_TURNS,
+      theme,
     }
   },
   getters: {
@@ -102,8 +105,17 @@ export const useSettingsStore = defineStore('settings', {
         skippedUpdateVersion: this.skippedUpdateVersion,
         chatContextTrimEnabled: this.chatContextTrimEnabled,
         chatContextMaxTurns: this.chatContextMaxTurns,
+        theme: this.theme,
       })
     },
+    setTheme(theme) {
+      this.theme = theme === 'light' ? 'light' : 'dark'
+      this.persist()
+    },
+    toggleTheme() {
+      this.setTheme(this.theme === 'light' ? 'dark' : 'light')
+    },
+
     setAutoCheckUpdate(value) {
       this.autoCheckUpdate = Boolean(value)
       this.persist()

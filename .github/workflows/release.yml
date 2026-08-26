@@ -1,9 +1,12 @@
-# 推送 v* tag 时构建 Windows 安装包、签名更新产物并上传 GitHub Release
+# 推送 v* tag 时构建 Windows 安装包 + Android APK，并上传到同一 GitHub Release
 # 示例：git tag v0.1.1 && git push origin v0.1.1
 #
-# 仓库 Secrets（必需）：
+# 仓库 Secrets（Windows Updater 签名必需）：
 # - TAURI_SIGNING_PRIVATE_KEY：私钥全文（~/.tauri/ai-studio.key 内容）
 # - TAURI_SIGNING_PRIVATE_KEY_PASSWORD：私钥密码
+#
+# Android APK（起步）：debug 签名，可侧载安装；正式 Play 签名后续再配 Secrets
+# （ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD / ANDROID_KEY_BASE64）
 #
 # Release 正文：自动从 CHANGELOG.md 截取与 tag 对应的版本章节
 name: release
@@ -69,3 +72,108 @@ jobs:
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
+
+  # 等 Windows job 创建 Release 后再上传 APK，避免抢建/覆盖 Release
+  publish-android:
+    needs: publish-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Setup Java (Temurin 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;27.0.12077973" \
+            "platform-tools"
+          sdkmanager --list_installed | head -n 40
+
+      - name: Export ANDROID_HOME / NDK_HOME
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          NDK_ROOT="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          if [ -z "$NDK_ROOT" ] || [ ! -d "$NDK_ROOT" ]; then
+            echo "::error::Android NDK not found under SDK"
+            exit 1
+          fi
+          echo "NDK_HOME=$NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$NDK_ROOT" >> "$GITHUB_ENV"
+          echo "Using NDK_HOME=$NDK_ROOT"
+
+      - name: Install Rust stable (Android target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Initialize Android project if missing
+        run: |
+          if [ ! -d "src-tauri/gen/android" ]; then
+            echo "::notice::src-tauri/gen/android 不存在，执行 tauri android init --ci"
+            npx tauri android init --ci --skip-targets-install
+          else
+            echo "::notice::已存在 src-tauri/gen/android，跳过 init"
+          fi
+          test -d "src-tauri/gen/android"
+
+      # 起步策略：--debug 使用 Android 调试密钥签名，产出可侧载安装的 APK
+      # （无 Play 长期密钥时，release 未签名 APK 无法直接安装）
+      - name: Build Android APK (arm64, debug-signed)
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          NDK_HOME: ${{ env.NDK_HOME }}
+          ANDROID_NDK_HOME: ${{ env.NDK_HOME }}
+        with:
+          projectPath: .
+          tauriScript: npm run tauri
+          mobile: android
+          args: --apk --ci --target aarch64 --debug
+          tagName: ${{ github.ref_name }}
+          releaseName: AI Studio ${{ github.ref_name }}
+          releaseDraft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          uploadUpdaterJson: false
+          uploadUpdaterSignatures: false
+
+      - name: Fallback upload APK if action missed assets
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mapfile -t APKS < <(find src-tauri/gen/android -type f -name '*.apk' 2>/dev/null || true)
+          if [ "${#APKS[@]}" -eq 0 ]; then
+            echo "No APK found for fallback upload"
+            exit 0
+          fi
+          echo "Found APKs:"
+          printf '%s\n' "${APKS[@]}"
+          gh release upload "${{ github.ref_name }}" "${APKS[@]}" --clobber || true

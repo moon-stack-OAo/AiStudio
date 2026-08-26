@@ -4,7 +4,8 @@
   padding: 0;
 }
 
-:root {
+:root,
+[data-theme='dark'] {
   --color-bg: #0f1115;
   --color-bg-elevated: rgba(16, 18, 24, 0.72);
   --color-text: #e8eaed;
@@ -13,17 +14,43 @@
   --color-primary-pressed: #5f7fe6;
   --color-accent: #8b5cf6;
   --color-success: #34d399;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+  --color-titlebar: rgba(14, 16, 22, 0.92);
 
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-muted: rgba(255, 255, 255, 0.08);
   --surface-1: rgba(255, 255, 255, 0.03);
   --surface-2: rgba(255, 255, 255, 0.04);
   --surface-3: rgba(255, 255, 255, 0.05);
+  --surface-pressed: rgba(255, 255, 255, 0.12);
+  --primary-soft: rgba(124, 156, 255, 0.14);
 
   --text-1: rgba(255, 255, 255, 0.92);
   --text-2: rgba(255, 255, 255, 0.72);
   --text-3: rgba(255, 255, 255, 0.45);
   --text-4: rgba(255, 255, 255, 0.35);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --glow-primary: rgba(124, 156, 255, 0.16);
+  --glow-accent: rgba(120, 80, 200, 0.12);
+
+  --role-ai-bg: rgba(124, 156, 255, 0.2);
+  --role-ai-fg: #c5d2ff;
+  --role-user-bg: rgba(52, 211, 153, 0.18);
+  --role-user-fg: #9af0c9;
+  --bubble-user-bg: rgba(124, 156, 255, 0.14);
+
+  --composer-bg: rgba(22, 24, 32, 0.92);
+  --composer-border: rgba(255, 255, 255, 0.1);
+  --composer-focus-border: rgba(124, 156, 255, 0.45);
+  --composer-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --composer-focus-shadow: 0 12px 32px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(124, 156, 255, 0.18);
+
+  --overlay-scrim: rgba(0, 0, 0, 0.45);
+  --chip-warning-bg: rgba(230, 162, 60, 0.9);
+  --on-primary: #fff;
+  --shadow-send: 0 6px 16px rgba(124, 156, 255, 0.28);
 
   --radius-sm: 8px;
   --radius-md: 10px;
@@ -32,6 +59,54 @@
 
   --sidebar-width: 220px;
   --sidebar-collapsed-width: 64px;
+}
+
+[data-theme='light'] {
+  --color-bg: #f4f6fb;
+  --color-bg-elevated: rgba(255, 255, 255, 0.86);
+  --color-text: #1a1d26;
+  --color-primary: #5b7cfa;
+  --color-primary-hover: #7c9cff;
+  --color-primary-pressed: #4a68e0;
+  --color-accent: #7c5cbf;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #d97706;
+  --color-titlebar: rgba(255, 255, 255, 0.92);
+
+  --border-subtle: rgba(15, 23, 42, 0.06);
+  --border-muted: rgba(15, 23, 42, 0.1);
+  --surface-1: rgba(15, 23, 42, 0.03);
+  --surface-2: rgba(15, 23, 42, 0.045);
+  --surface-3: rgba(15, 23, 42, 0.06);
+  --surface-pressed: rgba(15, 23, 42, 0.1);
+  --primary-soft: rgba(91, 124, 250, 0.12);
+
+  --text-1: rgba(15, 23, 42, 0.92);
+  --text-2: rgba(15, 23, 42, 0.72);
+  --text-3: rgba(15, 23, 42, 0.48);
+  --text-4: rgba(15, 23, 42, 0.38);
+
+  --scrollbar-thumb: rgba(15, 23, 42, 0.22);
+  --glow-primary: rgba(91, 124, 250, 0.12);
+  --glow-accent: rgba(124, 92, 191, 0.08);
+
+  --role-ai-bg: rgba(91, 124, 250, 0.16);
+  --role-ai-fg: #3b5bdb;
+  --role-user-bg: rgba(16, 185, 129, 0.14);
+  --role-user-fg: #059669;
+  --bubble-user-bg: rgba(91, 124, 250, 0.1);
+
+  --composer-bg: rgba(255, 255, 255, 0.96);
+  --composer-border: rgba(15, 23, 42, 0.1);
+  --composer-focus-border: rgba(91, 124, 250, 0.5);
+  --composer-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --composer-focus-shadow: 0 10px 28px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(91, 124, 250, 0.2);
+
+  --overlay-scrim: rgba(15, 23, 42, 0.4);
+  --chip-warning-bg: rgba(217, 119, 6, 0.92);
+  --on-primary: #fff;
+  --shadow-send: 0 6px 16px rgba(91, 124, 250, 0.28);
 }
 
 html,
@@ -43,18 +118,20 @@ body,
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
-  /* 最大化瞬间 WebView 重绘时减少露白 */
-  background-color: #0f1115;
-  /* 桌面端避免拖选 UI 文字 */
+  background-color: var(--color-bg);
   -webkit-user-select: none;
   user-select: none;
 }
 
-html {
+html,
+html[data-theme='dark'] {
   color-scheme: dark;
 }
 
-/* 输入区与可读内容仍允许选中复制 */
+html[data-theme='light'] {
+  color-scheme: light;
+}
+
 input,
 textarea,
 [contenteditable='true'],
@@ -82,7 +159,7 @@ textarea,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
@@ -94,12 +171,11 @@ textarea,
   height: 100%;
 }
 
-/* 最大化/还原过渡帧：用深色遮罩盖住 WebView 闪白 */
 html.win-resizing::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 2147483647;
   pointer-events: none;
-  background: #0f1115;
+  background: var(--color-bg);
 }

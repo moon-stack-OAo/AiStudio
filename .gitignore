@@ -16,6 +16,14 @@ dist-ssr
 src-tauri/target
 src-tauri/gen/schemas
 
+# Android 本地密钥与构建产物（工程源码可提交；CI 也可每次 init）
+src-tauri/gen/android/**/local.properties
+src-tauri/gen/android/**/keystore.properties
+src-tauri/gen/android/**/*.jks
+src-tauri/gen/android/**/*.keystore
+src-tauri/gen/android/**/build/
+src-tauri/gen/android/**/.gradle/
+
 # CI 临时产物
 release-notes.md
 

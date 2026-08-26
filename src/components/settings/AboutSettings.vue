@@ -4,7 +4,7 @@ import {useDialog, useMessage} from 'naive-ui'
 import {useSettingsStore} from '@/stores/settings'
 import {clearAppStorage} from '@/utils/storage'
 import {clearImageCache} from '@/utils/imageCache'
-import {isTauri} from '@/utils/request'
+import {isDesktopTauri} from '@/utils/request'
 import {getAppVersion} from '@/utils/version'
 import {checkForUpdate, installUpdateAndRelaunch} from '@/utils/updater'
 import {CHAT_CONTEXT_MAX_TURNS_OPTIONS} from '@/utils/constants'
@@ -13,7 +13,7 @@ import {renderSelectLabel} from '@/utils/selectRender'
 const settings = useSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
-const inTauri = isTauri()
+const inTauri = isDesktopTauri()
 
 const appVersion = ref('…')
 const checkingUpdate = ref(false)

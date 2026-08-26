@@ -152,5 +152,18 @@ export const useImageStore = defineStore('image', {
         // ignore
       }
     },
+    async clearItems(sessionId) {
+      const session = this.sessions.find((s) => s.id === sessionId)
+      if (!session) return
+      const cacheIds = collectSessionCacheIds(session)
+      session.items = []
+      session.updatedAt = Date.now()
+      this.persist()
+      try {
+        await deleteImages(cacheIds)
+      } catch {
+        // ignore
+      }
+    },
   },
 })

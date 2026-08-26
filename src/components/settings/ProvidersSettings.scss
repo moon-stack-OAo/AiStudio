@@ -51,8 +51,8 @@
   }
 
   &.active {
-    border-color: rgba(124, 156, 255, 0.35);
-    background: rgba(124, 156, 255, 0.1);
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+    background: var(--primary-soft);
   }
 }
 
@@ -77,7 +77,7 @@
   padding: 1px 6px;
   border-radius: 999px;
   color: var(--color-primary-hover);
-  background: rgba(124, 156, 255, 0.16);
+  background: var(--primary-soft);
 }
 
 .item-tags {
@@ -90,7 +90,7 @@
   line-height: 1.4;
   padding: 1px 6px;
   border-radius: 4px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-3);
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
 }
@@ -98,7 +98,7 @@
 .url {
   margin-top: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--text-4);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -118,7 +118,7 @@
   border-radius: var(--radius-sm);
   font-size: 12px;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-3);
 
   code {
     font-size: 11px;
@@ -131,25 +131,25 @@
 .tip-bar-title {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.48);
+  color: var(--text-3);
   margin-bottom: 4px;
 }
 
 .tip-muted {
-  background: rgba(255, 255, 255, 0.018);
-  border: 1px solid rgba(255, 255, 255, 0.035);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
 }
 
 .tip-warn {
-  background: rgba(240, 180, 80, 0.08);
-  border: 1px solid rgba(240, 180, 80, 0.16);
-  color: rgba(255, 220, 160, 0.85);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 22%, transparent);
+  color: var(--color-warning);
 }
 
 .tip-info {
-  background: rgba(124, 156, 255, 0.08);
-  border: 1px solid rgba(124, 156, 255, 0.16);
-  color: rgba(180, 200, 255, 0.85);
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+  color: var(--color-primary-hover);
 }
 
 .tips {
@@ -157,7 +157,7 @@
   padding-left: 16px;
   line-height: 1.6;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.42);
+  color: var(--text-4);
 }
 
 .danger {

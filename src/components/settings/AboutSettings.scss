@@ -17,7 +17,7 @@
   padding: 22px 20px;
   text-align: center;
   background:
-    radial-gradient(600px 180px at 50% 0%, rgba(124, 156, 255, 0.18), transparent 70%),
+    radial-gradient(600px 180px at 50% 0%, var(--glow-primary), transparent 70%),
     var(--surface-1);
   border: 1px solid var(--border-subtle);
 }
@@ -83,13 +83,13 @@
 }
 
 .status-ok {
-  background: rgba(80, 200, 140, 0.1);
-  border: 1px solid rgba(80, 200, 140, 0.22);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
 }
 
 .status-updatable {
-  background: rgba(124, 156, 255, 0.12);
-  border: 1px solid rgba(124, 156, 255, 0.28);
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
 }
 
 .status-main {

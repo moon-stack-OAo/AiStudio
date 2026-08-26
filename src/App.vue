@@ -1,11 +1,19 @@
 <script setup>
-import {computed, h, ref, watch} from 'vue'
+import {computed, h, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
-import {ChatbubblesOutline, ImageOutline, MenuOutline, SettingsOutline,} from '@vicons/ionicons5'
+import {
+  ChatbubblesOutline,
+  ImageOutline,
+  MenuOutline,
+  MoonOutline,
+  SettingsOutline,
+  SunnyOutline,
+} from '@vicons/ionicons5'
 import {useSettingsStore} from '@/stores/settings'
 import {useBreakpoints} from '@/composables/useBreakpoints'
-import {isTauri} from '@/utils/request'
+import {isDesktopTauri} from '@/utils/request'
+import {THEME_OVERRIDES, applyDocumentTheme} from '@/utils/theme'
 import TitleBar from '@/components/TitleBar.vue'
 import UpdateChecker from '@/components/UpdateChecker.vue'
 import CloseConfirm from '@/components/CloseConfirm.vue'
@@ -15,22 +23,18 @@ const route = useRoute()
 const router = useRouter()
 const settings = useSettingsStore()
 const { isMobile, isCompact } = useBreakpoints()
-const desktopFrame = isTauri()
+const desktopFrame = isDesktopTauri()
 
 const mobileNavShow = ref(false)
 
-const themeOverrides = {
-  common: {
-    primaryColor: '#7c9cff',
-    primaryColorHover: '#9bb2ff',
-    primaryColorPressed: '#5f7fe6',
-    primaryColorSuppl: '#7c9cff',
-    borderRadius: '10px',
-    bodyColor: '#0f1115',
-    cardColor: 'rgba(16, 18, 24, 0.72)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-}
+const naiveTheme = computed(() => (settings.theme === 'dark' ? darkTheme : null))
+const themeOverrides = computed(() => THEME_OVERRIDES[settings.theme] || THEME_OVERRIDES.dark)
+const themeToggleIcon = computed(() =>
+  settings.theme === 'light' ? MoonOutline : SunnyOutline,
+)
+const themeToggleTip = computed(() =>
+  settings.theme === 'light' ? '切换为深色' : '切换为浅色',
+)
 
 function renderIcon(icon) {
   return () => h(NIcon, null, { default: () => h(icon) })
@@ -52,6 +56,16 @@ watch(
   },
 )
 
+watch(
+  () => settings.theme,
+  (theme) => applyDocumentTheme(theme),
+  { immediate: true },
+)
+
+onMounted(() => {
+  applyDocumentTheme(settings.theme)
+})
+
 function onMenuUpdate(key) {
   router.push(`/${key}`)
   mobileNavShow.value = false
@@ -62,7 +76,7 @@ function onMenuUpdate(key) {
   <n-config-provider
     :date-locale="dateZhCN"
     :locale="zhCN"
-    :theme="darkTheme"
+    :theme="naiveTheme"
     :theme-overrides="themeOverrides"
   >
     <n-message-provider>
@@ -85,6 +99,16 @@ function onMenuUpdate(key) {
                   </template>
                 </n-button>
                 <div class="mobile-title">AI Studio</div>
+                <n-tooltip placement="bottom" trigger="hover">
+                  <template #trigger>
+                    <n-button circle quaternary size="small" @click="settings.toggleTheme()">
+                      <template #icon>
+                        <n-icon :component="themeToggleIcon" />
+                      </template>
+                    </n-button>
+                  </template>
+                  {{ themeToggleTip }}
+                </n-tooltip>
                 <n-tag :bordered="false" size="small">
                   {{ settings.activeProvider?.name || '未配置' }}
                 </n-tag>
@@ -157,8 +181,8 @@ function onMenuUpdate(key) {
   width: 100%;
   height: 100%;
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(124, 156, 255, 0.16), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(120, 80, 200, 0.12), transparent 55%),
+    radial-gradient(1200px 600px at 10% -10%, var(--glow-primary), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, var(--glow-accent), transparent 55%),
     var(--color-bg);
 
   &.framed {
@@ -185,7 +209,7 @@ function onMenuUpdate(key) {
   gap: 10px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border-subtle);
-  background: rgba(16, 18, 24, 0.9);
+  background: var(--color-titlebar);
 }
 
 .mobile-title {
@@ -225,7 +249,7 @@ function onMenuUpdate(key) {
   display: grid;
   place-items: center;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-primary);
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   flex-shrink: 0;
 }
@@ -267,12 +291,12 @@ function onMenuUpdate(key) {
   height: 8px;
   border-radius: 50%;
   background: var(--color-success);
-  box-shadow: 0 0 8px rgba(52, 211, 153, 0.7);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 70%, transparent);
 }
 
 .provider-chip .name {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

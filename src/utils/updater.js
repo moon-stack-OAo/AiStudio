@@ -1,4 +1,4 @@
-import {isTauri} from '@/utils/request'
+import {isDesktopTauri} from '@/utils/request'
 import {getAppVersion} from '@/utils/version'
 
 export function normalizeVersion(raw) {
@@ -18,7 +18,7 @@ export function normalizeVersion(raw) {
  * }>}
  */
 export async function checkForUpdate() {
-  if (!isTauri()) {
+  if (!isDesktopTauri()) {
     throw new Error('应用内更新仅支持桌面客户端')
   }
 

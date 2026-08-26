@@ -1,6 +1,18 @@
-/** 是否运行在 Tauri 桌面环境 */
+/** 是否运行在 Tauri（含桌面 / Android / iOS） */
 export function isTauri() {
   return typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__)
+}
+
+/**
+ * 是否为桌面端 Tauri（自定义标题栏 / 托盘 / 应用内更新）
+ * Android、iOS 上 isTauri() 也为 true，但不走桌面帧逻辑
+ */
+export function isDesktopTauri() {
+  if (!isTauri()) return false
+  const p = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
+  if (/Android/i.test(p)) return false
+  if (/iPhone|iPad|iPod/i.test(p)) return false
+  return true
 }
 
 /**

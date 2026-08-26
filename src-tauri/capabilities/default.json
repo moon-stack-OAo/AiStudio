@@ -1,7 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "主窗口默认能力：核心能力 + 关闭偏好相关 commands",
+  "description": "桌面主窗口默认能力：核心能力 + 关闭偏好相关 commands + updater",
+  "platforms": ["linux", "macOS", "windows"],
   "windows": [
     "main"
   ],

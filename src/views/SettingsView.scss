@@ -73,7 +73,7 @@
     }
 
     :deep(.n-tabs-tab--active) {
-      background: rgba(124, 156, 255, 0.08);
+      background: var(--primary-soft);
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     }
 

@@ -3,7 +3,7 @@ import {h, onMounted, onUnmounted, ref} from 'vue'
 import {NButton, useDialog, useMessage} from 'naive-ui'
 import {listen} from '@tauri-apps/api/event'
 import {useSettingsStore} from '@/stores/settings'
-import {isTauri} from '@/utils/request'
+import {isDesktopTauri} from '@/utils/request'
 import {checkForUpdate, installUpdateAndRelaunch} from '@/utils/updater'
 
 const settings = useSettingsStore()
@@ -71,7 +71,7 @@ function showUpdateDialog(result) {
 }
 
 async function runCheck({ silent = false } = {}) {
-  if (!isTauri()) {
+  if (!isDesktopTauri()) {
     if (!silent) message.info('应用内更新仅支持桌面客户端')
     return
   }
@@ -115,7 +115,7 @@ onMounted(async () => {
     autoCheck()
   }, 1800)
 
-  if (!isTauri()) return
+  if (!isDesktopTauri()) return
   try {
     unlistenTray = await listen('tray-action', (event) => {
       if (event?.payload === 'check-update') manualCheck()

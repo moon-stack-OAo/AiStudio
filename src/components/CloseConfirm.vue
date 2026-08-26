@@ -2,7 +2,7 @@
 import {onMounted, onUnmounted, ref} from 'vue'
 import {listen} from '@tauri-apps/api/event'
 import {invoke} from '@tauri-apps/api/core'
-import {isTauri} from '@/utils/request'
+import {isDesktopTauri} from '@/utils/request'
 
 const show = ref(false)
 const remember = ref(false)
@@ -33,7 +33,7 @@ function onCancel() {
 }
 
 onMounted(async () => {
-  if (!isTauri()) return
+  if (!isDesktopTauri()) return
   try {
     unlisten = await listen('ask-close', () => {
       remember.value = false
@@ -86,7 +86,7 @@ onUnmounted(() => {
 .desc {
   margin: 0;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--text-2);
 }
 
 .tips {
@@ -94,12 +94,12 @@ onUnmounted(() => {
   padding-left: 18px;
   font-size: 12px;
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-3);
 }
 
 .hint {
   margin: 0;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--text-4);
 }
 </style>

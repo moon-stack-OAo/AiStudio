@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "createUpdaterArtifacts": false
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "AI Studio",
+        "fullscreen": false,
+        "resizable": true,
+        "decorations": true
+      }
+    ]
+  },
+  "plugins": {}
+}

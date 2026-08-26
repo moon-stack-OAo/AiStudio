@@ -11,7 +11,10 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:build:win": "tauri build --bundles nsis,msi",
-    "tauri:build:check": "node .github/scripts/check-bundle.mjs"
+    "tauri:build:check": "node .github/scripts/check-bundle.mjs",
+    "tauri:android:init": "tauri android init --ci",
+    "tauri:build:android": "tauri android build --apk --ci --target aarch64",
+    "tauri:build:android:debug": "tauri android build --apk --ci --target aarch64 --debug"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

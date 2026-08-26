@@ -2,7 +2,7 @@
 
 本地 AI 客户端：多轮对话、文生图、图生图。支持 OpenAI / xAI Grok / 任意 OpenAI 兼容接口。
 
-可在浏览器中以 Web 方式开发，也可通过 Tauri 2 打包为桌面应用（自定义标题栏、系统托盘、应用内自动更新）。
+可在浏览器中以 Web 方式开发，也可通过 Tauri 2 打包为桌面应用（自定义标题栏、系统托盘、应用内自动更新），并可通过 CI 产出可侧载的 Android APK（arm64）。
 
 当前版本：**0.1.0**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
 
@@ -21,7 +21,7 @@
 - Vue 3 + Vite + Naive UI
 - Pinia + Vue Router
 - `localStorage` / IndexedDB 持久化
-- Tauri 2（可选桌面打包）
+- Tauri 2（可选桌面 / Android 打包）
 
 ## 快速开始（Web）
 
@@ -77,6 +77,27 @@ npm run tauri:build:check
 - `tauri:build` 会先跑 `npm run build`，再打包 `dist`
 - 纯 Web 开发仍可用 `npm run dev` / `npm run build`
 
+## Android（Tauri 2 Mobile）
+
+推送 `v*` tag 时，CI 会在 Ubuntu 上初始化 Android 工程并构建 **arm64（aarch64）debug 签名 APK**，上传到同一 GitHub Release。无需本机安装 Android SDK；本机有完整 SDK 时可本地构建。
+
+### 本机环境（可选）
+
+| 依赖 | 说明 |
+|------|------|
+| JDK 17+ | Temurin / Oracle 等 |
+| Android SDK | `platforms;android-34`、Build-Tools、NDK 27.x |
+| 环境变量 | `ANDROID_HOME`、`NDK_HOME` |
+| Rust target | `rustup target add aarch64-linux-android` |
+
+```bash
+npm run tauri:android:init          # 生成 src-tauri/gen/android（--ci）
+npm run tauri:build:android:debug   # 可安装 debug APK（推荐起步）
+npm run tauri:build:android         # release APK（需配置签名，否则多为 unsigned）
+```
+
+> 本地若无 SDK，`android init` 可能失败；**不影响发版**：CI 会在每次 Release 时执行 `tauri android init --ci`。
+
 ### 配置摘要
 
 - 应用名：`AI Studio` · Bundle ID：`com.moon.aistudio`
@@ -114,15 +135,22 @@ npm run tauri:build:check
 变更记录见 [`CHANGELOG.md`](./CHANGELOG.md)。推送 `v*` tag 时，CI 会：
 
 1. 从 `CHANGELOG.md` 截取对应版本说明写入 GitHub Release
-2. 构建 Windows 安装包（NSIS / MSI）
-3. 签名并上传 Updater 产物（含 `latest.json`）
+2. 构建 Windows 安装包（NSIS / MSI），签名并上传 Updater 产物（含 `latest.json`）
+3. 再构建 Android APK（arm64，debug 签名，可侧载安装）并上传到**同一** Release
 
-### 仓库 Secrets（必需）
+Release 资产通常包含：Windows NSIS / MSI（及 `.sig`）、`latest.json`、Android `.apk`。
 
-| Secret                               | 说明       |
-|--------------------------------------|----------|
-| `TAURI_SIGNING_PRIVATE_KEY`          | 更新签名私钥全文 |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | 私钥密码     |
+### 仓库 Secrets
+
+| Secret                               | 说明 |
+|--------------------------------------|------|
+| `TAURI_SIGNING_PRIVATE_KEY`          | **必需**（Windows Updater）：更新签名私钥全文 |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **必需**（Windows Updater）：私钥密码 |
+| `ANDROID_KEY_ALIAS`                  | 可选（正式上架）：Keystore alias |
+| `ANDROID_KEY_PASSWORD`               | 可选（正式上架）：密钥密码 |
+| `ANDROID_KEY_BASE64`                 | 可选（正式上架）：`.jks` 的 base64 |
+
+> 当前 Android 起步使用 **debug 签名 APK**（可安装，非 Play 上架包）。正式长期签名需配置上表 Secrets，并按 [Tauri Android 签名文档](https://v2.tauri.app/distribute/sign/android/) 写入 `keystore.properties` / Gradle。
 
 本地生成密钥（勿提交私钥）：
 

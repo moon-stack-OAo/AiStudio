@@ -1,12 +1,28 @@
 <script setup>
-import {onMounted, onUnmounted, ref} from 'vue'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {getCurrentWindow} from '@tauri-apps/api/window'
-import {CloseOutline, CopyOutline, RemoveOutline, SquareOutline,} from '@vicons/ionicons5'
+import {
+  CloseOutline,
+  CopyOutline,
+  MoonOutline,
+  RemoveOutline,
+  SquareOutline,
+  SunnyOutline,
+} from '@vicons/ionicons5'
+import {useSettingsStore} from '@/stores/settings'
 
+const settings = useSettingsStore()
 const appWindow = getCurrentWindow()
 const maximized = ref(false)
 let unlistenResize = null
 let overlayTimer = null
+
+const themeToggleIcon = computed(() =>
+  settings.theme === 'light' ? MoonOutline : SunnyOutline,
+)
+const themeToggleTip = computed(() =>
+  settings.theme === 'light' ? '切换为深色' : '切换为浅色',
+)
 
 function flashResizeOverlay() {
   const root = document.documentElement
@@ -31,7 +47,6 @@ async function minimize() {
 }
 
 async function toggleMaximize() {
-  // 最大化瞬间 WebView 可能闪白：先压住绘制，再切尺寸
   flashResizeOverlay()
   await appWindow.toggleMaximize()
   await refreshMaximized()
@@ -47,7 +62,6 @@ onMounted(async () => {
     unlistenResize = await appWindow.onResized(async () => {
       const prev = maximized.value
       await refreshMaximized()
-      // 系统快捷键 / 拖到顶边最大化等路径也会闪白
       if (prev !== maximized.value) {
         flashResizeOverlay()
       }
@@ -75,6 +89,14 @@ onUnmounted(() => {
     </div>
 
     <div class="controls">
+      <n-tooltip placement="bottom" trigger="hover">
+        <template #trigger>
+          <button class="ctrl" type="button" @click="settings.toggleTheme()">
+            <n-icon :component="themeToggleIcon" :size="14" />
+          </button>
+        </template>
+        {{ themeToggleTip }}
+      </n-tooltip>
       <button class="ctrl" type="button" @click="minimize">
         <n-icon :component="RemoveOutline" :size="14" />
       </button>
@@ -96,7 +118,7 @@ onUnmounted(() => {
   align-items: stretch;
   user-select: none;
   border-bottom: 1px solid var(--border-subtle);
-  background: rgba(14, 16, 22, 0.92);
+  background: var(--color-titlebar);
 }
 
 .drag {
@@ -122,7 +144,7 @@ onUnmounted(() => {
   place-items: center;
   font-size: 9px;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-primary);
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
 }
 
@@ -155,7 +177,7 @@ onUnmounted(() => {
   }
 
   &:active {
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--surface-pressed);
   }
 
   &.close:hover {
