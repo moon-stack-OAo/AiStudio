@@ -15,6 +15,7 @@ import {useImageStore} from '@/stores/image'
 import {useSettingsStore} from '@/stores/settings'
 import {editImage, fileToPreview, generateImage} from '@/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@/utils/imageCache'
+import {appFetch} from '@/utils/http'
 import {useBreakpoints} from '@/composables/useBreakpoints'
 import {useCopyFeedback} from '@/composables/useCopyFeedback'
 import {renderSelectLabel} from '@/utils/selectRender'
@@ -40,6 +41,8 @@ const listRef = ref(null)
 const abortRef = ref(null)
 /** 当前进行中的生成条目 id，停止时用于回写状态 */
 const pendingItemId = ref('')
+/** 正在生成的会话 id；切换/删除时 abort */
+const generatingSessionId = ref(null)
 const mounted = ref(true)
 
 /** itemId -> imageIndex -> objectURL，用于 idb 图片展示 */
@@ -59,9 +62,12 @@ const lightboxPayload = ref(null)
 const session = computed(() => imageStore.activeSession)
 const provider = computed(() => settings.activeProvider)
 const isXai = computed(() => provider.value?.provider === 'xai')
+const isGeneratingCurrent = computed(
+  () => loading.value && generatingSessionId.value === session.value?.id,
+)
 
 const canGenerate = computed(() => {
-  if (!prompt.value.trim() || loading.value) return false
+  if (!prompt.value.trim() || isGeneratingCurrent.value) return false
   if (mode.value === 'img2img' && !imageFile.value) return false
   return true
 })
@@ -309,6 +315,7 @@ async function generate() {
     message.warning('请输入提示词')
     return
   }
+  // 全局同一时间仅允许一路生成；切换会话时会 abort 并清 loading
   if (!session.value || loading.value) return
   if (!ensureProvider()) return
   if (mode.value === 'img2img' && !imageFile.value) {
@@ -340,10 +347,12 @@ async function generate() {
 
   if (!pending?.id) {
     loading.value = false
+    generatingSessionId.value = null
     return
   }
 
   pendingItemId.value = pending.id
+  generatingSessionId.value = sessionId
 
   if (mode.value === 'img2img' && previewUrl.value) {
     refThumbMap.value = {...refThumbMap.value, [pending.id]: previewUrl.value}
@@ -397,7 +406,7 @@ async function generate() {
     }
 
     await nextTick()
-    scrollToBottom()
+    if (imageStore.activeId === sessionId) scrollToBottom()
   } catch (err) {
     if (!sessionStillHasItem(sessionId, pending.id)) return
     if (err?.name === 'AbortError' || err?.message === 'canceled' || controller.signal.aborted) {
@@ -417,8 +426,34 @@ async function generate() {
   } finally {
     if (abortRef.value === controller) abortRef.value = null
     if (pendingItemId.value === pending.id) pendingItemId.value = ''
-    loading.value = false
+    if (generatingSessionId.value === sessionId) {
+      generatingSessionId.value = null
+      loading.value = false
+    }
   }
+}
+
+function abortIfLeavingGenerate(nextId) {
+  if (!loading.value || !generatingSessionId.value) return
+  if (nextId != null && generatingSessionId.value === nextId) return
+  abortRef.value?.abort()
+}
+
+function selectSession(id) {
+  abortIfLeavingGenerate(id)
+  imageStore.setActive(id)
+}
+
+function createSession() {
+  abortIfLeavingGenerate(null)
+  imageStore.createSession()
+}
+
+function removeSession(id) {
+  if (loading.value && generatingSessionId.value === id) {
+    abortRef.value?.abort()
+  }
+  imageStore.removeSession(id)
 }
 
 function sessionStillHasItem(sessionId, itemId) {
@@ -479,7 +514,8 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
       a.click()
       return
     }
-    const res = await fetch(src)
+    const res = await appFetch(src)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const blob = await res.blob()
     const objectUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -499,7 +535,8 @@ async function useAsReference(item, idx, img) {
     return
   }
   try {
-    const res = await fetch(src)
+    const res = await appFetch(src)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const blob = await res.blob()
     const file = new File([blob], `ref-${item.id}-${idx}.png`, {
       type: blob.type || 'image/png',
@@ -556,10 +593,10 @@ const sendTooltip = computed(() =>
     :is-mobile="isMobile"
     :session-title="session?.title || '生图'"
     :sessions="imageStore.sortedSessions"
-    @create="imageStore.createSession()"
-    @remove="imageStore.removeSession"
+    @create="createSession"
+    @remove="removeSession"
     @rename="(id, title) => imageStore.renameSession(id, title)"
-    @select="imageStore.setActive"
+    @select="selectSession"
   >
     <template #toolbar-right>
       <n-select
@@ -775,10 +812,10 @@ const sendTooltip = computed(() =>
           </div>
 
           <div class="composer-input">
-            <n-input
+              <n-input
               v-model:value="prompt"
               :autosize="{ minRows: 3, maxRows: 8 }"
-              :disabled="loading"
+              :disabled="isGeneratingCurrent"
               class="composer-field"
               placeholder="描述你想生成的画面，Enter 生成，Shift+Enter 换行"
               type="textarea"
@@ -787,7 +824,7 @@ const sendTooltip = computed(() =>
             <div class="composer-actions">
               <ComposerSendStop
                 :disabled="!canGenerate"
-                :loading="loading"
+                :loading="isGeneratingCurrent"
                 :send-icon="SparklesOutline"
                 :send-tooltip="sendTooltip"
                 @send="generate"
@@ -798,7 +835,7 @@ const sendTooltip = computed(() =>
         </div>
         <div class="composer-hint">
           {{
-            loading
+            isGeneratingCurrent
               ? '生成中可点击停止'
               : 'Enter 生成 · Shift+Enter 换行 · Ctrl+V 粘贴参考图'
           }}

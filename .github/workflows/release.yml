@@ -144,6 +144,7 @@ jobs:
 
       # 起步策略：--debug 使用 Android 调试密钥签名，产出可侧载安装的 APK
       # （无 Play 长期密钥时，release 未签名 APK 无法直接安装）
+      # 正式上架：配置 ANDROID_KEY_* Secrets 后改为 release 签名构建，勿在未备好 keystore 时改掉 --debug
       - name: Build Android APK (arm64, debug-signed)
         uses: tauri-apps/tauri-action@v1
         env:

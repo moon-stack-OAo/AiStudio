@@ -4,7 +4,7 @@
 
 可在浏览器中以 Web 方式开发，也可通过 Tauri 2 打包为桌面应用（自定义标题栏、系统托盘、应用内自动更新），并可通过 CI 产出可侧载的 Android APK（arm64）。
 
-当前版本：**0.1.0**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
+当前版本：**0.1.1**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
 
 ## 功能概览
 

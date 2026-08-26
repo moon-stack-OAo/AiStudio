@@ -2,6 +2,8 @@ import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
 import {DEFAULT_CHAT_CONTEXT_MAX_TURNS} from '@/utils/constants'
+import {decryptSecret, encryptSecret} from '@/utils/secret'
+import {notifyStorageError} from '@/utils/toast'
 
 const PRESETS = [
   {
@@ -45,11 +47,21 @@ function createProvider(partial = {}) {
 }
 
 function normalizeProvider(p) {
-  return {
+  const raw = {
     useCorsProxy: true,
     builtin: false,
     ...p,
   }
+  // 落盘为密文时还原；历史明文原样保留
+  raw.apiKey = decryptSecret(raw.apiKey)
+  return raw
+}
+
+function serializeProviders(providers) {
+  return providers.map((p) => ({
+    ...p,
+    apiKey: encryptSecret(p.apiKey),
+  }))
 }
 
 export const useSettingsStore = defineStore('settings', {
@@ -106,8 +118,8 @@ export const useSettingsStore = defineStore('settings', {
   },
   actions: {
     persist() {
-      saveJSON('settings', {
-        providers: this.providers,
+      const ok = saveJSON('settings', {
+        providers: serializeProviders(this.providers),
         activeProviderId: this.activeProviderId,
         autoCheckUpdate: this.autoCheckUpdate,
         skippedUpdateVersion: this.skippedUpdateVersion,
@@ -115,6 +127,8 @@ export const useSettingsStore = defineStore('settings', {
         chatContextMaxTurns: this.chatContextMaxTurns,
         theme: this.theme,
       })
+      if (!ok) notifyStorageError('设置写入本地失败，刷新后可能丢失')
+      return ok
     },
     setAvailableUpdate(version) {
       this.availableUpdateVersion = String(version || '')

@@ -1,17 +1,17 @@
 <script setup>
 import {h, onMounted, onUnmounted, ref} from 'vue'
 import {NButton, useDialog, useMessage} from 'naive-ui'
-import {listen} from '@tauri-apps/api/event'
 import {useSettingsStore} from '@/stores/settings'
 import {isDesktopTauri} from '@/utils/request'
 import {checkForUpdate, installUpdateAndRelaunch} from '@/utils/updater'
+import {onCheckUpdateRequest} from '@/utils/trayActions'
 
 const settings = useSettingsStore()
 const dialog = useDialog()
 const message = useMessage()
 const installing = ref(false)
 const checking = ref(false)
-let unlistenTray = null
+let unlistenCheckUpdate = null
 
 function showUpdateDialog(result) {
   const d = dialog.info({
@@ -112,23 +112,18 @@ function manualCheck() {
 
 defineExpose({ manualCheck })
 
-onMounted(async () => {
+onMounted(() => {
   window.setTimeout(() => {
     autoCheck()
   }, 1800)
-
-  if (!isDesktopTauri()) return
-  try {
-    unlistenTray = await listen('tray-action', (event) => {
-      if (event?.payload === 'check-update') manualCheck()
-    })
-  } catch (e) {
-    console.warn('[update] listen tray-action failed', e)
-  }
+  // 托盘「检查更新」由 TrayActionListener 统一接收后转发至此
+  unlistenCheckUpdate = onCheckUpdateRequest(() => {
+    manualCheck()
+  })
 })
 
 onUnmounted(() => {
-  if (typeof unlistenTray === 'function') unlistenTray()
+  if (typeof unlistenCheckUpdate === 'function') unlistenCheckUpdate()
 })
 </script>
 

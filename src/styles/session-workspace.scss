@@ -80,7 +80,6 @@
 
 .msg.error .bubble {
   border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
-  color: var(--color-danger);
 }
 
 .msg-status {
@@ -91,6 +90,10 @@
 
 .msg-status.stopped {
   color: var(--color-warning);
+}
+
+.msg-status.error {
+  color: var(--color-danger);
 }
 
 .msg-actions {

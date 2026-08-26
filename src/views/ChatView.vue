@@ -26,10 +26,51 @@ const input = ref('')
 const loading = ref(false)
 const listRef = ref(null)
 const abortRef = ref(null)
+/** 正在流式生成的会话 id；切换/删除时用于 abort */
+const streamingSessionId = ref(null)
 const contextHintShown = ref(false)
+
+/** 流式 UI 更新：合并同帧内的 delta 写入与滚动，停止/结束时 flush */
+let streamRaf = 0
+let pendingStreamUpdate = null
+
+function flushStreamUi() {
+  if (streamRaf) {
+    cancelAnimationFrame(streamRaf)
+    streamRaf = 0
+  }
+  const pending = pendingStreamUpdate
+  pendingStreamUpdate = null
+  if (!pending) return
+  const {sessionId, messageId, content} = pending
+  chatStore.updateMessage(
+      sessionId,
+      messageId,
+      {content, streaming: true},
+      {persist: false},
+  )
+  if (chatStore.activeId === sessionId) scrollToBottom()
+}
+
+function scheduleStreamUi(sessionId, messageId, content) {
+  pendingStreamUpdate = {sessionId, messageId, content}
+  if (streamRaf) return
+  streamRaf = requestAnimationFrame(flushStreamUi)
+}
+
+function cancelStreamUiSchedule() {
+  if (streamRaf) {
+    cancelAnimationFrame(streamRaf)
+    streamRaf = 0
+  }
+  pendingStreamUpdate = null
+}
 
 const session = computed(() => chatStore.activeSession)
 const provider = computed(() => settings.activeProvider)
+const isStreamingCurrent = computed(
+  () => loading.value && streamingSessionId.value === session.value?.id,
+)
 
 const contextInfo = computed(() => {
   const msgs = (session.value?.messages || [])
@@ -87,6 +128,7 @@ function scrollToBottom() {
 
 async function send() {
   const text = input.value.trim()
+  // 全局同一时间仅允许一路流式；切换会话时会 abort 并清 loading
   if (!text || loading.value || !session.value) return
   if (!ensureProvider()) return
 
@@ -128,6 +170,7 @@ async function send() {
   })
 
   loading.value = true
+  streamingSessionId.value = sessionId
   const controller = new AbortController()
   abortRef.value = controller
 
@@ -136,19 +179,15 @@ async function send() {
       messages: trimmed.messages,
       signal: controller.signal,
       onDelta: (_delta, full) => {
-        chatStore.updateMessage(
-            sessionId,
-            assistant.id,
-            {content: full, streaming: true},
-            {persist: false},
-        )
-        scrollToBottom()
+        scheduleStreamUi(sessionId, assistant.id, full)
       },
     })
+    flushStreamUi()
     chatStore.updateMessage(sessionId, assistant.id, {
       streaming: false,
     })
   } catch (err) {
+    flushStreamUi()
     const target = chatStore.sessions.find((s) => s.id === sessionId)
         ?.messages?.find((m) => m.id === assistant.id)
     if (err?.name === 'AbortError') {
@@ -159,21 +198,50 @@ async function send() {
       })
     } else {
       const errText = toErrorMessage(err, '请求失败，请稍后重试')
+      // 保留已流式写出的正文，错误单独落在 errorMessage
       chatStore.updateMessage(sessionId, assistant.id, {
         streaming: false,
-        content: `请求失败：${errText}`,
+        content: target?.content || '',
         error: true,
+        errorMessage: errText,
       })
       message.error(errText)
     }
   } finally {
-    loading.value = false
-    abortRef.value = null
+    cancelStreamUiSchedule()
+    if (streamingSessionId.value === sessionId) {
+      loading.value = false
+      streamingSessionId.value = null
+      abortRef.value = null
+    }
   }
 }
 
 function stop() {
   abortRef.value?.abort()
+}
+
+function abortIfLeavingStream(nextId) {
+  if (!loading.value || !streamingSessionId.value) return
+  if (nextId != null && streamingSessionId.value === nextId) return
+  abortRef.value?.abort()
+}
+
+function selectSession(id) {
+  abortIfLeavingStream(id)
+  chatStore.setActive(id)
+}
+
+function createSession() {
+  abortIfLeavingStream(null)
+  chatStore.createSession()
+}
+
+function removeSession(id) {
+  if (loading.value && streamingSessionId.value === id) {
+    abortRef.value?.abort()
+  }
+  chatStore.removeSession(id)
 }
 
 async function copyMessage(msg) {
@@ -201,6 +269,7 @@ function clearMessages() {
 }
 
 onBeforeUnmount(() => {
+  cancelStreamUiSchedule()
   abortRef.value?.abort()
 })
 </script>
@@ -213,10 +282,10 @@ onBeforeUnmount(() => {
     :is-mobile="isMobile"
     :session-title="session?.title || '对话'"
     :sessions="chatStore.sortedSessions"
-    @create="chatStore.createSession()"
-    @remove="chatStore.removeSession"
+    @create="createSession"
+    @remove="removeSession"
     @rename="(id, title) => chatStore.renameSession(id, title)"
-    @select="chatStore.setActive"
+    @select="selectSession"
   >
     <template #toolbar-right>
       <n-select
@@ -261,6 +330,9 @@ onBeforeUnmount(() => {
             />
           </div>
           <div v-if="msg.stopped && !msg.streaming" class="msg-status stopped">已停止</div>
+          <div v-if="msg.error && !msg.streaming" class="msg-status error">
+            {{ msg.errorMessage || '请求失败' }}
+          </div>
           <div
             v-if="!msg.streaming && msg.content"
             class="msg-actions"
@@ -280,7 +352,7 @@ onBeforeUnmount(() => {
           <n-input
             v-model:value="input"
             :autosize="{ minRows: 3, maxRows: 8 }"
-            :disabled="loading"
+            :disabled="isStreamingCurrent"
             class="composer-field"
             placeholder="输入消息，Enter 发送，Shift+Enter 换行"
             type="textarea"
@@ -289,7 +361,7 @@ onBeforeUnmount(() => {
           <div class="composer-actions">
             <ComposerSendStop
               :disabled="!input.trim()"
-              :loading="loading"
+              :loading="isStreamingCurrent"
               :send-icon="SendOutline"
               @send="send"
               @stop="stop"
@@ -297,7 +369,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div class="composer-hint">
-          <span>{{ loading ? '生成中可点击停止' : 'Enter 发送 · Shift+Enter 换行' }}</span>
+          <span>{{ isStreamingCurrent ? '生成中可点击停止' : 'Enter 发送 · Shift+Enter 换行' }}</span>
           <span v-if="contextHint" class="context-hint">{{ contextHint }}</span>
           <span v-else-if="settings.chatContextTrimEnabled" class="context-meta">
             上下文 {{ countChatTurns(session?.messages || []) }} / {{ settings.chatContextMaxTurns }} 轮

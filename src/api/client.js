@@ -95,7 +95,10 @@ export function createApiClient(provider) {
         extractApiErrorMessage(data) ||
         (typeof data === 'string' ? data : '') ||
         formatNetworkError(error, useCorsProxy)
-      return Promise.reject(new Error(msg))
+      const wrapped = new Error(msg)
+      wrapped.status = error.response?.status
+      wrapped.response = error.response
+      return Promise.reject(wrapped)
     },
   )
 
@@ -127,8 +130,26 @@ export async function listProviderModels(provider) {
     .sort((a, b) => a.id.localeCompare(b.id))
 }
 
+function describeHttpProbeError(err, fallback) {
+  const status = err?.status || err?.response?.status
+  const raw = toErrorMessage(err, '')
+  if (status === 401 || status === 403 || /unauthorized|invalid.?api.?key|incorrect.?api/i.test(raw)) {
+    return '鉴权失败（401/403），请检查 API Key'
+  }
+  if (status === 404 || /\b404\b|not\s*found/i.test(raw)) {
+    return '接口不存在（404），请核对 Base URL 是否含 /v1 等路径'
+  }
+  if (status === 429 || /rate.?limit|too many requests/i.test(raw)) {
+    return '请求过于频繁（429），请稍后重试'
+  }
+  if (status && status >= 500) {
+    return `上游服务异常（${status}）`
+  }
+  return raw || fallback
+}
+
 /**
- * 测试提供商连通性：优先 GET /models，失败再试最小 chat
+ * 测试提供商连通性：优先 GET /models，失败再试最小 chat（需已配置 chatModel）
  * @returns {Promise<{ ok: true, detail: string }>}
  */
 export async function testProviderConnection(provider) {
@@ -142,25 +163,32 @@ export async function testProviderConnection(provider) {
       detail: `可达，模型列表约 ${models.length} 个`,
     }
   } catch (modelsErr) {
+    const chatModel = String(provider?.chatModel || '').trim()
+    if (!chatModel) {
+      throw new Error(
+        describeHttpProbeError(
+          modelsErr,
+          '模型列表不可达；未配置对话模型，无法回退探测 chat',
+        ),
+      )
+    }
     try {
       const client = createApiClient(provider)
       await client.post(
         '/chat/completions',
         {
-          model: provider.chatModel,
+          model: chatModel,
           messages: [{ role: 'user', content: 'ping' }],
           max_tokens: 1,
           stream: false,
         },
         { timeout: 30000 },
       )
-      return { ok: true, detail: '对话接口可达' }
+      return { ok: true, detail: '对话接口可达（模型列表不可用，已用 chat 探测）' }
     } catch (chatErr) {
-      const msg =
-        chatErr?.message ||
-        modelsErr?.message ||
-        '连接失败'
-      throw new Error(msg)
+      const modelsHint = describeHttpProbeError(modelsErr, '模型列表失败')
+      const chatHint = describeHttpProbeError(chatErr, '对话接口失败')
+      throw new Error(`连接失败：${chatHint}（模型列表：${modelsHint}）`)
     }
   }
 }
@@ -238,40 +266,54 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
   let buffer = ''
   let fullText = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed.startsWith('data:')) continue
-      const payload = trimmed.slice(5).trim()
-      if (!payload || payload === '[DONE]') continue
-      try {
-        const json = JSON.parse(payload)
-        const streamErr = extractApiErrorMessage(json)
-        if (streamErr && (json.error || json.code || !json.choices)) {
-          throw new Error(streamErr)
-        }
-        const choice = json.choices?.[0]
-        const delta =
-          choice?.delta?.content ||
-          choice?.message?.content ||
-          (typeof choice?.text === 'string' ? choice.text : '') ||
-          ''
-        if (delta) {
-          fullText += delta
-          onDelta?.(delta, fullText)
-        }
-      } catch (e) {
-        if (e instanceof Error && e.message && e.message !== 'Unexpected end of JSON input') {
-          // 仅把业务错误往外抛；JSON 解析失败忽略
-          if (e.name !== 'SyntaxError') throw e
-        }
+  const consumeSseLine = (line) => {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('data:')) return
+    const payload = trimmed.slice(5).trim()
+    if (!payload || payload === '[DONE]') return
+    try {
+      const json = JSON.parse(payload)
+      const streamErr = extractApiErrorMessage(json)
+      if (streamErr && (json.error || json.code || !json.choices)) {
+        throw new Error(streamErr)
       }
+      const choice = json.choices?.[0]
+      const delta =
+        choice?.delta?.content ||
+        choice?.message?.content ||
+        (typeof choice?.text === 'string' ? choice.text : '') ||
+        ''
+      if (delta) {
+        fullText += delta
+        onDelta?.(delta, fullText)
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message && e.message !== 'Unexpected end of JSON input') {
+        // 仅把业务错误往外抛；JSON 解析失败忽略
+        if (e.name !== 'SyntaxError') throw e
+      }
+    }
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) consumeSseLine(line)
+    }
+    // flush 解码器残留，再解析循环结束后的 buffer
+    buffer += decoder.decode()
+    if (buffer.trim()) {
+      for (const line of buffer.split('\n')) consumeSseLine(line)
+    }
+  } finally {
+    try {
+      await reader.cancel()
+    } catch {
+      // ignore
     }
   }
 

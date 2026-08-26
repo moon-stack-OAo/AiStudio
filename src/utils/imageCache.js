@@ -1,4 +1,5 @@
 import {createId} from '@/utils/id'
+import {appFetch} from '@/utils/http'
 
 const DB_NAME = 'ai_studio_image_cache'
 const STORE_NAME = 'images'
@@ -43,7 +44,7 @@ function dataUrlToBlob(dataUrl) {
 }
 
 async function urlToBlob(url) {
-  const res = await fetch(url)
+  const res = await appFetch(url)
   if (!res.ok) throw new Error(`下载图片失败 HTTP ${res.status}`)
   return res.blob()
 }

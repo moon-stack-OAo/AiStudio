@@ -1,6 +1,7 @@
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
+import {notifyStorageError} from '@/utils/toast'
 
 function createSession(title = '新对话') {
   return {
@@ -38,10 +39,12 @@ export const useChatStore = defineStore('chat', {
   },
   actions: {
     persist() {
-      saveJSON('chat_sessions', {
+      const ok = saveJSON('chat_sessions', {
         sessions: this.sessions,
         activeId: this.activeId,
       })
+      if (!ok) notifyStorageError('对话记录写入本地失败，刷新后可能丢失')
+      return ok
     },
     createSession(title) {
       const session = createSession(title)

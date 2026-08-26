@@ -3,6 +3,7 @@ import {onMounted, onUnmounted} from 'vue'
 import {useRouter} from 'vue-router'
 import {listen} from '@tauri-apps/api/event'
 import {isDesktopTauri} from '@/utils/request'
+import {requestCheckUpdate} from '@/utils/trayActions'
 
 const router = useRouter()
 let unlisten = null
@@ -10,6 +11,7 @@ let unlisten = null
 onMounted(async () => {
   if (!isDesktopTauri()) return
   try {
+    // 托盘动作统一入口，避免分散在多个组件导致卸载后失效
     unlisten = await listen('tray-action', (event) => {
       const action = event?.payload
       if (action === 'open-chat') {
@@ -18,6 +20,10 @@ onMounted(async () => {
       }
       if (action === 'open-settings') {
         router.push('/settings')
+        return
+      }
+      if (action === 'check-update') {
+        requestCheckUpdate()
       }
     })
   } catch (e) {

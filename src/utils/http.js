@@ -35,10 +35,46 @@ function withClearedOrigin(input, init = {}) {
   return { ...init, headers }
 }
 
+function resolveRequestUrl(input) {
+  if (typeof input === 'string') return input
+  if (input instanceof Request) return input.url
+  if (input instanceof URL) return input.href
+  return String(input || '')
+}
+
+/**
+ * 拒绝明显危险目标。
+ * 自定义中转 Base URL 是产品需求，capabilities 仍需较宽；此处做前端兜底校验。
+ */
+export function assertSafeFetchUrl(input) {
+  const raw = resolveRequestUrl(input)
+  if (!raw || raw.startsWith('/') || raw.startsWith('blob:') || raw.startsWith('data:')) {
+    return
+  }
+  let url
+  try {
+    url = new URL(raw, typeof location !== 'undefined' ? location.href : undefined)
+  } catch {
+    throw new Error('无效的请求地址')
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('仅允许 http/https 请求')
+  }
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (
+    host === '169.254.169.254' ||
+    host === 'metadata.google.internal' ||
+    host === 'metadata'
+  ) {
+    throw new Error('拒绝访问云元数据地址')
+  }
+}
+
 /**
  * 统一 fetch：桌面端走 Rust HTTP（绕过 WebView CORS），浏览器走原生 fetch。
  */
 export function appFetch(input, init) {
+  assertSafeFetchUrl(input)
   if (isTauri()) {
     return tauriFetch(input, withClearedOrigin(input, init))
   }

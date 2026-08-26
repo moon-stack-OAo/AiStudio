@@ -1,6 +1,6 @@
 [package]
 name = "ai-studio"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI Studio - 本地桌面 AI 客户端（对话 / 生图）"
 authors = ["Moon"]
 license = "MIT"

@@ -2,6 +2,7 @@ import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@/utils/storage'
 import {createId} from '@/utils/id'
 import {collectCacheIds, deleteImages} from '@/utils/imageCache'
+import {notifyStorageError} from '@/utils/toast'
 
 function createSession(title = '新生图') {
   return {
@@ -38,14 +39,35 @@ function sanitizeSessions(sessions) {
   }))
 }
 
+/** 启动 hydrate：残留 loading 标为 error，避免幽灵转圈 */
+function clearStaleLoading(sessions) {
+  return (sessions || []).map((session) => ({
+    ...session,
+    items: (session.items || []).map((item) => {
+      if (item?.status !== 'loading') return item
+      return {
+        ...item,
+        status: 'error',
+        errorMessage: item.errorMessage || '上次异常中断',
+      }
+    }),
+  }))
+}
+
 export const useImageStore = defineStore('image', {
   state: () => {
     const saved = loadJSON('image_sessions', null)
     if (saved?.sessions?.length) {
-      return {
-        sessions: sanitizeSessions(saved.sessions),
-        activeId: saved.activeId || saved.sessions[0].id,
+      const sessions = clearStaleLoading(sanitizeSessions(saved.sessions))
+      const activeId = saved.activeId || saved.sessions[0].id
+      const hadStaleLoading = (saved.sessions || []).some((s) =>
+        (s.items || []).some((i) => i?.status === 'loading'),
+      )
+      // 清理结果立即落盘，避免仅内存修复、下次启动再读到幽灵 loading
+      if (hadStaleLoading) {
+        saveJSON('image_sessions', {sessions, activeId})
       }
+      return {sessions, activeId}
     }
     const session = createSession()
     return {
@@ -63,10 +85,12 @@ export const useImageStore = defineStore('image', {
   },
   actions: {
     persist() {
-      saveJSON('image_sessions', {
+      const ok = saveJSON('image_sessions', {
         sessions: this.sessions,
         activeId: this.activeId,
       })
+      if (!ok) notifyStorageError('生图记录写入本地失败，刷新后可能丢失')
+      return ok
     },
     createSession(title) {
       const session = createSession(title)

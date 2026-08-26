@@ -4,10 +4,19 @@ import App from './App.vue'
 import router from './router'
 import './styles/main.scss'
 
-// 禁用 WebView / 浏览器默认右键菜单（桌面端更像原生应用）
+// 禁用默认右键菜单；输入框与可选文本区域放行，保留原生复制/粘贴
 document.addEventListener(
   'contextmenu',
   (e) => {
+    const el = e.target
+    if (!(el instanceof Element)) return
+    if (
+      el.closest(
+        'input, textarea, [contenteditable="true"], [contenteditable=""], .n-input, .selectable, .msg .bubble, .markdown-body',
+      )
+    ) {
+      return
+    }
     e.preventDefault()
   },
   { capture: true },
