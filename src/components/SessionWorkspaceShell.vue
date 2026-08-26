@@ -88,3 +88,71 @@ function onSelect(id) {
     </div>
   </div>
 </template>
+
+<style lang="scss" scoped>
+.page {
+  display: flex;
+  height: 100%;
+}
+
+.workspace-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.session-name {
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page.compact .toolbar {
+  padding: 10px 14px;
+}
+
+@media (max-width: 767.98px) {
+  .toolbar {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+  }
+
+  .right {
+    width: 100%;
+    flex-wrap: wrap;
+
+    :deep(.provider-select) {
+      flex: 1;
+      width: auto;
+      min-width: 120px;
+    }
+
+    :deep(.model-select) {
+      flex: 1;
+      width: auto;
+      min-width: 140px;
+    }
+  }
+}
+</style>
