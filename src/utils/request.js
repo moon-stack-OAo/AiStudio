@@ -33,9 +33,22 @@ export function proxyHeaders(baseUrl, useCorsProxy, extra = {}) {
 }
 
 export function formatNetworkError(error, useCorsProxy) {
-  const msg = error?.message || String(error)
+  const raw =
+    (typeof error?.message === 'string' && error.message.trim()) ||
+    (typeof error === 'string' ? error : '') ||
+    (error && typeof error === 'object'
+      ? (() => {
+          try {
+            return JSON.stringify(error)
+          } catch {
+            return ''
+          }
+        })()
+      : String(error || ''))
+  const msg = raw && raw !== 'undefined' && raw !== '[object Object]' ? raw : '网络请求失败'
   const isNetwork =
     msg === 'Network Error' ||
+    msg === '网络请求失败' ||
     msg.includes('Failed to fetch') ||
     msg.includes('ERR_FAILED') ||
     msg.includes('NetworkError') ||

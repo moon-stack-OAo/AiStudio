@@ -9,6 +9,7 @@ import {isTauri} from '@/utils/request'
 import TitleBar from '@/components/TitleBar.vue'
 import UpdateChecker from '@/components/UpdateChecker.vue'
 import CloseConfirm from '@/components/CloseConfirm.vue'
+import TrayActionListener from '@/components/TrayActionListener.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,6 +69,7 @@ function onMenuUpdate(key) {
       <n-dialog-provider>
         <n-notification-provider>
           <UpdateChecker />
+          <TrayActionListener v-if="desktopFrame" />
           <CloseConfirm v-if="desktopFrame" />
           <div
             :class="{ compact: isCompact, mobile: isMobile, framed: desktopFrame }"

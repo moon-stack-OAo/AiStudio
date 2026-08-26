@@ -45,10 +45,35 @@ body,
   color: var(--color-text);
   /* 最大化瞬间 WebView 重绘时减少露白 */
   background-color: #0f1115;
+  /* 桌面端避免拖选 UI 文字 */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 html {
   color-scheme: dark;
+}
+
+/* 输入区与可读内容仍允许选中复制 */
+input,
+textarea,
+[contenteditable='true'],
+.n-input,
+.n-input__input-el,
+.n-input__textarea-el,
+.selectable,
+.msg .bubble,
+.markdown-body {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+input,
+textarea,
+.n-input__input-el,
+.n-input__textarea-el {
+  cursor: text;
+  caret-color: var(--color-primary-hover);
 }
 
 ::-webkit-scrollbar {

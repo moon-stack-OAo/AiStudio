@@ -1,21 +1,22 @@
 <script setup>
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
-import {ListOutline, SendOutline, StopOutline} from '@vicons/ionicons5'
+import {CheckmarkOutline, CopyOutline, ListOutline, SendOutline, StopOutline} from '@vicons/ionicons5'
 import SessionList from '@/components/SessionList.vue'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
 import {useChatStore} from '@/stores/chat'
 import {useSettingsStore} from '@/stores/settings'
-import {streamChatCompletions} from '@/api/client'
+import {streamChatCompletions, toErrorMessage} from '@/api/client'
 import {useBreakpoints} from '@/composables/useBreakpoints'
 import {countChatTurns, trimChatMessages} from '@/utils/chatContext'
+import {renderSelectLabel} from '@/utils/selectRender'
 
 const chatStore = useChatStore()
 const settings = useSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
-const { isMobile, isCompact } = useBreakpoints()
+const {isMobile, isCompact} = useBreakpoints()
 const historyShow = ref(false)
 
 const input = ref('')
@@ -23,14 +24,16 @@ const loading = ref(false)
 const listRef = ref(null)
 const abortRef = ref(null)
 const contextHintShown = ref(false)
+const copiedId = ref('')
+let copiedTimer = null
 
 const session = computed(() => chatStore.activeSession)
 const provider = computed(() => settings.activeProvider)
 
 const contextInfo = computed(() => {
   const msgs = (session.value?.messages || [])
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({ role: m.role, content: m.content }))
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({role: m.role, content: m.content}))
   return trimChatMessages(msgs, {
     enabled: settings.chatContextTrimEnabled,
     maxTurns: settings.chatContextMaxTurns,
@@ -39,7 +42,7 @@ const contextInfo = computed(() => {
 
 const contextHint = computed(() => {
   if (!settings.chatContextTrimEnabled) return ''
-  const { totalTurns, maxTurns, nearLimit, truncated } = contextInfo.value
+  const {totalTurns, maxTurns, nearLimit, truncated} = contextInfo.value
   if (truncated) {
     return `已启用上下文裁剪：保留最近 ${maxTurns} 轮（当前 ${totalTurns} 轮）`
   }
@@ -50,10 +53,10 @@ const contextHint = computed(() => {
 })
 
 watch(
-  () => session.value?.id,
-  () => {
-    contextHintShown.value = false
-  },
+    () => session.value?.id,
+    () => {
+      contextHintShown.value = false
+    },
 )
 
 function ensureProvider() {
@@ -69,11 +72,11 @@ function ensureProvider() {
 }
 
 watch(
-  () => session.value?.messages?.length,
-  async () => {
-    await nextTick()
-    scrollToBottom()
-  },
+    () => session.value?.messages?.length,
+    async () => {
+      await nextTick()
+      scrollToBottom()
+    },
 )
 
 function scrollToBottom() {
@@ -95,8 +98,8 @@ async function send() {
   })
 
   const rawHistory = session.value.messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({ role: m.role, content: m.content }))
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({role: m.role, content: m.content}))
 
   const trimmed = trimChatMessages(rawHistory, {
     enabled: settings.chatContextTrimEnabled,
@@ -105,14 +108,14 @@ async function send() {
 
   if (trimmed.truncated && !contextHintShown.value) {
     message.info(
-      `上下文已裁剪：仅发送最近 ${trimmed.keptTurns} 轮（共 ${trimmed.totalTurns} 轮），本地记录仍完整保留`,
-      { duration: 4000 },
+        `上下文已裁剪：仅发送最近 ${trimmed.keptTurns} 轮（共 ${trimmed.totalTurns} 轮），本地记录仍完整保留`,
+        {duration: 4000},
     )
     contextHintShown.value = true
   } else if (trimmed.nearLimit && !trimmed.truncated && !contextHintShown.value) {
     message.warning(
-      `上下文接近上限（${trimmed.totalTurns} / ${trimmed.maxTurns} 轮），建议新开会话`,
-      { duration: 3500 },
+        `上下文接近上限（${trimmed.totalTurns} / ${trimmed.maxTurns} 轮），建议新开会话`,
+        {duration: 3500},
     )
     contextHintShown.value = true
   }
@@ -133,10 +136,10 @@ async function send() {
       signal: controller.signal,
       onDelta: (_delta, full) => {
         chatStore.updateMessage(
-          sessionId,
-          assistant.id,
-          { content: full, streaming: true },
-          { persist: false },
+            sessionId,
+            assistant.id,
+            {content: full, streaming: true},
+            {persist: false},
         )
         scrollToBottom()
       },
@@ -145,21 +148,21 @@ async function send() {
       streaming: false,
     })
   } catch (err) {
-    const target = chatStore.sessions
-      .find((s) => s.id === sessionId)
-      ?.messages?.find((m) => m.id === assistant.id)
-    if (err.name === 'AbortError') {
+    const target = chatStore.sessions.find((s) => s.id === sessionId)
+        ?.messages?.find((m) => m.id === assistant.id)
+    if (err?.name === 'AbortError') {
       chatStore.updateMessage(sessionId, assistant.id, {
         streaming: false,
         content: `${target?.content || ''}\n\n[已停止]`,
       })
     } else {
+      const errText = toErrorMessage(err, '请求失败，请稍后重试')
       chatStore.updateMessage(sessionId, assistant.id, {
         streaming: false,
-        content: `请求失败：${err.message}`,
+        content: `请求失败：${errText}`,
         error: true,
       })
-      message.error(err.message)
+      message.error(errText)
     }
   } finally {
     loading.value = false
@@ -169,6 +172,21 @@ async function send() {
 
 function stop() {
   abortRef.value?.abort()
+}
+
+async function copyMessage(msg) {
+  const text = String(msg?.content || '').trim()
+  if (!text || msg?.streaming) return
+  try {
+    await navigator.clipboard.writeText(text)
+    copiedId.value = msg.id
+    if (copiedTimer) clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => {
+      if (copiedId.value === msg.id) copiedId.value = ''
+    }, 1600)
+  } catch {
+    message.error('复制失败')
+  }
 }
 
 function onKeydown(e) {
@@ -191,38 +209,39 @@ function clearMessages() {
 
 onBeforeUnmount(() => {
   abortRef.value?.abort()
+  if (copiedTimer) clearTimeout(copiedTimer)
 })
 </script>
 
 <template>
   <div :class="{ compact: isCompact, mobile: isMobile }" class="page">
     <SessionList
-      v-if="!isCompact"
-      :active-id="chatStore.activeId"
-      :sessions="chatStore.sortedSessions"
-      title="对话历史"
-      @create="chatStore.createSession()"
-      @remove="chatStore.removeSession"
-      @rename="(id, title) => chatStore.renameSession(id, title)"
-      @select="chatStore.setActive"
+        v-if="!isCompact"
+        :active-id="chatStore.activeId"
+        :sessions="chatStore.sortedSessions"
+        title="对话历史"
+        @create="chatStore.createSession()"
+        @remove="chatStore.removeSession"
+        @rename="(id, title) => chatStore.renameSession(id, title)"
+        @select="chatStore.setActive"
     />
 
     <n-drawer
-      v-model:show="historyShow"
-      :width="isMobile ? '86%' : 280"
-      display-directive="show"
-      placement="left"
+        v-model:show="historyShow"
+        :width="isMobile ? '86%' : 280"
+        display-directive="show"
+        placement="left"
     >
       <n-drawer-content closable title="对话历史">
         <SessionList
-          :active-id="chatStore.activeId"
-          :sessions="chatStore.sortedSessions"
-          embedded
-          title="对话历史"
-          @create="chatStore.createSession(); historyShow = false"
-          @remove="chatStore.removeSession"
-          @rename="(id, title) => chatStore.renameSession(id, title)"
-          @select="(id) => { chatStore.setActive(id); historyShow = false }"
+            :active-id="chatStore.activeId"
+            :sessions="chatStore.sortedSessions"
+            embedded
+            title="对话历史"
+            @create="chatStore.createSession(); historyShow = false"
+            @remove="chatStore.removeSession"
+            @rename="(id, title) => chatStore.renameSession(id, title)"
+            @select="(id) => { chatStore.setActive(id); historyShow = false }"
         />
       </n-drawer-content>
     </n-drawer>
@@ -232,24 +251,25 @@ onBeforeUnmount(() => {
         <div class="left">
           <n-button v-if="isCompact" circle quaternary size="small" @click="historyShow = true">
             <template #icon>
-              <n-icon :component="ListOutline" />
+              <n-icon :component="ListOutline"/>
             </template>
           </n-button>
           <div class="session-name">{{ session?.title || '对话' }}</div>
         </div>
         <div class="right">
           <n-select
-            :options="settings.providerOptions"
-            :value="settings.activeProviderId"
-            class="provider-select"
-            size="small"
-            @update:value="settings.setActiveProvider"
+              :options="settings.providerOptions"
+              :render-label="renderSelectLabel"
+              :value="settings.activeProviderId"
+              class="provider-select"
+              size="small"
+              @update:value="settings.setActiveProvider"
           />
-          <ModelSelect kind="chat" />
+          <ModelSelect kind="chat"/>
           <n-button
-            quaternary
-            size="small"
-            @click="clearMessages"
+              quaternary
+              size="small"
+              @click="clearMessages"
           >
             清空
           </n-button>
@@ -265,17 +285,42 @@ onBeforeUnmount(() => {
         </div>
 
         <div
-          v-for="msg in session?.messages || []"
-          :key="msg.id"
-          :class="[msg.role, { error: msg.error }]"
-          class="msg"
+            v-for="msg in session?.messages || []"
+            :key="msg.id"
+            :class="[msg.role, { error: msg.error }]"
+            class="msg"
         >
           <div class="role">{{ msg.role === 'user' ? '你' : 'AI' }}</div>
-          <div class="bubble">
-            <MarkdownRenderer
-              :content="msg.content"
-              :placeholder="msg.streaming ? '思考中…' : ''"
-            />
+          <div class="msg-body">
+            <div class="bubble">
+              <MarkdownRenderer
+                  :content="msg.content"
+                  :placeholder="msg.streaming ? '思考中…' : ''"
+              />
+            </div>
+            <div
+                v-if="!msg.streaming && msg.content"
+                class="msg-actions"
+            >
+              <n-tooltip placement="bottom" trigger="hover">
+                <template #trigger>
+                  <n-button
+                      circle
+                      quaternary
+                      size="tiny"
+                      @click="copyMessage(msg)"
+                  >
+                    <template #icon>
+                      <n-icon
+                          :component="copiedId === msg.id ? CheckmarkOutline : CopyOutline"
+                          :size="14"
+                      />
+                    </template>
+                  </n-button>
+                </template>
+                {{ copiedId === msg.id ? '已复制' : '复制' }}
+              </n-tooltip>
+            </div>
           </div>
         </div>
       </div>
@@ -283,39 +328,38 @@ onBeforeUnmount(() => {
       <div class="composer">
         <div class="composer-card">
           <n-input
-            v-model:value="input"
-            :autosize="{ minRows: 3, maxRows: 8 }"
-            :disabled="loading"
-            class="composer-field"
-            placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-            type="textarea"
-            @keydown="onKeydown"
+              v-model:value="input"
+              :autosize="{ minRows: 3, maxRows: 8 }"
+              :disabled="loading"
+              class="composer-field"
+              placeholder="输入消息，Enter 发送，Shift+Enter 换行"
+              type="textarea"
+              @keydown="onKeydown"
           />
           <div class="composer-actions">
             <n-button
-              v-if="loading"
-              class="action-btn"
-              round
-              size="small"
-              type="warning"
-              @click="stop"
+                v-if="loading"
+                circle
+                class="action-btn send-btn"
+                size="medium"
+                type="warning"
+                @click="stop"
             >
               <template #icon>
-                <n-icon :component="StopOutline" />
+                <n-icon :component="StopOutline"/>
               </template>
-              停止
             </n-button>
             <n-button
-              :disabled="!input.trim() || loading"
-              :loading="loading"
-              circle
-              class="action-btn send-btn"
-              size="medium"
-              type="primary"
-              @click="send"
+                v-else
+                :disabled="!input.trim()"
+                circle
+                class="action-btn send-btn"
+                size="medium"
+                type="primary"
+                @click="send"
             >
               <template #icon>
-                <n-icon :component="SendOutline" />
+                <n-icon :component="SendOutline"/>
               </template>
             </n-button>
           </div>
@@ -428,12 +472,25 @@ onBeforeUnmount(() => {
   color: #9af0c9;
 }
 
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: min(720px, 78vw);
+}
+
+.msg.user .msg-body {
+  align-items: flex-end;
+}
+
 .bubble {
   padding: 10px 12px;
   border-radius: var(--radius-lg);
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
-  max-width: min(720px, 78vw);
+  width: fit-content;
+  max-width: 100%;
 }
 
 .msg.user .bubble {
@@ -443,6 +500,32 @@ onBeforeUnmount(() => {
 .msg.error .bubble {
   border-color: rgba(248, 113, 113, 0.4);
   color: #fecaca;
+}
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  color: var(--text-4);
+}
+
+.msg:hover .msg-actions,
+.msg-actions:focus-within {
+  opacity: 1;
+}
+
+.msg-actions :deep(.n-button) {
+  color: var(--text-4);
+}
+
+.msg-actions :deep(.n-button:hover) {
+  color: var(--text-2);
+}
+
+.page.mobile .msg-actions {
+  opacity: 1;
 }
 
 .composer {
@@ -458,17 +541,15 @@ onBeforeUnmount(() => {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(22, 24, 32, 0.92);
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28),
+  inset 0 1px 0 rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(12px);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
   &:focus-within {
     border-color: rgba(124, 156, 255, 0.45);
-    box-shadow:
-      0 12px 32px rgba(0, 0, 0, 0.32),
-      0 0 0 1px rgba(124, 156, 255, 0.18);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(124, 156, 255, 0.18);
   }
 }
 
@@ -483,6 +564,11 @@ onBeforeUnmount(() => {
     --n-color: transparent !important;
     --n-color-focus: transparent !important;
     --n-box-shadow: none !important;
+    --n-font-size: 14px;
+    --n-line-height: 1.55;
+    --n-padding-vertical: 6px;
+    --n-padding-left: 4px;
+    --n-padding-right: 4px;
     background: transparent !important;
   }
 
@@ -491,10 +577,20 @@ onBeforeUnmount(() => {
     display: none;
   }
 
-  :deep(textarea) {
-    padding: 2px 4px !important;
-    font-size: 14px;
-    line-height: 1.55;
+  :deep(.n-input__textarea-el),
+  :deep(.n-input__placeholder) {
+    padding-top: var(--n-padding-vertical) !important;
+    padding-bottom: var(--n-padding-vertical) !important;
+    padding-left: var(--n-padding-left) !important;
+    padding-right: var(--n-padding-right) !important;
+    font-size: var(--n-font-size);
+    line-height: var(--n-line-height);
+  }
+
+  :deep(.n-input__textarea-el) {
+    cursor: text;
+    caret-color: var(--color-primary-hover);
+    color: var(--text-1);
   }
 }
 

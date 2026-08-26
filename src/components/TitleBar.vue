@@ -75,13 +75,13 @@ onUnmounted(() => {
     </div>
 
     <div class="controls">
-      <button class="ctrl" title="最小化" type="button" @click="minimize">
+      <button class="ctrl" type="button" @click="minimize">
         <n-icon :component="RemoveOutline" :size="14" />
       </button>
-      <button class="ctrl" title="最大化" type="button" @click="toggleMaximize">
+      <button class="ctrl" type="button" @click="toggleMaximize">
         <n-icon :component="maximized ? CopyOutline : SquareOutline" :size="13" />
       </button>
-      <button class="ctrl close" title="关闭" type="button" @click="close">
+      <button class="ctrl close" type="button" @click="close">
         <n-icon :component="CloseOutline" :size="14" />
       </button>
     </div>

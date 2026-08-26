@@ -4,11 +4,44 @@ import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl,} from '@/util
 import {API_TIMEOUT_MS, DEFAULT_TEMPERATURE} from '@/utils/constants'
 
 function extractApiErrorMessage(data) {
-  if (!data || typeof data !== 'object') return ''
+  if (data == null) return ''
+  if (typeof data === 'string') return data.trim()
+  if (typeof data !== 'object') return String(data)
   if (typeof data.error === 'string') return data.error
   if (typeof data.error?.message === 'string') return data.error.message
+  if (typeof data.error?.code === 'string' && !data.error?.message) {
+    return data.error.code
+  }
   if (typeof data.message === 'string') return data.message
-  return ''
+  if (typeof data.msg === 'string') return data.msg
+  if (typeof data.detail === 'string') return data.detail
+  if (Array.isArray(data.detail) && data.detail[0]?.msg) {
+    return String(data.detail[0].msg)
+  }
+  try {
+    return JSON.stringify(data)
+  } catch {
+    return ''
+  }
+}
+
+/** 将任意抛出值转为可读错误文案 */
+export function toErrorMessage(error, fallback = '未知错误') {
+  if (error == null) return fallback
+  if (typeof error === 'string') return error || fallback
+  if (error instanceof Error) {
+    const msg = String(error.message || '').trim()
+    return msg && msg !== 'undefined' ? msg : fallback
+  }
+  if (typeof error === 'object') {
+    const fromFields =
+      extractApiErrorMessage(error) ||
+      (typeof error.message === 'string' ? error.message : '') ||
+      (typeof error.error === 'string' ? error.error : '')
+    if (fromFields && fromFields !== 'undefined') return fromFields
+  }
+  const raw = String(error)
+  return raw && raw !== 'undefined' && raw !== '[object Object]' ? raw : fallback
 }
 
 function authHeaders(apiKey, extra = {}) {
@@ -150,6 +183,9 @@ export async function chatCompletions(provider, { messages, stream = false, sign
 export async function streamChatCompletions(provider, { messages, onDelta, signal }) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
   const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
+  if (!provider?.chatModel) {
+    throw new Error('请先设置对话模型')
+  }
 
   let res
   try {
@@ -172,15 +208,23 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
       connectTimeout: API_TIMEOUT_MS,
     })
   } catch (error) {
-    if (error?.name === 'AbortError' || signal?.aborted) throw error
-    throw new Error(formatNetworkError(error, useCorsProxy))
+    if (error?.name === 'AbortError' || signal?.aborted) {
+      const abortErr = new Error('已取消')
+      abortErr.name = 'AbortError'
+      throw abortErr
+    }
+    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
   }
 
   if (!res.ok) {
     let message = `HTTP ${res.status}`
     try {
-      const err = await res.json()
-      message = extractApiErrorMessage(err) || message
+      const text = await res.text()
+      try {
+        message = extractApiErrorMessage(JSON.parse(text)) || message
+      } catch {
+        if (text?.trim()) message = text.trim().slice(0, 300)
+      }
     } catch {
       // ignore
     }
@@ -205,16 +249,28 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
       const trimmed = line.trim()
       if (!trimmed.startsWith('data:')) continue
       const payload = trimmed.slice(5).trim()
-      if (payload === '[DONE]') continue
+      if (!payload || payload === '[DONE]') continue
       try {
         const json = JSON.parse(payload)
-        const delta = json.choices?.[0]?.delta?.content || ''
+        const streamErr = extractApiErrorMessage(json)
+        if (streamErr && (json.error || json.code || !json.choices)) {
+          throw new Error(streamErr)
+        }
+        const choice = json.choices?.[0]
+        const delta =
+          choice?.delta?.content ||
+          choice?.message?.content ||
+          (typeof choice?.text === 'string' ? choice.text : '') ||
+          ''
         if (delta) {
           fullText += delta
           onDelta?.(delta, fullText)
         }
-      } catch {
-        // ignore malformed chunk
+      } catch (e) {
+        if (e instanceof Error && e.message && e.message !== 'Unexpected end of JSON input') {
+          // 仅把业务错误往外抛；JSON 解析失败忽略
+          if (e.name !== 'SyntaxError') throw e
+        }
       }
     }
   }

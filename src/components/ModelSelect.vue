@@ -4,6 +4,7 @@ import {RefreshOutline} from '@vicons/ionicons5'
 import {useProviderModels} from '@/composables/useProviderModels'
 import {useSettingsStore} from '@/stores/settings'
 import {useMessage} from 'naive-ui'
+import {renderSelectLabel} from '@/utils/selectRender'
 
 const props = defineProps({
   /** chat | image */
@@ -69,6 +70,7 @@ async function onRefresh() {
       :loading="loading"
       :options="options"
       :placeholder="selectPlaceholder"
+      :render-label="renderSelectLabel"
       :size="size"
       :value="value"
       class="model-select"
@@ -82,7 +84,6 @@ async function onRefresh() {
       :size="size"
       circle
       quaternary
-      title="刷新模型列表"
       @click="onRefresh"
     >
       <template #icon>

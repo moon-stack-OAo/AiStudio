@@ -1,7 +1,16 @@
 <script setup>
-import {computed, onBeforeUnmount, ref, watch} from 'vue'
+import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {useMessage} from 'naive-ui'
-import {ImageOutline, ListOutline, TrashOutline} from '@vicons/ionicons5'
+import {
+  CheckmarkOutline,
+  CopyOutline,
+  DownloadOutline,
+  ImageOutline,
+  ListOutline,
+  SparklesOutline,
+  StopOutline,
+  TrashOutline,
+} from '@vicons/ionicons5'
 import SessionList from '@/components/SessionList.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
 import {useImageStore} from '@/stores/image'
@@ -9,11 +18,12 @@ import {useSettingsStore} from '@/stores/settings'
 import {editImage, fileToPreview, generateImage} from '@/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@/utils/imageCache'
 import {useBreakpoints} from '@/composables/useBreakpoints'
+import {renderSelectLabel} from '@/utils/selectRender'
 
 const imageStore = useImageStore()
 const settings = useSettingsStore()
 const message = useMessage()
-const { isMobile, isCompact } = useBreakpoints()
+const {isMobile, isCompact} = useBreakpoints()
 const historyShow = ref(false)
 
 const mode = ref('txt2img')
@@ -26,13 +36,21 @@ const quality = ref('medium')
 const imageFile = ref(null)
 const previewUrl = ref('')
 
+const listRef = ref(null)
 const abortRef = ref(null)
+/** 当前进行中的生成条目 id，停止时用于回写状态 */
+const pendingItemId = ref('')
 const mounted = ref(true)
+const copiedId = ref('')
+let copiedTimer = null
 
 /** itemId -> imageIndex -> objectURL，用于 idb 图片展示 */
 const resolvedMap = ref({})
 const createdObjectUrls = new Set()
 let resolveToken = 0
+
+/** 当前会话内图生图参考缩略图（不持久化，避免撑爆 localStorage） */
+const refThumbMap = ref({})
 
 /** 大图预览 */
 const lightboxShow = ref(false)
@@ -44,26 +62,47 @@ const session = computed(() => imageStore.activeSession)
 const provider = computed(() => settings.activeProvider)
 const isXai = computed(() => provider.value?.provider === 'xai')
 
+const timelineItems = computed(() => {
+  const items = session.value?.items || []
+  return [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+})
+
 const sizeOptions = [
-  { label: '1024×1024', value: '1024x1024' },
-  { label: '1024×1536', value: '1024x1536' },
-  { label: '1536×1024', value: '1536x1024' },
+  {label: '1024×1024', value: '1024x1024'},
+  {label: '1024×1536', value: '1024x1536'},
+  {label: '1536×1024', value: '1536x1024'},
 ]
 
 const aspectOptions = [
-  { label: '1:1', value: '1:1' },
-  { label: '16:9', value: '16:9' },
-  { label: '9:16', value: '9:16' },
-  { label: '4:3', value: '4:3' },
-  { label: '3:4', value: '3:4' },
-  { label: 'auto', value: 'auto' },
+  {label: '1:1', value: '1:1'},
+  {label: '16:9', value: '16:9'},
+  {label: '9:16', value: '9:16'},
+  {label: '4:3', value: '4:3'},
+  {label: '3:4', value: '3:4'},
+  {label: 'auto', value: 'auto'},
 ]
 
 const qualityOptions = [
-  { label: '低质量', value: 'low' },
-  { label: '标准', value: 'medium' },
-  { label: '高质量', value: 'high' },
+  {label: '低质量', value: 'low'},
+  {label: '标准', value: 'medium'},
+  {label: '高质量', value: 'high'},
 ]
+
+function itemStatus(item) {
+  return item?.status || 'done'
+}
+
+function paramSummary(item) {
+  const parts = []
+  if (item?.n && item.n > 1) parts.push(`${item.n} 张`)
+  if (item?.size) parts.push(String(item.size).replace('x', '×'))
+  if (item?.aspectRatio) parts.push(item.aspectRatio)
+  if (item?.quality) {
+    const q = qualityOptions.find((o) => o.value === item.quality)
+    parts.push(q?.label || item.quality)
+  }
+  return parts.join(' · ')
+}
 
 function ensureProvider() {
   if (!provider.value?.baseUrl || !provider.value?.apiKey) {
@@ -77,7 +116,7 @@ function ensureProvider() {
   return true
 }
 
-async function onUpload({ file }) {
+async function onUpload({file}) {
   imageFile.value = file.file
   previewUrl.value = await fileToPreview(file.file)
   return false
@@ -124,7 +163,6 @@ async function resolveSessionImages(items = [], sessionId = null) {
       const img = images[idx]
       if (img?.type !== 'idb' || !img.id) continue
 
-      // 复用已解析的 URL，避免闪烁
       const prev = resolvedMap.value[item.id]?.[idx]
       if (prev) {
         next[item.id][idx] = prev
@@ -147,8 +185,6 @@ async function resolveSessionImages(items = [], sessionId = null) {
   }
 
   if (token !== resolveToken || imageStore.activeId !== targetSessionId) return
-
-  // 回收不再使用的 object URL
   ;[...createdObjectUrls].forEach((url) => {
     if (!used.has(url)) {
       try {
@@ -164,26 +200,56 @@ async function resolveSessionImages(items = [], sessionId = null) {
 }
 
 watch(
-  () => {
-    const s = session.value
-    if (!s) return { id: null, keys: '' }
-    const items = s.items || []
-    return {
-      id: s.id,
-      keys: items.map((it) => `${it.id}:${(it.images || []).length}`).join('|'),
-    }
-  },
-  () => {
-    resolveSessionImages(session.value?.items || [], session.value?.id)
-  },
-  { immediate: true },
+    () => {
+      const s = session.value
+      if (!s) return {id: null, keys: ''}
+      const items = s.items || []
+      return {
+        id: s.id,
+        keys: items
+            .map((it) => `${it.id}:${(it.images || []).length}:${it.status || 'done'}`)
+            .join('|'),
+      }
+    },
+    () => {
+      resolveSessionImages(session.value?.items || [], session.value?.id)
+    },
+    {immediate: true},
 )
+
+watch(
+    () => timelineItems.value.length,
+    async () => {
+      await nextTick()
+      scrollToBottom()
+    },
+)
+
+watch(
+    () => session.value?.id,
+    () => {
+      refThumbMap.value = {}
+    },
+)
+
+function scrollToBottom() {
+  const el = listRef.value
+  if (el) el.scrollTop = el.scrollHeight
+}
 
 onBeforeUnmount(() => {
   mounted.value = false
   abortRef.value?.abort()
   revokeAllObjectUrls()
+  if (copiedTimer) clearTimeout(copiedTimer)
 })
+
+function onKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    generate()
+  }
+}
 
 async function generate() {
   const text = prompt.value.trim()
@@ -203,44 +269,74 @@ async function generate() {
   const controller = new AbortController()
   abortRef.value = controller
 
+  prompt.value = ''
+
+  const pending = imageStore.addItem(sessionId, {
+    mode: mode.value,
+    prompt: text,
+    model: provider.value.imageModel,
+    providerName: provider.value.name,
+    images: [],
+    refPreview: '',
+    n: n.value,
+    size: isXai.value ? undefined : size.value,
+    aspectRatio: isXai.value ? aspectRatio.value : undefined,
+    quality: quality.value,
+    status: 'loading',
+    errorMessage: '',
+  })
+
+  if (!pending?.id) {
+    loading.value = false
+    return
+  }
+
+  pendingItemId.value = pending.id
+
+  if (mode.value === 'img2img' && previewUrl.value) {
+    refThumbMap.value = {...refThumbMap.value, [pending.id]: previewUrl.value}
+  }
+
   loading.value = true
+  await nextTick()
+  scrollToBottom()
+
   try {
     const rawImages =
-      mode.value === 'txt2img'
-        ? await generateImage(provider.value, {
-            prompt: text,
-            n: n.value,
-            size: size.value,
-            aspectRatio: aspectRatio.value,
-            quality: quality.value,
-            signal: controller.signal,
-          })
-        : await editImage(provider.value, {
-            prompt: text,
-            imageFile: imageFile.value,
-            n: n.value,
-            size: size.value,
-            aspectRatio: aspectRatio.value,
-            quality: quality.value,
-            signal: controller.signal,
-          })
+        mode.value === 'txt2img'
+            ? await generateImage(provider.value, {
+              prompt: text,
+              n: n.value,
+              size: size.value,
+              aspectRatio: aspectRatio.value,
+              quality: quality.value,
+              signal: controller.signal,
+            })
+            : await editImage(provider.value, {
+              prompt: text,
+              imageFile: imageFile.value,
+              n: n.value,
+              size: size.value,
+              aspectRatio: aspectRatio.value,
+              quality: quality.value,
+              signal: controller.signal,
+            })
 
+    // 生成中被删除：条目已不存在，直接结束
+    if (!sessionStillHasItem(sessionId, pending.id)) return
     if (controller.signal.aborted || !mounted.value) return
 
-    // 将 url / b64 写入 IndexedDB，会话只存引用
     const images = await cacheGeneratedImages(rawImages)
 
+    if (!sessionStillHasItem(sessionId, pending.id)) return
     if (controller.signal.aborted || !mounted.value) return
 
     const tempCount = images.filter((img) => img.temporary).length
 
-    imageStore.addItem(sessionId, {
-      mode: mode.value,
-      prompt: text,
-      model: provider.value.imageModel,
-      providerName: provider.value.name,
+    imageStore.updateItem(sessionId, pending.id, {
       images,
-      refPreview: '',
+      status: 'done',
+      errorMessage: '',
     })
 
     if (tempCount > 0) {
@@ -248,16 +344,35 @@ async function generate() {
     } else {
       message.success(`生成成功，共 ${images.length} 张`)
     }
+
+    await nextTick()
+    scrollToBottom()
   } catch (err) {
+    if (!sessionStillHasItem(sessionId, pending.id)) return
     if (err?.name === 'AbortError' || err?.message === 'canceled' || controller.signal.aborted) {
+      imageStore.updateItem(sessionId, pending.id, {
+        status: 'error',
+        errorMessage: '已取消',
+      })
       return
     }
     if (!mounted.value) return
-    message.error(err.message || '生成失败')
+    const errText = err.message || '生成失败'
+    imageStore.updateItem(sessionId, pending.id, {
+      status: 'error',
+      errorMessage: errText,
+    })
+    message.error(errText)
   } finally {
     if (abortRef.value === controller) abortRef.value = null
+    if (pendingItemId.value === pending.id) pendingItemId.value = ''
     loading.value = false
   }
+}
+
+function sessionStillHasItem(sessionId, itemId) {
+  const s = imageStore.sessions.find((x) => x.id === sessionId)
+  return Boolean(s?.items?.some((i) => i.id === itemId))
 }
 
 async function resolveImageSrc(itemId, idx, img) {
@@ -287,7 +402,7 @@ async function openLightbox(item, idx, img) {
   }
   lightboxSrc.value = src
   lightboxTitle.value = item.prompt || '生成图片'
-  lightboxPayload.value = { itemId: item.id, idx, img, name: `gen-${item.id}-${idx}.png` }
+  lightboxPayload.value = {itemId: item.id, idx, img, name: `gen-${item.id}-${idx}.png`}
   lightboxShow.value = true
 }
 
@@ -306,7 +421,6 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   }
 
   try {
-    // dataURL / blobURL 可直接下载；远程 URL 尝试拉取后再下
     if (src.startsWith('blob:') || src.startsWith('data:')) {
       const a = document.createElement('a')
       a.href = src
@@ -326,37 +440,78 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
     window.open(src, '_blank', 'noopener')
   }
 }
+
+async function useAsReference(item, idx, img) {
+  const src = await resolveImageSrc(item.id, idx, img)
+  if (!src) {
+    message.warning('图片不可用')
+    return
+  }
+  try {
+    const res = await fetch(src)
+    const blob = await res.blob()
+    const file = new File([blob], `ref-${item.id}-${idx}.png`, {
+      type: blob.type || 'image/png',
+    })
+    imageFile.value = file
+    previewUrl.value = await fileToPreview(file)
+    mode.value = 'img2img'
+    message.success('已设为参考图，可继续图生图')
+  } catch {
+    message.error('设置参考图失败')
+  }
+}
+
+function stopGenerate() {
+  if (!loading.value) return
+  abortRef.value?.abort()
+}
+
+async function copyPrompt(item) {
+  const text = String(item?.prompt || '').trim()
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    copiedId.value = item.id
+    if (copiedTimer) clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => {
+      if (copiedId.value === item.id) copiedId.value = ''
+    }, 1600)
+  } catch {
+    message.error('复制失败')
+  }
+}
 </script>
 
 <template>
   <div :class="{ compact: isCompact, mobile: isMobile }" class="page">
     <SessionList
-      v-if="!isCompact"
-      :active-id="imageStore.activeId"
-      :sessions="imageStore.sortedSessions"
-      title="生图历史"
-      @create="imageStore.createSession()"
-      @remove="imageStore.removeSession"
-      @rename="(id, title) => imageStore.renameSession(id, title)"
-      @select="imageStore.setActive"
+        v-if="!isCompact"
+        :active-id="imageStore.activeId"
+        :sessions="imageStore.sortedSessions"
+        title="生图历史"
+        @create="imageStore.createSession()"
+        @remove="imageStore.removeSession"
+        @rename="(id, title) => imageStore.renameSession(id, title)"
+        @select="imageStore.setActive"
     />
 
     <n-drawer
-      v-model:show="historyShow"
-      :width="isMobile ? '86%' : 280"
-      display-directive="show"
-      placement="left"
+        v-model:show="historyShow"
+        :width="isMobile ? '86%' : 280"
+        display-directive="show"
+        placement="left"
     >
       <n-drawer-content closable title="生图历史">
         <SessionList
-          :active-id="imageStore.activeId"
-          :sessions="imageStore.sortedSessions"
-          embedded
-          title="生图历史"
-          @create="imageStore.createSession(); historyShow = false"
-          @remove="imageStore.removeSession"
-          @rename="(id, title) => imageStore.renameSession(id, title)"
-          @select="(id) => { imageStore.setActive(id); historyShow = false }"
+            :active-id="imageStore.activeId"
+            :sessions="imageStore.sortedSessions"
+            embedded
+            title="生图历史"
+            @create="imageStore.createSession(); historyShow = false"
+            @remove="imageStore.removeSession"
+            @rename="(id, title) => imageStore.renameSession(id, title)"
+            @select="(id) => { imageStore.setActive(id); historyShow = false }"
         />
       </n-drawer-content>
     </n-drawer>
@@ -366,76 +521,156 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
         <div class="left">
           <n-button v-if="isCompact" circle quaternary size="small" @click="historyShow = true">
             <template #icon>
-              <n-icon :component="ListOutline" />
+              <n-icon :component="ListOutline"/>
             </template>
           </n-button>
           <div class="session-name">{{ session?.title || '生图' }}</div>
         </div>
         <div class="right">
           <n-select
-            :options="settings.providerOptions"
-            :value="settings.activeProviderId"
-            class="provider-select"
-            size="small"
-            @update:value="settings.setActiveProvider"
+              :options="settings.providerOptions"
+              :render-label="renderSelectLabel"
+              :value="settings.activeProviderId"
+              class="provider-select"
+              size="small"
+              @update:value="settings.setActiveProvider"
           />
-          <ModelSelect kind="image" />
+          <ModelSelect kind="image"/>
         </div>
       </div>
 
       <div class="content">
-        <div class="gallery">
-          <div v-if="!session?.items?.length" class="empty">
-            <div class="empty-title">生成结果会显示在这里</div>
-            <div class="empty-desc">在下方输入提示词开始创作</div>
+        <div ref="listRef" class="gallery">
+          <div v-if="!timelineItems.length" class="empty">
+            <div class="empty-title">开始创作</div>
+            <div class="empty-desc">在下方输入提示词，生成结果将以时间线展示</div>
           </div>
 
-          <div v-for="item in session?.items || []" :key="item.id" class="card">
-            <div class="card-meta">
-              <n-tag :bordered="false" size="tiny">
-                {{ item.mode === 'txt2img' ? '文生图' : '图生图' }}
-              </n-tag>
-              <span class="prompt">{{ item.prompt }}</span>
-              <n-button
-                v-if="item.images?.length"
-                secondary
-                size="tiny"
-                type="primary"
-                @click="downloadImage(item.id, 0, item.images[0], `gen-${item.id}-0.png`)"
-              >
-                下载原图
-              </n-button>
-              <n-button
-                quaternary
-                size="tiny"
-                type="error"
-                @click="imageStore.removeItem(session.id, item.id)"
-              >
-                删除
-              </n-button>
-            </div>
-            <div class="imgs">
-              <div v-for="(img, idx) in item.images" :key="img.id || idx" class="img-wrap">
-                <div v-if="item.images.length > 1" class="img-actions">
-                  <n-button
-                    secondary
-                    size="tiny"
-                    @click.stop="downloadImage(item.id, idx, img, `gen-${item.id}-${idx}.png`)"
+          <template v-for="item in timelineItems" :key="item.id">
+            <div class="msg user">
+              <div class="role">你</div>
+              <div class="msg-body">
+                <div class="bubble user-bubble">
+                  <div class="bubble-tags">
+                    <n-tag :bordered="false" size="tiny">
+                      {{ item.mode === 'txt2img' ? '文生图' : '图生图' }}
+                    </n-tag>
+                    <n-tag
+                        v-if="paramSummary(item)"
+                        :bordered="false"
+                        size="tiny"
+                        type="info"
+                    >
+                      {{ paramSummary(item) }}
+                    </n-tag>
+                  </div>
+                  <div
+                      v-if="item.mode === 'img2img' && (refThumbMap[item.id] || item.refPreview)"
+                      class="ref-thumb"
                   >
-                    下载
-                  </n-button>
+                    <img :src="refThumbMap[item.id] || item.refPreview" alt="reference"/>
+                  </div>
+                  <div class="prompt-text">{{ item.prompt }}</div>
                 </div>
-                <img
-                  :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
-                  alt="generated"
-                  @click="openLightbox(item, idx, img)"
-                />
-                <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
-                  临时链接，可能过期
+                <div v-if="item.prompt" class="msg-actions">
+                  <n-tooltip placement="bottom" trigger="hover">
+                    <template #trigger>
+                      <n-button circle quaternary size="tiny" @click="copyPrompt(item)">
+                        <template #icon>
+                          <n-icon
+                              :component="copiedId === item.id ? CheckmarkOutline : CopyOutline"
+                              :size="14"
+                          />
+                        </template>
+                      </n-button>
+                    </template>
+                    {{ copiedId === item.id ? '已复制' : '复制提示词' }}
+                  </n-tooltip>
                 </div>
               </div>
             </div>
-          </div>
+
+            <div
+                :class="['msg', 'assistant', { error: itemStatus(item) === 'error' }]"
+            >
+              <div class="role">AI</div>
+              <div class="msg-body">
+                <div class="bubble ai-bubble">
+                  <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
+                    <n-spin size="small"/>
+                    <span>生成中…</span>
+                  </div>
+                  <div v-else-if="itemStatus(item) === 'error'" class="ai-error">
+                    {{ item.errorMessage || '生成失败' }}
+                  </div>
+                  <div v-else-if="!item.images?.length" class="ai-error">暂无图片</div>
+                  <div v-else class="imgs">
+                    <div
+                        v-for="(img, idx) in item.images"
+                        :key="img.id || idx"
+                        class="img-wrap"
+                    >
+                      <div class="img-actions">
+                        <n-button
+                            circle
+                            quaternary
+                            size="tiny"
+                            @click.stop="downloadImage(item.id, idx, img, `gen-${item.id}-${idx}.png`)"
+                        >
+                          <template #icon>
+                            <n-icon :component="DownloadOutline" :size="14"/>
+                          </template>
+                        </n-button>
+                        <n-button
+                            circle
+                            quaternary
+                            size="tiny"
+                            @click.stop="useAsReference(item, idx, img)"
+                        >
+                          <template #icon>
+                            <n-icon :component="ImageOutline" :size="14"/>
+                          </template>
+                        </n-button>
+                      </div>
+                      <img
+                          :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
+                          alt="generated"
+                          @click="openLightbox(item, idx, img)"
+                      />
+                      <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
+                        临时链接，可能过期
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div
+                    v-if="itemStatus(item) === 'done' && item.images?.length"
+                    class="msg-actions"
+                >
+                  <n-button
+                      circle
+                      quaternary
+                      size="tiny"
+                      @click="downloadImage(item.id, 0, item.images[0], `gen-${item.id}-0.png`)"
+                  >
+                    <template #icon>
+                      <n-icon :component="DownloadOutline" :size="14"/>
+                    </template>
+                  </n-button>
+                  <n-button
+                      circle
+                      quaternary
+                      size="tiny"
+                      @click="useAsReference(item, 0, item.images[0])"
+                  >
+                    <template #icon>
+                      <n-icon :component="ImageOutline" :size="14"/>
+                    </template>
+                  </n-button>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
 
         <div class="composer">
@@ -443,18 +678,18 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
             <div class="composer-toolbar">
               <div class="mode-switch">
                 <button
-                  :class="{ active: mode === 'txt2img' }"
-                  class="mode-item"
-                  type="button"
-                  @click="mode = 'txt2img'"
+                    :class="{ active: mode === 'txt2img' }"
+                    class="mode-item"
+                    type="button"
+                    @click="mode = 'txt2img'"
                 >
                   文生图
                 </button>
                 <button
-                  :class="{ active: mode === 'img2img' }"
-                  class="mode-item"
-                  type="button"
-                  @click="mode = 'img2img'"
+                    :class="{ active: mode === 'img2img' }"
+                    class="mode-item"
+                    type="button"
+                    @click="mode = 'img2img'"
                 >
                   图生图
                 </button>
@@ -463,43 +698,58 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
               <div class="opt-group">
                 <label class="opt-item opt-count">
                   <span class="opt-label">数量</span>
-                  <n-input-number v-model:value="n" :max="4" :min="1" size="small" />
+                  <n-input-number v-model:value="n" :max="4" :min="1" size="small"/>
                 </label>
                 <label v-if="!isXai" class="opt-item opt-size">
                   <span class="opt-label">尺寸</span>
-                  <n-select v-model:value="size" :options="sizeOptions" size="small" />
+                  <n-select
+                      v-model:value="size"
+                      :options="sizeOptions"
+                      :render-label="renderSelectLabel"
+                      size="small"
+                  />
                 </label>
                 <label v-else class="opt-item opt-ratio">
                   <span class="opt-label">比例</span>
-                  <n-select v-model:value="aspectRatio" :options="aspectOptions" size="small" />
+                  <n-select
+                      v-model:value="aspectRatio"
+                      :options="aspectOptions"
+                      :render-label="renderSelectLabel"
+                      size="small"
+                  />
                 </label>
                 <label class="opt-item opt-quality">
                   <span class="opt-label">质量</span>
-                  <n-select v-model:value="quality" :options="qualityOptions" size="small" />
+                  <n-select
+                      v-model:value="quality"
+                      :options="qualityOptions"
+                      :render-label="renderSelectLabel"
+                      size="small"
+                  />
                 </label>
               </div>
             </div>
 
             <div v-if="mode === 'img2img'" class="upload-row">
               <n-upload
-                v-if="!previewUrl"
-                :custom-request="onUpload"
-                :show-file-list="false"
-                accept="image/*"
+                  v-if="!previewUrl"
+                  :custom-request="onUpload"
+                  :show-file-list="false"
+                  accept="image/*"
               >
                 <n-button dashed size="small">
                   <template #icon>
-                    <n-icon :component="ImageOutline" />
+                    <n-icon :component="ImageOutline"/>
                   </template>
                   上传参考图
                 </n-button>
               </n-upload>
               <div v-else class="ref-chip">
-                <img :src="previewUrl" alt="reference" />
+                <img :src="previewUrl" alt="reference"/>
                 <span class="ref-name">参考图已选</span>
                 <n-button quaternary size="tiny" @click="clearUpload">
                   <template #icon>
-                    <n-icon :component="TrashOutline" />
+                    <n-icon :component="TrashOutline"/>
                   </template>
                 </n-button>
               </div>
@@ -507,26 +757,44 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
 
             <div class="composer-input">
               <n-input
-                v-model:value="prompt"
-                :autosize="{ minRows: 3, maxRows: 8 }"
-                :disabled="loading"
-                class="composer-field"
-                placeholder="描述你想生成的画面…"
-                type="textarea"
+                  v-model:value="prompt"
+                  :autosize="{ minRows: 3, maxRows: 8 }"
+                  :disabled="loading"
+                  class="composer-field"
+                  placeholder="描述你想生成的画面，Enter 生成，Shift+Enter 换行"
+                  type="textarea"
+                  @keydown="onKeydown"
               />
               <div class="composer-actions">
                 <n-button
-                  :disabled="!prompt.trim() || loading"
-                  :loading="loading"
-                  class="action-btn send-btn"
-                  round
-                  size="medium"
-                  type="primary"
-                  @click="generate"
+                    v-if="loading"
+                    circle
+                    class="action-btn send-btn"
+                    size="medium"
+                    type="warning"
+                    @click="stopGenerate"
                 >
-                  {{ mode === 'txt2img' ? '生成' : '图生图' }}
+                  <template #icon>
+                    <n-icon :component="StopOutline"/>
+                  </template>
+                </n-button>
+                <n-button
+                    v-else
+                    :disabled="!prompt.trim()"
+                    circle
+                    class="action-btn send-btn"
+                    size="medium"
+                    type="primary"
+                    @click="generate"
+                >
+                  <template #icon>
+                    <n-icon :component="SparklesOutline"/>
+                  </template>
                 </n-button>
               </div>
+            </div>
+            <div class="composer-hint">
+              {{ loading ? '生成中可点击停止' : 'Enter 生成 · Shift+Enter 换行' }}
             </div>
           </div>
         </div>
@@ -534,18 +802,34 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
     </div>
 
     <n-modal
-      v-model:show="lightboxShow"
-      :bordered="false"
-      :mask-closable="true"
-      :title="lightboxTitle"
-      preset="card"
-      size="huge"
-      style="width: min(920px, 94vw)"
-      @after-leave="closeLightbox"
+        v-model:show="lightboxShow"
+        :bordered="false"
+        :mask-closable="true"
+        :title="lightboxTitle"
+        preset="card"
+        size="huge"
+        style="width: min(920px, 94vw)"
+        @after-leave="closeLightbox"
     >
       <div class="lightbox-body" title="点击关闭预览" @click="lightboxShow = false">
-        <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview" />
+        <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview"/>
       </div>
+      <template v-if="lightboxPayload" #footer>
+        <div class="lightbox-footer">
+          <n-button
+              secondary
+              size="small"
+              @click="downloadImage(
+                lightboxPayload.itemId,
+                lightboxPayload.idx,
+                lightboxPayload.img,
+                lightboxPayload.name,
+              )"
+          >
+            下载原图
+          </n-button>
+        </div>
+      </template>
     </n-modal>
   </div>
 </template>
@@ -559,6 +843,7 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
 .image-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -608,12 +893,8 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
 }
 
 .empty {
-  height: 100%;
-  min-height: 280px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  margin-top: 18vh;
+  text-align: center;
   color: var(--text-3);
 }
 
@@ -621,63 +902,194 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-1);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .empty-desc {
   font-size: 13px;
 }
 
-.card {
-  margin-bottom: 22px;
-  padding: 14px;
-  border-radius: var(--radius-xl);
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+.msg {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  max-width: 900px;
 }
 
-.card-meta {
+.msg.user {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.role {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  flex-shrink: 0;
+  background: rgba(124, 156, 255, 0.2);
+  color: #c5d2ff;
+}
+
+.msg.user .role {
+  background: rgba(52, 211, 153, 0.18);
+  color: #9af0c9;
+}
+
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: min(720px, 78vw);
+  width: fit-content;
+}
+
+.msg.user .msg-body {
+  align-items: flex-end;
+}
+
+.bubble {
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.msg.user .bubble {
+  background: rgba(124, 156, 255, 0.14);
+}
+
+.msg.error .bubble {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
+.user-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bubble-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prompt-text {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-1);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ref-thumb {
+  img {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-muted);
+  }
+}
+
+.ai-bubble {
+  /* 贴合缩略图，避免单图时气泡右侧留白 */
+  min-width: 0;
+  padding: 6px;
+}
+
+.ai-loading {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  padding: 12px 4px;
+  color: var(--text-3);
+  font-size: 13px;
 }
 
-.prompt {
-  flex: 1;
+.ai-error {
+  padding: 8px 2px;
   font-size: 13px;
+  line-height: 1.5;
+  color: #fecaca;
+}
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  color: var(--text-4);
+}
+
+.msg:hover .msg-actions,
+.msg-actions:focus-within {
+  opacity: 1;
+}
+
+.msg-actions :deep(.n-button) {
+  color: var(--text-4);
+}
+
+.msg-actions :deep(.n-button:hover) {
   color: var(--text-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.page.mobile .msg-actions {
+  opacity: 1;
 }
 
 .imgs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
-  gap: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .img-wrap {
   position: relative;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-bg);
   border: 1px solid var(--border-subtle);
+  width: 148px;
+  height: 148px;
+  flex: 0 0 auto;
+  max-width: 100%;
 
   .img-actions {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 6px;
+    right: 6px;
     z-index: 2;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 999px;
+    padding: 2px;
+  }
+
+  &:hover .img-actions {
+    opacity: 1;
   }
 
   img {
     display: block;
     width: 100%;
-    max-height: min(68vh, 760px);
-    aspect-ratio: auto;
-    object-fit: contain;
+    height: 148px;
+    object-fit: cover;
     cursor: zoom-in;
     background: var(--color-bg);
     transition: opacity 0.15s ease;
@@ -686,6 +1098,10 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
       opacity: 0.96;
     }
   }
+}
+
+.page.mobile .img-wrap .img-actions {
+  opacity: 1;
 }
 
 .composer {
@@ -702,17 +1118,15 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(22, 24, 32, 0.92);
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28),
+  inset 0 1px 0 rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(12px);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
   &:focus-within {
     border-color: rgba(124, 156, 255, 0.45);
-    box-shadow:
-      0 12px 32px rgba(0, 0, 0, 0.32),
-      0 0 0 1px rgba(124, 156, 255, 0.18);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(124, 156, 255, 0.18);
   }
 }
 
@@ -792,7 +1206,7 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
 }
 
 .upload-row {
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .ref-chip {
@@ -834,6 +1248,11 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
     --n-color: transparent !important;
     --n-color-focus: transparent !important;
     --n-box-shadow: none !important;
+    --n-font-size: 14px;
+    --n-line-height: 1.55;
+    --n-padding-vertical: 6px;
+    --n-padding-left: 4px;
+    --n-padding-right: 4px;
     background: transparent !important;
   }
 
@@ -842,10 +1261,17 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
     display: none;
   }
 
-  :deep(textarea) {
-    padding: 2px 4px !important;
-    font-size: 14px;
-    line-height: 1.55;
+  :deep(.n-input__textarea-el),
+  :deep(.n-input__placeholder) {
+    padding: var(--n-padding-vertical) var(--n-padding-right) var(--n-padding-vertical) var(--n-padding-left) !important;
+    font-size: var(--n-font-size);
+    line-height: var(--n-line-height);
+  }
+
+  :deep(.n-input__textarea-el) {
+    cursor: text;
+    caret-color: var(--color-primary-hover);
+    color: var(--text-1);
   }
 }
 
@@ -854,8 +1280,15 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
-  align-items: stretch;
-  min-width: 92px;
+  align-items: center;
+  min-width: 0;
+}
+
+.composer-hint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-4);
 }
 
 .action-btn {
@@ -864,9 +1297,47 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
 }
 
 .send-btn {
-  min-height: 36px;
-  padding: 0 16px !important;
+  width: 40px;
+  height: 40px;
   box-shadow: 0 6px 16px rgba(124, 156, 255, 0.28);
+}
+
+.temp-tip {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  text-align: center;
+  color: #fff;
+  background: rgba(230, 162, 60, 0.9);
+  pointer-events: none;
+}
+
+.lightbox-body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 240px;
+  max-height: 72vh;
+  overflow: auto;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  cursor: zoom-out;
+
+  img {
+    max-width: 100%;
+    max-height: 72vh;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+  }
+}
+
+.lightbox-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 
 @media (max-width: 1279.98px) {
@@ -874,12 +1345,17 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
     padding: 14px 16px;
   }
 
-  .imgs {
-    grid-template-columns: 1fr;
+  .bubble {
+    max-width: min(720px, 86vw);
+  }
+
+  .img-wrap {
+    width: 128px;
+    height: 128px;
   }
 
   .img-wrap img {
-    max-height: min(62vh, 640px);
+    height: 128px;
   }
 }
 
@@ -910,17 +1386,12 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
     padding: 12px;
   }
 
-  .card {
-    padding: 10px;
+  .msg {
+    max-width: 100%;
   }
 
-  .card-meta {
-    flex-wrap: wrap;
-  }
-
-  .prompt {
-    flex-basis: 100%;
-    order: 3;
+  .bubble {
+    max-width: calc(100vw - 72px);
   }
 
   .composer {
@@ -973,7 +1444,7 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   }
 
   .img-wrap img {
-    max-height: min(55vh, 480px);
+    max-height: min(48vh, 420px);
   }
 
   .lightbox-body {
@@ -982,39 +1453,6 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
     img {
       max-height: 70vh;
     }
-  }
-}
-
-.temp-tip {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  right: 6px;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  text-align: center;
-  color: #fff;
-  background: rgba(230, 162, 60, 0.9);
-  pointer-events: none;
-}
-
-.lightbox-body {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 240px;
-  max-height: 72vh;
-  overflow: auto;
-  background: var(--color-bg);
-  border-radius: var(--radius-lg);
-  cursor: zoom-out;
-
-  img {
-    max-width: 100%;
-    max-height: 72vh;
-    object-fit: contain;
-    border-radius: var(--radius-sm);
   }
 }
 </style>

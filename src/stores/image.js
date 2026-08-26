@@ -114,15 +114,27 @@ export const useImageStore = defineStore('image', {
       const record = {
         id: createId('gen'),
         createdAt: Date.now(),
+        status: 'done',
         ...safe,
       }
-      session.items.unshift(record)
+      session.items.push(record)
       session.updatedAt = Date.now()
       if (session.title === '新生图' && item.prompt) {
         session.title = String(item.prompt).slice(0, 24) || '新生图'
       }
       this.persist()
       return record
+    },
+    updateItem(sessionId, itemId, patch, options = {}) {
+      const {persist = true} = options
+      const session = this.sessions.find((s) => s.id === sessionId)
+      if (!session) return
+      const target = session.items.find((i) => i.id === itemId)
+      if (!target) return
+      const safe = sanitizeItem({...target, ...patch})
+      Object.assign(target, safe)
+      session.updatedAt = Date.now()
+      if (persist) this.persist()
     },
     async removeItem(sessionId, itemId) {
       const session = this.sessions.find((s) => s.id === sessionId)

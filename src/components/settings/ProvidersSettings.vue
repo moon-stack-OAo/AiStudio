@@ -6,6 +6,7 @@ import {isBuiltinProvider, useSettingsStore} from '@/stores/settings'
 import {testProviderConnection} from '@/api/client'
 import {useProviderModels} from '@/composables/useProviderModels'
 import {isTauri} from '@/utils/request'
+import {renderSelectLabel} from '@/utils/selectRender'
 
 const settings = useSettingsStore()
 const message = useMessage()
@@ -98,8 +99,8 @@ function addCustom() {
     name: '自定义接口',
     baseUrl: '',
     apiKey: '',
-    chatModel: 'gpt-4o',
-    imageModel: 'dall-e-3',
+    chatModel: '',
+    imageModel: '',
     provider: 'openai-compatible',
   })
   selectedId.value = item.id
@@ -214,6 +215,7 @@ defineExpose({ addCustom, reset })
                 <div class="field-label">接口类型</div>
                 <n-select
                   :options="providerTypeOptions"
+                  :render-label="renderSelectLabel"
                   :value="current.provider"
                   size="small"
                   @update:value="(v) => patch('provider', v)"
@@ -296,6 +298,7 @@ defineExpose({ addCustom, reset })
                 <n-select
                   :loading="modelsLoading"
                   :options="chatModelOptions"
+                  :render-label="renderSelectLabel"
                   :value="current.chatModel || null"
                   filterable
                   placeholder="gpt-4o / grok-4.5"
@@ -309,6 +312,7 @@ defineExpose({ addCustom, reset })
                 <n-select
                   :loading="imageModelsLoading"
                   :options="imageModelOptions"
+                  :render-label="renderSelectLabel"
                   :value="current.imageModel || null"
                   filterable
                   placeholder="gpt-image-1 / grok-imagine-image"

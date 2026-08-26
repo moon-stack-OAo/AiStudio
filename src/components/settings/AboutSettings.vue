@@ -8,6 +8,7 @@ import {isTauri} from '@/utils/request'
 import {getAppVersion} from '@/utils/version'
 import {checkForUpdate, installUpdateAndRelaunch} from '@/utils/updater'
 import {CHAT_CONTEXT_MAX_TURNS_OPTIONS} from '@/utils/constants'
+import {renderSelectLabel} from '@/utils/selectRender'
 
 const settings = useSettingsStore()
 const message = useMessage()
@@ -233,6 +234,7 @@ function onClearLocalData() {
           <n-select
             :disabled="!settings.chatContextTrimEnabled"
             :options="maxTurnsOptions"
+            :render-label="renderSelectLabel"
             :value="settings.chatContextMaxTurns"
             size="small"
             style="width: 120px"
@@ -255,6 +257,7 @@ function onClearLocalData() {
           <n-select
             :loading="savingClosePref"
             :options="closePrefOptions"
+            :render-label="renderSelectLabel"
             :value="closePref"
             size="small"
             style="width: 200px"

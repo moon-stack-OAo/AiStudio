@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, Runtime,
 };
@@ -87,17 +87,35 @@ fn hide_main_window<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// 创建托盘：左键显示主窗口；菜单含显示 / 退出
+fn emit_tray_action<R: Runtime>(app: &AppHandle<R>, action: &str) {
+    show_main_window(app);
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.emit("tray-action", action);
+    }
+}
+
+/// 创建托盘：左键显示主窗口；菜单含显示 / 对话 / 设置 / 检查更新 / 退出
 pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let show_i = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
+    let chat_i = MenuItem::with_id(app, "open-chat", "打开对话", true, None::<&str>)?;
+    let settings_i = MenuItem::with_id(app, "open-settings", "设置", true, None::<&str>)?;
+    let update_i = MenuItem::with_id(app, "check-update", "检查更新", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+    let sep1 = PredefinedMenuItem::separator(app)?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+    let menu = Menu::with_items(
+        app,
+        &[&show_i, &sep1, &chat_i, &settings_i, &update_i, &sep2, &quit_i],
+    )?;
 
     let mut builder = TrayIconBuilder::new()
         .menu(&menu)
         .tooltip("AI Studio")
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_main_window(app),
+            "open-chat" => emit_tray_action(app, "open-chat"),
+            "open-settings" => emit_tray_action(app, "open-settings"),
+            "check-update" => emit_tray_action(app, "check-update"),
             "quit" => {
                 app.exit(0);
             }
