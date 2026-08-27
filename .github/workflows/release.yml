@@ -203,6 +203,7 @@ jobs:
           args: --apk --ci --target aarch64
           releaseId: ${{ needs.publish-windows.outputs.releaseId }}
           tagName: ${{ github.ref_name }}
+          releaseAssetNamePattern: '[name]_[version][ext]'
           uploadUpdaterJson: false
           uploadUpdaterSignatures: false
 
@@ -212,11 +213,26 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          ASSET_NAME="AI.Studio_${VERSION}.apk"
+
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qxF "$ASSET_NAME"; then
+            echo "Release already has $ASSET_NAME，跳过 fallback"
+            exit 0
+          fi
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qiE '\.apk$'; then
+            echo "Release 已有其他 APK 资产，跳过 fallback"
+            exit 0
+          fi
+
           mapfile -t APKS < <(find src-tauri/gen/android -type f -name '*.apk' 2>/dev/null || true)
           if [ "${#APKS[@]}" -eq 0 ]; then
             echo "No APK found for fallback upload"
             exit 0
           fi
-          echo "Found APKs:"
-          printf '%s\n' "${APKS[@]}"
-          gh release upload "${{ github.ref_name }}" "${APKS[@]}" --clobber || true
+          SRC="${APKS[0]}"
+          OUT="${RUNNER_TEMP}/${ASSET_NAME}"
+          cp -f "$SRC" "$OUT"
+          echo "Fallback upload: $SRC -> $ASSET_NAME"
+          gh release upload "$TAG" "$OUT" --clobber
