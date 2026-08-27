@@ -1,3 +1,16 @@
+const VIDEO_HINTS = [
+  'video',
+  'sora',
+  'veo',
+  'imagine-video',
+  'seedance',
+  'kling',
+  'runway',
+  'luma',
+  'hailuo',
+  'minimax-video',
+]
+
 const IMAGE_HINTS = [
   'dall-e',
   'gpt-image',
@@ -18,6 +31,8 @@ const CHAT_EXCLUDE = [
   'transcribe',
   'moderation',
   'realtime',
+  'video',
+  'sora',
 ]
 
 function includesAny(id, keywords) {
@@ -25,11 +40,12 @@ function includesAny(id, keywords) {
 }
 
 /**
- * 粗分对话 / 生图模型（中转站命名不一，仅作 UI 筛选提示）
+ * 粗分对话 / 生图 / 视频模型（中转站命名不一，仅作 UI 筛选提示）
  */
 export function classifyModelId(modelId) {
   const id = String(modelId || '').toLowerCase()
   if (!id) return 'other'
+  if (includesAny(id, VIDEO_HINTS)) return 'video'
   if (includesAny(id, IMAGE_HINTS)) return 'image'
   if (includesAny(id, CHAT_EXCLUDE)) return 'other'
   return 'chat'

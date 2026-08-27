@@ -1,5 +1,5 @@
 <script setup>
-import {computed, h, onMounted, ref, watch} from 'vue'
+import {computed, h, onMounted, provide, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
 import {
@@ -9,6 +9,7 @@ import {
   MoonOutline,
   SettingsOutline,
   SunnyOutline,
+  VideocamOutline,
 } from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
@@ -30,6 +31,17 @@ useVisualViewport()
 const desktopFrame = isDesktopTauri()
 
 const mobileNavShow = ref(false)
+const isWorkspaceRoute = computed(() => {
+  const name = String(route.name || '')
+  return name === 'chat' || name === 'image' || name === 'video'
+})
+const showAppMobileTopbar = computed(() => isMobile.value && !isWorkspaceRoute.value)
+
+function openMobileNav() {
+  mobileNavShow.value = true
+}
+
+provide('openMobileNav', openMobileNav)
 
 const naiveTheme = computed(() => (settings.theme === 'dark' ? darkTheme : null))
 const themeOverrides = computed(() => THEME_OVERRIDES[settings.theme] || THEME_OVERRIDES.dark)
@@ -49,6 +61,7 @@ const menuOptions = computed(() => {
   return [
     { label: '对话', key: 'chat', icon: renderIcon(ChatbubblesOutline) },
     { label: '生图', key: 'image', icon: renderIcon(ImageOutline) },
+    { label: '生视频', key: 'video', icon: renderIcon(VideocamOutline) },
     {
       label: () =>
         h('span', { class: 'menu-label-with-badge' }, [
@@ -105,19 +118,24 @@ function onMenuUpdate(key) {
           <TrayActionListener v-if="desktopFrame" />
           <CloseConfirm v-if="desktopFrame" />
           <div
-            :class="{ compact: isCompact, mobile: isMobile, framed: desktopFrame }"
+            :class="{
+              compact: isCompact,
+              mobile: isMobile,
+              framed: desktopFrame,
+              'has-mobile-topbar': showAppMobileTopbar,
+            }"
             class="app-shell"
           >
             <TitleBar v-if="desktopFrame" />
 
             <div class="app-body">
-              <header v-if="isMobile" class="mobile-topbar">
+              <header v-if="showAppMobileTopbar" class="mobile-topbar">
                 <n-button
                     aria-label="打开菜单"
                     circle
                     class="touch-target"
                     quaternary
-                    @click="mobileNavShow = true"
+                    @click="openMobileNav"
                 >
                   <template #icon>
                     <n-icon :component="MenuOutline" />
@@ -148,7 +166,7 @@ function onMenuUpdate(key) {
                   <div class="logo">AI</div>
                   <div v-if="!collapsed" class="brand-text">
                     <div class="title">AI Studio</div>
-                    <div class="sub">对话 · 文生图 · 图生图</div>
+                    <div class="sub">对话 · 生图 · 生视频</div>
                   </div>
                 </div>
 
@@ -186,6 +204,17 @@ function onMenuUpdate(key) {
                       <span class="dot" />
                       <span class="name">{{ settings.activeProvider.name }}</span>
                     </div>
+                    <n-button
+                      :aria-label="themeToggleTip"
+                      class="drawer-theme-btn touch-target"
+                      quaternary
+                      @click="settings.toggleTheme()"
+                    >
+                      <template #icon>
+                        <n-icon :component="themeToggleIcon" />
+                      </template>
+                      {{ themeToggleTip }}
+                    </n-button>
                     <div class="hint">密钥仅保存在本机</div>
                   </div>
                 </n-drawer-content>
@@ -355,7 +384,18 @@ function onMenuUpdate(key) {
 }
 
 .app-shell.mobile .main {
+  height: 100%;
+}
+
+.app-shell.mobile.has-mobile-topbar .main {
   height: calc(100% - 44px - var(--safe-top));
+}
+
+.drawer-theme-btn {
+  width: 100%;
+  justify-content: flex-start;
+  margin: 8px 0;
+  min-height: var(--touch-min);
 }
 
 @media (max-width: 1279.98px) and (min-width: 768px) {

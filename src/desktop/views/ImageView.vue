@@ -4,7 +4,7 @@ import {useDialog, useMessage} from 'naive-ui'
 import {DownloadOutline, ImageOutline, OptionsOutline, SparklesOutline, TrashOutline,} from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
-import CopyIconButton from '@/components/CopyIconButton.vue'
+import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@/components/ComposerSendStop.vue'
 import {useImageStore} from '@core/stores/image'
 import {useSettingsStore} from '@core/stores/settings'
@@ -29,7 +29,7 @@ const mode = ref('txt2img')
 const prompt = ref('')
 const loading = ref(false)
 const n = ref(1)
-const size = ref('1024x1024')
+const size = ref('1920x1080')
 const aspectRatio = ref('1:1')
 const quality = ref('medium')
 const imageFile = ref(null)
@@ -79,9 +79,12 @@ const timelineItems = computed(() => {
 })
 
 const sizeOptionsDesktop = [
-  {label: '1024×1024', value: '1024x1024'},
-  {label: '1024×1536', value: '1024x1536'},
-  {label: '1536×1024', value: '1536x1024'},
+  {label: '1920×1080', value: '1920x1080'},
+  {label: '1080×1920', value: '1080x1920'},
+  {label: '2560×1440', value: '2560x1440'},
+  {label: '1440×2560', value: '1440x2560'},
+  {label: '3840×2160', value: '3840x2160'},
+  {label: '2160×3840', value: '2160x3840'},
 ]
 
 const aspectOptions = [
@@ -90,7 +93,7 @@ const aspectOptions = [
   {label: '9:16', value: '9:16'},
   {label: '4:3', value: '4:3'},
   {label: '3:4', value: '3:4'},
-  {label: 'auto', value: 'auto'},
+  {label: '21:9', value: '21:9'},
 ]
 
 const qualityOptionsDesktop = [
@@ -533,6 +536,17 @@ async function openLightbox(item, idx, img) {
   lightboxShow.value = true
 }
 
+function openRefLightbox(src) {
+  if (!src) {
+    message.warning('图片不可用')
+    return
+  }
+  lightboxSrc.value = src
+  lightboxTitle.value = '参考图'
+  lightboxPayload.value = null
+  lightboxShow.value = true
+}
+
 function closeLightbox() {
   lightboxShow.value = false
   lightboxSrc.value = ''
@@ -734,7 +748,12 @@ const sendTooltip = computed(() =>
                   v-if="item.mode === 'img2img' && (refThumbMap[item.id] || item.refPreview)"
                   class="ref-thumb"
                 >
-                  <img :src="refThumbMap[item.id] || item.refPreview" alt="reference"/>
+                  <img
+                    :src="refThumbMap[item.id] || item.refPreview"
+                    alt="reference"
+                    title="点击预览"
+                    @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
+                  />
                 </div>
                 <div class="prompt-text">{{ item.prompt }}</div>
               </div>
@@ -821,6 +840,17 @@ const sendTooltip = computed(() =>
       </div>
 
       <div class="composer">
+        <div
+          v-if="!isMobile || isGeneratingCurrent"
+          :class="{ 'is-critical': isMobile && isGeneratingCurrent }"
+          class="composer-hint"
+        >
+          {{
+            isGeneratingCurrent
+              ? '生成中可点击停止'
+              : 'Enter 生成 · Shift+Enter 换行 · Ctrl+V 粘贴参考图'
+          }}
+        </div>
         <div class="composer-card">
           <!-- 桌面端：参数直接展示 -->
           <div v-if="!isMobile" class="composer-toolbar">
@@ -954,17 +984,6 @@ const sendTooltip = computed(() =>
               />
             </div>
           </div>
-        </div>
-        <div
-          v-if="!isMobile || isGeneratingCurrent"
-          :class="{ 'is-critical': isMobile && isGeneratingCurrent }"
-          class="composer-hint"
-        >
-          {{
-            isGeneratingCurrent
-              ? '生成中可点击停止'
-              : 'Enter 生成 · Shift+Enter 换行 · Ctrl+V 粘贴参考图'
-          }}
         </div>
       </div>
     </div>

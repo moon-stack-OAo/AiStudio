@@ -1,4 +1,5 @@
 /* 对话页 / 生成页共享：消息气泡与输入区（slot 内容，由页面 scoped 生效） */
+@use '@core/styles/session-workspace-base.scss';
 
 .provider-select {
   width: 160px;
@@ -30,11 +31,6 @@
   max-width: 100%;
 }
 
-.msg.user {
-  margin-left: auto;
-  flex-direction: row-reverse;
-}
-
 .role {
   width: 28px;
   height: 28px;
@@ -61,10 +57,6 @@
   max-width: calc(100% - 38px);
 }
 
-.msg.user .msg-body {
-  align-items: flex-end;
-}
-
 .bubble {
   padding: 10px 12px;
   border-radius: var(--radius-lg);
@@ -74,29 +66,6 @@
   max-width: 100%;
 }
 
-.msg.user .bubble {
-  background: var(--bubble-user-bg);
-}
-
-.msg.error .bubble {
-  border-color: rgba(248, 113, 113, 0.4);
-  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
-}
-
-.msg-status {
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--text-4);
-}
-
-.msg-status.stopped {
-  color: var(--color-warning);
-}
-
-.msg-status.error {
-  color: var(--color-danger);
-}
-
 .msg-actions {
   display: flex;
   align-items: center;
@@ -104,14 +73,6 @@
   color: var(--text-4);
   opacity: 1;
   transition: opacity 0.15s ease;
-}
-
-.msg-actions :deep(.n-button) {
-  color: var(--text-4);
-}
-
-.msg-actions :deep(.n-button:hover) {
-  color: var(--text-2);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -126,6 +87,7 @@
 }
 
 .composer {
+  /* 桌面端消费 safe-bottom；安卓底栏场景由端侧覆盖 */
   padding: 10px calc(18px + var(--safe-right)) 14px calc(18px + var(--safe-left));
   padding-bottom: max(14px, calc(8px + var(--safe-bottom)));
   background: transparent;
@@ -149,47 +111,6 @@
   }
 }
 
-.composer-field {
-  flex: 1;
-  min-width: 0;
-
-  :deep(.n-input) {
-    --n-border: transparent !important;
-    --n-border-hover: transparent !important;
-    --n-border-focus: transparent !important;
-    --n-color: transparent !important;
-    --n-color-focus: transparent !important;
-    --n-box-shadow: none !important;
-    --n-font-size: 14px;
-    --n-line-height: 1.55;
-    --n-padding-vertical: 6px;
-    --n-padding-left: 4px;
-    --n-padding-right: 4px;
-    background: transparent !important;
-  }
-
-  :deep(.n-input__border),
-  :deep(.n-input__state-border) {
-    display: none;
-  }
-
-  :deep(.n-input__textarea-el),
-  :deep(.n-input__placeholder) {
-    padding-top: var(--n-padding-vertical) !important;
-    padding-bottom: var(--n-padding-vertical) !important;
-    padding-left: var(--n-padding-left) !important;
-    padding-right: var(--n-padding-right) !important;
-    font-size: var(--n-font-size);
-    line-height: var(--n-line-height);
-  }
-
-  :deep(.n-input__textarea-el) {
-    cursor: text;
-    caret-color: var(--color-primary-hover);
-    color: var(--text-1);
-  }
-}
-
 .composer-actions {
   display: flex;
   flex-direction: column;
@@ -199,19 +120,16 @@
   min-width: 0;
 }
 
-.action-btn {
-  border-radius: var(--radius-pill) !important;
-  font-weight: 600;
-}
-
 .send-btn {
   width: 40px;
   height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   box-shadow: var(--shadow-send);
 }
 
 .composer-hint {
-  margin-top: 8px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -225,6 +143,7 @@
   padding: 8px calc(14px + var(--safe-right)) 12px calc(14px + var(--safe-left));
 }
 
+/* 与 useBreakpoints isMobile(<768) 对齐 */
 @media (max-width: 767.98px) {
   .provider-select {
     width: auto;
@@ -289,6 +208,13 @@
     min-width: 0;
   }
 
+  .send-btn {
+    width: var(--touch-min);
+    height: var(--touch-min);
+    min-width: var(--touch-min);
+    min-height: var(--touch-min);
+  }
+
   /* 常态隐藏底部说明，减少占高；仅保留关键提示由页面按需覆盖 */
   .composer-hint {
     display: none;
@@ -296,7 +222,7 @@
 
   .composer-hint.is-critical {
     display: flex;
-    margin-top: 6px;
+    margin-bottom: 6px;
     font-size: 11px;
     gap: 6px 10px;
     line-height: 1.5;

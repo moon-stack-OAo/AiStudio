@@ -4,7 +4,7 @@ export function isTauri() {
 }
 
 /**
- * 是否为桌面端 Tauri（自定义标题栏 / 托盘 / 应用内更新）
+ * 是否为桌面端 Tauri（自定义标题栏 / 托盘 / 桌面 Updater）
  * Android、iOS 上 isTauri() 也为 true，但不走桌面帧逻辑
  */
 export function isDesktopTauri() {
@@ -13,6 +13,13 @@ export function isDesktopTauri() {
   if (/Android/i.test(p)) return false
   if (/iPhone|iPad|iPod/i.test(p)) return false
   return true
+}
+
+/** 是否为 Android Tauri（侧载清单更新） */
+export function isAndroidTauri() {
+  if (!isTauri()) return false
+  const p = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
+  return /Android/i.test(p)
 }
 
 /**

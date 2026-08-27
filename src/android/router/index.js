@@ -16,6 +16,11 @@ const routes = [
     component: () => import('@/views/ImageView.vue'),
   },
   {
+    path: '/video',
+    name: 'video',
+    component: () => import('@/views/VideoView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('@/views/SettingsView.vue'),

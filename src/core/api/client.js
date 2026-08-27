@@ -1,7 +1,11 @@
 import axios from 'axios'
 import {appFetch} from '@core/utils/http'
+import {compressImageFile} from '@core/utils/imageCompress'
 import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl,} from '@core/utils/request'
 import {API_TIMEOUT_MS, DEFAULT_TEMPERATURE} from '@core/utils/constants'
+
+const HTTP_413_HINT =
+  '上传内容过大（HTTP 413）。请换更小的参考图，或已自动压缩仍失败则换图重试。'
 
 function extractApiErrorMessage(data) {
   if (data == null) return ''
@@ -23,6 +27,19 @@ function extractApiErrorMessage(data) {
   } catch {
     return ''
   }
+}
+
+/** 将 HTTP 状态与响应体整理为可读错误文案 */
+function httpStatusErrorMessage(status, bodyMessage = '') {
+  if (status === 413) return HTTP_413_HINT
+  const fromBody = String(bodyMessage || '').trim()
+  if (fromBody && !/^HTTP\s*413\b/i.test(fromBody) && !/payload too large|request entity too large/i.test(fromBody)) {
+    return fromBody
+  }
+  if (status === 413 || /payload too large|request entity too large/i.test(fromBody)) {
+    return HTTP_413_HINT
+  }
+  return fromBody || (status ? `HTTP ${status}` : '')
 }
 
 /** 将任意抛出值转为可读错误文案 */
@@ -90,13 +107,15 @@ export function createApiClient(provider) {
   client.interceptors.response.use(
     (res) => res,
     (error) => {
+      const status = error.response?.status
       const data = error.response?.data
-      const msg =
+      const raw =
         extractApiErrorMessage(data) ||
         (typeof data === 'string' ? data : '') ||
         formatNetworkError(error, useCorsProxy)
+      const msg = httpStatusErrorMessage(status, raw) || raw
       const wrapped = new Error(msg)
-      wrapped.status = error.response?.status
+      wrapped.status = status
       wrapped.response = error.response
       return Promise.reject(wrapped)
     },
@@ -256,7 +275,7 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
     } catch {
       // ignore
     }
-    throw new Error(message)
+    throw new Error(httpStatusErrorMessage(res.status, message) || message)
   }
 
   const reader = res.body?.getReader()
@@ -374,8 +393,10 @@ export async function editImage(provider, options) {
 
   const useCorsProxy = Boolean(provider.useCorsProxy)
 
+  const compressed = await compressImageFile(imageFile)
+
   if (provider.provider === 'xai') {
-    const dataUrl = await fileToDataUrl(imageFile)
+    const dataUrl = await fileToDataUrl(compressed)
     const client = createApiClient(provider)
     const body = {
       model: provider.imageModel,
@@ -400,7 +421,7 @@ export async function editImage(provider, options) {
   form.append('n', String(n))
   form.append('size', size)
   form.append('response_format', responseFormat)
-  form.append('image', imageFile)
+  form.append('image', compressed)
 
   const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
 
@@ -430,7 +451,7 @@ export async function editImage(provider, options) {
     } catch {
       // ignore
     }
-    throw new Error(message)
+    throw new Error(httpStatusErrorMessage(res.status, message) || message)
   }
 
   const data = await res.json()
@@ -457,4 +478,341 @@ function normalizeImageResponse(data) {
 
 export async function fileToPreview(file) {
   return fileToDataUrl(file)
+}
+
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      const err = new Error('已取消')
+      err.name = 'AbortError'
+      reject(err)
+      return
+    }
+    const timer = setTimeout(resolve, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      const err = new Error('已取消')
+      err.name = 'AbortError'
+      reject(err)
+    }
+    signal?.addEventListener?.('abort', onAbort, { once: true })
+  })
+}
+
+function normalizeVideoJobStatus(raw) {
+  const s = String(raw || '').toLowerCase()
+  if (s === 'completed' || s === 'done' || s === 'success' || s === 'succeeded') {
+    return 'completed'
+  }
+  if (s === 'failed' || s === 'expired' || s === 'error' || s === 'cancelled' || s === 'canceled') {
+    return 'failed'
+  }
+  if (s === 'queued' || s === 'pending') return 'queued'
+  if (s === 'in_progress' || s === 'processing' || s === 'running') return 'in_progress'
+  if (!s) return 'queued'
+  return 'in_progress'
+}
+
+function extractVideoUrl(data) {
+  if (!data || typeof data !== 'object') return ''
+  return (
+    data.url ||
+    data.video_url ||
+    data.videoUrl ||
+    data.video?.url ||
+    data.output?.url ||
+    data.result?.url ||
+    ''
+  )
+}
+
+function extractVideoJobId(data) {
+  if (!data || typeof data !== 'object') return ''
+  return String(
+    data.id ||
+      data.job_id ||
+      data.jobId ||
+      data.request_id ||
+      data.requestId ||
+      '',
+  )
+}
+
+function buildNormalizedVideoJob(data, fallbackId = '') {
+  const jobId = extractVideoJobId(data) || String(fallbackId || '')
+  const status = normalizeVideoJobStatus(data?.status)
+  const progressRaw = data?.progress ?? data?.percent ?? data?.percentage
+  const progress =
+    typeof progressRaw === 'number' && Number.isFinite(progressRaw)
+      ? progressRaw
+      : undefined
+  const videoUrl = extractVideoUrl(data)
+  let errorMessage = ''
+  if (status === 'failed') {
+    errorMessage =
+      extractApiErrorMessage(data?.error) ||
+      extractApiErrorMessage(data) ||
+      (data?.status === 'expired' ? '任务已过期' : '') ||
+      '视频生成失败'
+  }
+  return {
+    jobId,
+    status,
+    progress,
+    videoUrl: videoUrl || undefined,
+    errorMessage: errorMessage || undefined,
+    raw: data,
+  }
+}
+
+async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
+  const useCorsProxy = Boolean(provider.useCorsProxy)
+  const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
+  let res
+  try {
+    res = await appFetch(`${baseUrl}/videos/${encodeURIComponent(jobId)}/content`, {
+      method: 'GET',
+      headers: proxyHeaders(
+        provider.baseUrl,
+        useCorsProxy,
+        authHeaders(provider.apiKey),
+      ),
+      signal,
+      connectTimeout: API_TIMEOUT_MS,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError' || signal?.aborted) throw error
+    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+  }
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try {
+      const text = await res.text()
+      try {
+        message = extractApiErrorMessage(JSON.parse(text)) || message
+      } catch {
+        if (text?.trim()) message = text.trim().slice(0, 300)
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(httpStatusErrorMessage(res.status, message) || message)
+  }
+  const blob = await res.blob()
+  if (!blob || blob.size === 0) {
+    throw new Error('视频内容为空')
+  }
+  return URL.createObjectURL(blob)
+}
+
+async function createOpenAiVideoJob(provider, options) {
+  const {
+    prompt,
+    mode = 'txt2video',
+    imageFile,
+    seconds,
+    duration,
+    size,
+    signal,
+  } = options
+  const model = String(provider.videoModel || '').trim()
+  if (!model) throw new Error('请先设置视频模型')
+  if (!prompt?.trim() && mode !== 'img2video') {
+    throw new Error('请输入提示词')
+  }
+  if (mode === 'img2video' && !imageFile) {
+    throw new Error('图生视频需要上传参考图')
+  }
+
+  const sec = seconds ?? duration
+  const useCorsProxy = Boolean(provider.useCorsProxy)
+
+  if (mode === 'img2video' && imageFile) {
+    const compressed = await compressImageFile(imageFile)
+    const form = new FormData()
+    form.append('model', model)
+    form.append('prompt', prompt || '')
+    if (sec != null && sec !== '') form.append('seconds', String(sec))
+    if (size) form.append('size', size)
+    form.append('input_reference', compressed)
+
+    const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
+    let res
+    try {
+      res = await appFetch(`${baseUrl}/videos`, {
+        method: 'POST',
+        headers: proxyHeaders(
+          provider.baseUrl,
+          useCorsProxy,
+          authHeaders(provider.apiKey),
+        ),
+        body: form,
+        signal,
+        connectTimeout: API_TIMEOUT_MS,
+      })
+    } catch (error) {
+      if (error?.name === 'AbortError' || signal?.aborted) throw error
+      throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+    }
+    if (!res.ok) {
+      let message = `HTTP ${res.status}`
+      try {
+        const err = await res.json()
+        message = extractApiErrorMessage(err) || message
+      } catch {
+        // ignore
+      }
+      throw new Error(httpStatusErrorMessage(res.status, message) || message)
+    }
+    const data = await res.json()
+    return buildNormalizedVideoJob(data)
+  }
+
+  const client = createApiClient(provider)
+  const body = {
+    model,
+    prompt: prompt || '',
+  }
+  if (sec != null && sec !== '') body.seconds = String(sec)
+  if (size) body.size = size
+  const { data } = await client.post('/videos', body, { signal })
+  return buildNormalizedVideoJob(data)
+}
+
+async function createXaiVideoJob(provider, options) {
+  const {
+    prompt,
+    mode = 'txt2video',
+    imageFile,
+    seconds,
+    duration,
+    aspectRatio,
+    resolution,
+    signal,
+  } = options
+  const model = String(provider.videoModel || '').trim() || 'grok-imagine-video'
+  if (!prompt?.trim() && mode !== 'img2video') {
+    throw new Error('请输入提示词')
+  }
+  if (mode === 'img2video' && !imageFile) {
+    throw new Error('图生视频需要上传参考图')
+  }
+
+  const client = createApiClient(provider)
+  const body = {
+    model,
+    prompt: prompt || '',
+  }
+  const dur = duration ?? seconds
+  if (dur != null && dur !== '') body.duration = Number(dur) || dur
+  if (aspectRatio) body.aspect_ratio = aspectRatio
+  if (resolution) body.resolution = resolution
+
+  if (mode === 'img2video' && imageFile) {
+    const compressed = await compressImageFile(imageFile)
+    const dataUrl = await fileToDataUrl(compressed)
+    body.image = {
+      url: dataUrl,
+      type: 'image_url',
+    }
+  }
+
+  const { data } = await client.post('/videos/generations', body, { signal })
+  const job = buildNormalizedVideoJob(data)
+  if (!job.jobId) throw new Error('未返回 request_id')
+  if (!job.status || job.status === 'queued') {
+    job.status = 'queued'
+  }
+  return job
+}
+
+/**
+ * 创建视频生成任务（文生 / 图生）
+ * @returns {Promise<{ jobId, status, progress?, videoUrl?, errorMessage?, raw? }>}
+ */
+export async function createVideoJob(provider, options = {}) {
+  if (!provider?.baseUrl) throw new Error('请先填写 Base URL')
+  if (provider.provider === 'xai') {
+    return createXaiVideoJob(provider, options)
+  }
+  return createOpenAiVideoJob(provider, options)
+}
+
+/**
+ * 查询视频任务状态；OpenAI 兼容完成且无 url 时尝试拉取 /content
+ */
+export async function getVideoJob(provider, jobId, options = {}) {
+  const id = String(jobId || '').trim()
+  if (!id) throw new Error('缺少任务 ID')
+  if (!provider?.baseUrl) throw new Error('请先填写 Base URL')
+
+  const { signal, fetchContent = true } = options
+  const client = createApiClient(provider)
+  const { data } = await client.get(`/videos/${encodeURIComponent(id)}`, { signal })
+  const job = buildNormalizedVideoJob(data, id)
+
+  if (
+    fetchContent &&
+    job.status === 'completed' &&
+    !job.videoUrl &&
+    provider.provider !== 'xai'
+  ) {
+    try {
+      job.videoUrl = await fetchOpenAiVideoContentUrl(provider, id, signal)
+    } catch (e) {
+      if (e?.name === 'AbortError') throw e
+      job.errorMessage = toErrorMessage(e, '下载视频内容失败')
+      // 仍标记 completed，由上层决定是否当失败；保留 raw
+    }
+  }
+
+  return job
+}
+
+/**
+ * 轮询直至完成 / 失败
+ */
+export async function waitVideoJob(provider, jobId, options = {}) {
+  const {
+    signal,
+    onProgress,
+    intervalMs = 5000,
+    fetchContent = true,
+  } = options
+  const interval = Math.max(1000, Number(intervalMs) || 5000)
+
+  while (true) {
+    if (signal?.aborted) {
+      const err = new Error('已取消')
+      err.name = 'AbortError'
+      throw err
+    }
+    const job = await getVideoJob(provider, jobId, { signal, fetchContent })
+    onProgress?.(job)
+    if (job.status === 'completed' || job.status === 'failed') {
+      return job
+    }
+    await sleep(interval, signal)
+  }
+}
+
+/**
+ * 创建并等待完成
+ */
+export async function generateVideo(provider, options = {}) {
+  const { signal, onProgress, intervalMs, ...createOpts } = options
+  const created = await createVideoJob(provider, { ...createOpts, signal })
+  onProgress?.(created)
+  if (created.status === 'completed' || created.status === 'failed') {
+    if (
+      created.status === 'completed' &&
+      !created.videoUrl &&
+      provider.provider !== 'xai'
+    ) {
+      return waitVideoJob(provider, created.jobId, { signal, onProgress, intervalMs })
+    }
+    return created
+  }
+  if (!created.jobId) throw new Error('未返回任务 ID')
+  return waitVideoJob(provider, created.jobId, { signal, onProgress, intervalMs })
 }

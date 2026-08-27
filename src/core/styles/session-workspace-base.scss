@@ -1,0 +1,87 @@
+/* Chat / Image 共享基础：气泡状态、composer 输入态（端侧再覆盖布局密度） */
+
+.msg.user {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.msg.user .msg-body {
+  align-items: flex-end;
+}
+
+.msg.user .bubble {
+  background: var(--bubble-user-bg);
+}
+
+.msg.error .bubble {
+  border-color: rgba(248, 113, 113, 0.4);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+}
+
+.msg-status {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.msg-status.stopped {
+  color: var(--color-warning);
+}
+
+.msg-status.error {
+  color: var(--color-danger);
+}
+
+.msg-actions :deep(.n-button) {
+  color: var(--text-4);
+}
+
+.msg-actions :deep(.n-button:hover) {
+  color: var(--text-2);
+}
+
+.composer-field {
+  flex: 1;
+  min-width: 0;
+
+  :deep(.n-input) {
+    --n-border: transparent !important;
+    --n-border-hover: transparent !important;
+    --n-border-focus: transparent !important;
+    --n-color: transparent !important;
+    --n-color-focus: transparent !important;
+    --n-box-shadow: none !important;
+    --n-font-size: 14px;
+    --n-line-height: 1.55;
+    --n-padding-vertical: 6px;
+    --n-padding-left: 4px;
+    --n-padding-right: 4px;
+    background: transparent !important;
+  }
+
+  :deep(.n-input__border),
+  :deep(.n-input__state-border) {
+    display: none;
+  }
+
+  :deep(.n-input__textarea-el),
+  :deep(.n-input__placeholder) {
+    padding-top: var(--n-padding-vertical) !important;
+    padding-bottom: var(--n-padding-vertical) !important;
+    padding-left: var(--n-padding-left) !important;
+    padding-right: var(--n-padding-right) !important;
+    font-size: var(--n-font-size);
+    line-height: var(--n-line-height);
+  }
+
+  :deep(.n-input__textarea-el) {
+    cursor: text;
+    caret-color: var(--color-primary-hover);
+    color: var(--text-1);
+  }
+}
+
+.action-btn {
+  border-radius: var(--radius-pill) !important;
+  font-weight: 600;
+}

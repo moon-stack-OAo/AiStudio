@@ -12,6 +12,7 @@ const PRESETS = [
     baseUrl: 'https://api.openai.com/v1',
     chatModel: 'gpt-4o',
     imageModel: 'gpt-image-1',
+    videoModel: 'sora-2',
     provider: 'openai',
     builtin: true,
   },
@@ -21,6 +22,7 @@ const PRESETS = [
     baseUrl: 'https://api.x.ai/v1',
     chatModel: 'grok-4.5',
     imageModel: 'grok-imagine-image',
+    videoModel: 'grok-imagine-video',
     provider: 'xai',
     builtin: true,
   },
@@ -39,6 +41,7 @@ function createProvider(partial = {}) {
     apiKey: '',
     chatModel: '',
     imageModel: '',
+    videoModel: '',
     provider: 'openai-compatible',
     useCorsProxy: true,
     builtin: false,
@@ -50,10 +53,12 @@ function normalizeProvider(p) {
   const raw = {
     useCorsProxy: true,
     builtin: false,
+    videoModel: '',
     ...p,
   }
   // 落盘为密文时还原；历史明文原样保留
   raw.apiKey = decryptSecret(raw.apiKey)
+  if (raw.videoModel == null) raw.videoModel = ''
   return raw
 }
 

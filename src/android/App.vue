@@ -2,10 +2,11 @@
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
-import {ChatbubblesOutline, ImageOutline, SettingsOutline,} from '@vicons/ionicons5'
+import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline,} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
-import {useVisualViewport} from '@core/composables/useVisualViewport'
+import {KEYBOARD_OPEN_DELTA_PX, useVisualViewport} from '@core/composables/useVisualViewport'
 import {applyDocumentTheme, THEME_OVERRIDES} from '@core/utils/theme'
+import UpdateChecker from '@/components/UpdateChecker.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +22,7 @@ const themeOverrides = computed(() => THEME_OVERRIDES[settings.theme] || THEME_O
 const tabs = [
   {key: 'chat', label: '对话', icon: ChatbubblesOutline, path: '/chat'},
   {key: 'image', label: '生图', icon: ImageOutline, path: '/image'},
+  {key: 'video', label: '生视频', icon: VideocamOutline, path: '/video'},
   {key: 'settings', label: '设置', icon: SettingsOutline, path: '/settings'},
 ]
 
@@ -39,7 +41,7 @@ function syncKeyboard() {
     baselineHeight = height
   }
   // 可视高度明显缩小视为软键盘弹起，收起底栏避免挡输入
-  keyboardOpen.value = baselineHeight - height > 120
+  keyboardOpen.value = baselineHeight - height > KEYBOARD_OPEN_DELTA_PX
 }
 
 onMounted(() => {
@@ -77,6 +79,7 @@ function goTab(tab) {
     <n-message-provider>
       <n-dialog-provider>
         <n-notification-provider>
+          <UpdateChecker/>
           <div :class="{ 'keyboard-open': keyboardOpen }" class="app-shell mobile">
             <div class="app-body">
               <main class="main">

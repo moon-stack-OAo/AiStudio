@@ -3,9 +3,9 @@ import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {AddOutline, EllipsisHorizontalOutline, ListOutline, SendOutline,} from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
-import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import MarkdownRenderer from '@core/components/MarkdownRenderer.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
-import CopyIconButton from '@/components/CopyIconButton.vue'
+import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@/components/ComposerSendStop.vue'
 import {useChatStore} from '@core/stores/chat'
 import {useSettingsStore} from '@core/stores/settings'
@@ -373,6 +373,13 @@ onBeforeUnmount(() => {
 
     <template #composer>
       <div class="composer">
+        <div
+          v-if="contextHint || isStreamingCurrent"
+          class="composer-hint is-critical"
+        >
+          <span v-if="isStreamingCurrent">生成中可点击停止</span>
+          <span v-if="contextHint" class="context-hint">{{ contextHint }}</span>
+        </div>
         <div class="composer-card">
           <n-input
             v-model:value="input"
@@ -392,13 +399,6 @@ onBeforeUnmount(() => {
               @stop="stop"
             />
           </div>
-        </div>
-        <div
-          v-if="contextHint || isStreamingCurrent"
-          class="composer-hint is-critical"
-        >
-          <span v-if="isStreamingCurrent">生成中可点击停止</span>
-          <span v-if="contextHint" class="context-hint">{{ contextHint }}</span>
         </div>
       </div>
     </template>

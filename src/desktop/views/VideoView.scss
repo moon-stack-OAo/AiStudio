@@ -46,7 +46,6 @@
     object-fit: cover;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-muted);
-    cursor: zoom-in;
   }
 }
 
@@ -57,11 +56,30 @@
 
 .ai-loading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 12px 4px;
   color: var(--text-3);
   font-size: 13px;
+  min-width: 200px;
+}
+
+.loading-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.video-progress {
+  width: 100%;
+  max-width: 280px;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: var(--text-4);
 }
 
 .ai-error {
@@ -71,26 +89,24 @@
   color: var(--color-danger);
 }
 
-.imgs {
+.ai-error-block {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  width: fit-content;
-  max-width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 4px 2px;
 }
 
-.img-wrap {
+.video-wrap {
   position: relative;
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-bg);
   border: 1px solid var(--border-subtle);
-  width: 148px;
-  height: 148px;
-  flex: 0 0 auto;
+  width: min(100%, 480px);
   max-width: 100%;
 
-  .img-actions {
+  .video-actions {
     position: absolute;
     top: 6px;
     right: 6px;
@@ -103,29 +119,23 @@
     border-radius: var(--radius-pill);
     padding: 2px;
   }
+}
 
-  img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    cursor: zoom-in;
-    background: var(--color-bg);
-    transition: opacity 0.15s ease;
-
-    &:hover {
-      opacity: 0.96;
-    }
-  }
+.video-player {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  background: #000;
+  vertical-align: middle;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .img-wrap .img-actions {
+  .video-wrap .video-actions {
     opacity: 0;
   }
 
-  .img-wrap:hover .img-actions,
-  .img-wrap:focus-within .img-actions {
+  .video-wrap:hover .video-actions,
+  .video-wrap:focus-within .video-actions {
     opacity: 1;
   }
 }
@@ -210,15 +220,11 @@
   white-space: nowrap;
 }
 
-.opt-count :deep(.n-input-number) {
-  width: 84px;
+.opt-duration :deep(.n-select) {
+  width: 96px;
 }
 
 .opt-size :deep(.n-select) {
-  width: 132px;
-}
-
-.opt-quality :deep(.n-select) {
   width: 118px;
 }
 
@@ -258,54 +264,13 @@
   align-items: flex-end;
 }
 
-.temp-tip {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  right: 6px;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  text-align: center;
-  color: var(--on-primary);
-  background: var(--chip-warning-bg);
-  pointer-events: none;
-}
-
-.lightbox-body {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 240px;
-  max-height: 72vh;
-  overflow: auto;
-  background: var(--color-bg);
-  border-radius: var(--radius-lg);
-  cursor: zoom-out;
-
-  img {
-    max-width: 100%;
-    max-height: 72vh;
-    object-fit: contain;
-    border-radius: var(--radius-sm);
-  }
-}
-
-.lightbox-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 @media (max-width: 1279.98px) {
   .gallery {
     padding: 14px calc(16px + var(--safe-right)) 14px calc(16px + var(--safe-left));
   }
 
-  .img-wrap {
-    width: 128px;
-    height: 128px;
+  .video-wrap {
+    width: min(100%, 420px);
   }
 }
 
@@ -412,6 +377,13 @@
   color: var(--text-4);
 }
 
+.ref-compress-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-4);
+}
+
 .ref-chip-mobile {
   width: 100%;
   border: 1px solid var(--border-muted);
@@ -448,23 +420,12 @@
     overscroll-behavior: contain;
   }
 
-  .imgs {
+  .video-wrap {
     width: 100%;
-    gap: 12px;
-  }
 
-  .img-wrap {
-    width: min(100%, 320px);
-    height: auto;
-    aspect-ratio: 1;
-    flex: 1 1 min(100%, 320px);
-    max-width: 100%;
-
-    .img-actions {
+    .video-actions {
       top: 6px;
       right: 6px;
-      gap: 4px;
-      padding: 2px;
 
       :deep(.touch-target.n-button) {
         width: var(--touch-min);
@@ -473,6 +434,10 @@
         min-height: var(--touch-min);
       }
     }
+  }
+
+  .video-player {
+    max-height: 280px;
   }
 
   .user-bubble {
@@ -524,22 +489,5 @@
   .composer-actions {
     flex-shrink: 0;
     padding-bottom: 0;
-  }
-
-  .lightbox-body {
-    max-height: 70vh;
-
-    img {
-      max-height: 70vh;
-    }
-  }
-
-  .lightbox-footer {
-    gap: 10px;
-
-    .lightbox-action {
-      flex: 1;
-      min-height: var(--touch-min);
-    }
   }
 }

@@ -41,11 +41,18 @@ const {
   refresh: refreshImageModels,
 } = useProviderModels(() => current.value, { kind: 'image' })
 
+const {
+  loading: videoModelsLoading,
+  options: videoModelOptions,
+  refresh: refreshVideoModels,
+} = useProviderModels(() => current.value, { kind: 'video' })
+
 async function refreshModelLists() {
   try {
     await Promise.all([
       refreshChatModels({ force: true }),
       refreshImageModels({ force: true }),
+      refreshVideoModels({ force: true }),
     ])
     message.success('模型列表已刷新')
   } catch (e) {
@@ -101,6 +108,7 @@ function addCustom() {
     apiKey: '',
     chatModel: '',
     imageModel: '',
+    videoModel: '',
     provider: 'openai-compatible',
   })
   selectedId.value = item.id
@@ -154,6 +162,7 @@ async function testConnection() {
     message.success(result.detail || '连接成功')
     refreshChatModels({ force: true }).catch(() => {})
     refreshImageModels({ force: true }).catch(() => {})
+    refreshVideoModels({ force: true }).catch(() => {})
   } catch (e) {
     message.error(e?.message || '连接失败')
   } finally {
@@ -281,7 +290,7 @@ defineExpose({ addCustom, reset })
             <div class="group-title">
               <span>模型</span>
               <n-button
-                :loading="modelsLoading || imageModelsLoading"
+                :loading="modelsLoading || imageModelsLoading || videoModelsLoading"
                 quaternary
                 size="tiny"
                 @click="refreshModelLists"
@@ -321,6 +330,20 @@ defineExpose({ addCustom, reset })
                   @update:value="(v) => patch('imageModel', v || '')"
                 />
               </div>
+              <div class="field">
+                <div class="field-label">视频模型</div>
+                <n-select
+                  :loading="videoModelsLoading"
+                  :options="videoModelOptions"
+                  :render-label="renderSelectLabel"
+                  :value="current.videoModel || null"
+                  filterable
+                  placeholder="sora-2 / grok-imagine-video"
+                  size="small"
+                  tag
+                  @update:value="(v) => patch('videoModel', v || '')"
+                />
+              </div>
             </div>
           </div>
 
@@ -335,6 +358,7 @@ defineExpose({ addCustom, reset })
               <li>对话：POST {BaseURL}/chat/completions（支持流式）</li>
               <li>文生图：POST {BaseURL}/images/generations</li>
               <li>图生图：OpenAI 用 multipart /images/edits；xAI 用 JSON /images/edits</li>
+              <li>视频：OpenAI 兼容 POST /videos 并轮询；xAI POST /videos/generations</li>
               <li>任意 OpenAI 兼容中转站，填对应 Base URL + Key 即可</li>
             </ul>
           </div>

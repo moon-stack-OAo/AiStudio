@@ -3,6 +3,9 @@
 #[cfg(desktop)]
 mod tray;
 
+#[cfg(target_os = "android")]
+mod android_updater;
+
 #[cfg(desktop)]
 use tauri::{Manager, WindowEvent};
 #[cfg(desktop)]
@@ -59,8 +62,21 @@ fn run_desktop() {
 
 #[cfg(mobile)]
 fn run_mobile() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_http::init())
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_http::init());
+
+    #[cfg(target_os = "android")]
+    {
+        builder = builder
+            .plugin(android_updater::init_plugin())
+            .invoke_handler(tauri::generate_handler![
+                android_updater::android_download_apk,
+                android_updater::android_install_apk,
+                android_updater::android_can_install_packages,
+                android_updater::android_request_install_permission
+            ]);
+    }
+
+    builder
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

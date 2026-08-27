@@ -187,6 +187,7 @@ jobs:
           test -s "${RUNNER_TEMP}/keystore.jks"
           cd ../../..
           node .github/scripts/patch-android-signing.mjs
+          node .github/scripts/sync-android-updater-sources.mjs
 
       # 正式 release 签名 APK；仅传 releaseId，避免覆盖 Windows 写入的 CHANGELOG 正文
       - name: Build Android APK (arm64, release-signed)
@@ -236,3 +237,14 @@ jobs:
           cp -f "$SRC" "$OUT"
           echo "Fallback upload: $SRC -> $ASSET_NAME"
           gh release upload "$TAG" "$OUT" --clobber
+
+      - name: Generate & upload android-latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          node .github/scripts/generate-android-latest.mjs "$TAG"
+          test -f android-latest.json
+          gh release upload "$TAG" android-latest.json --clobber
+          echo "已上传 android-latest.json"

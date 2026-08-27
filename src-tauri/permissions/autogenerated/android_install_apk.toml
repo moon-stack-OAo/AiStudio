@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-install-apk"
+description = "Enables the android_install_apk command without any pre-configured scope."
+commands.allow = ["android_install_apk"]
+
+[[permission]]
+identifier = "deny-android-install-apk"
+description = "Denies the android_install_apk command without any pre-configured scope."
+commands.deny = ["android_install_apk"]

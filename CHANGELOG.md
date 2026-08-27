@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 新增视频生成（core）：OpenAI 兼容 `/videos` 与 xAI `/videos/generations` 文生/图生、轮询与 `videoModel` 设置
+- 桌面端「生视频」页：文生/图生、进度与停止、会话恢复未完成任务、`<video>` 播放与下载
+- Android 端「生视频」入口：底栏 Tab + `/video` 页，交互对齐生图（顶栏/更多面板），功能对齐桌面视频生成
+- Android 应用内更新（侧载）：发版产出 `android-latest.json`；关于页可检查更新、下载 APK 并调起系统安装器；启动时可静默检查
+- Android 更新链路与桌面 Tauri Updater 分离（不在 mobile 启用 `tauri-plugin-updater`）
+
+### 修复
+
+- 图生视频 / 图生图上传参考图前自动压缩（最长边 1280、JPEG 0.85），并优化 HTTP 413 错误提示，降低中转网关 body limit 导致失败的概率
+
 ## [0.1.1]
 
 ### 修复

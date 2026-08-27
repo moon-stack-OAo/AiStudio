@@ -62,7 +62,7 @@
   :deep(.n-tabs-tab) {
     flex: 1;
     justify-content: center;
-    min-height: 36px;
+    min-height: var(--touch-min);
     padding: 8px 12px;
     font-size: 14px;
     font-weight: 500;

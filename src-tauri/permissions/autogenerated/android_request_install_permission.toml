@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-request-install-permission"
+description = "Enables the android_request_install_permission command without any pre-configured scope."
+commands.allow = ["android_request_install_permission"]
+
+[[permission]]
+identifier = "deny-android-request-install-permission"
+description = "Denies the android_request_install_permission command without any pre-configured scope."
+commands.deny = ["android_request_install_permission"]

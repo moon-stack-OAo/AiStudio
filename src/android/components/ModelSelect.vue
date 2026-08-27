@@ -7,7 +7,7 @@ import {useMessage} from 'naive-ui'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
 const props = defineProps({
-  /** chat | image */
+  /** chat | image | video */
   kind: {
     type: String,
     required: true,
@@ -35,7 +35,11 @@ const props = defineProps({
 const settings = useSettingsStore()
 const message = useMessage()
 
-const field = computed(() => (props.kind === 'image' ? 'imageModel' : 'chatModel'))
+const field = computed(() => {
+  if (props.kind === 'image') return 'imageModel'
+  if (props.kind === 'video') return 'videoModel'
+  return 'chatModel'
+})
 const value = computed(() => settings.activeProvider?.[field.value] || null)
 
 const {
@@ -45,9 +49,12 @@ const {
   refresh,
 } = useProviderModels(() => settings.activeProvider, {kind: props.kind})
 
-const selectPlaceholder = computed(
-  () => props.placeholder || (props.kind === 'image' ? '选择生图模型' : '选择对话模型'),
-)
+const selectPlaceholder = computed(() => {
+  if (props.placeholder) return props.placeholder
+  if (props.kind === 'image') return '选择生图模型'
+  if (props.kind === 'video') return '选择视频模型'
+  return '选择对话模型'
+})
 
 function onUpdate(v) {
   const p = settings.activeProvider

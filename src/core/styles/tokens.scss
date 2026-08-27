@@ -77,7 +77,8 @@
   --sidebar-width: 220px;
   --sidebar-collapsed-width: 64px;
 
-  /* Android WebView 上 env(safe-area-inset-*) 常为 0，优先用原生注入的 --safe-area-inset-* */
+  /* Android WebView 上 env(safe-area-inset-*) 常为 0，优先用原生注入的 --safe-area-inset-*
+   * 约定：顶栏消费 --safe-top；桌面 composer / 弹层消费 --safe-bottom；安卓底栏已含 safe-bottom，composer 勿再叠一层 */
   --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));

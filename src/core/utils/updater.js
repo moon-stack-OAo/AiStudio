@@ -9,7 +9,7 @@ export function normalizeVersion(raw) {
 }
 
 /**
- * 使用 Tauri Updater 检查更新（仅桌面端）
+ * 使用 Tauri Updater 检查更新（仅桌面端；Android 请用 androidUpdater.js）
  * @returns {Promise<{
  *   currentVersion: string,
  *   hasUpdate: boolean,
@@ -19,7 +19,7 @@ export function normalizeVersion(raw) {
  */
 export async function checkForUpdate() {
   if (!isDesktopTauri()) {
-    throw new Error('应用内更新仅支持桌面客户端')
+    throw new Error('桌面应用内更新仅支持桌面客户端')
   }
 
   const currentVersion = await getAppVersion()

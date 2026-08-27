@@ -1,6 +1,6 @@
 <script setup>
-import {ref, watch} from 'vue'
-import {ListOutline} from '@vicons/ionicons5'
+import {inject, ref, watch} from 'vue'
+import {ListOutline, MenuOutline} from '@vicons/ionicons5'
 import SessionList from '@/components/SessionList.vue'
 
 const props = defineProps({
@@ -15,6 +15,7 @@ const props = defineProps({
 const emit = defineEmits(['create', 'select', 'rename', 'remove'])
 
 const historyShow = ref(false)
+const openMobileNav = inject('openMobileNav', null)
 
 watch(
   () => props.activeId,
@@ -69,6 +70,18 @@ function onSelect(id) {
     <div class="workspace-main">
       <div class="toolbar">
         <div class="left">
+          <n-button
+            v-if="isMobile && openMobileNav"
+            aria-label="打开菜单"
+            circle
+            class="touch-target"
+            quaternary
+            @click="openMobileNav"
+          >
+            <template #icon>
+              <n-icon :component="MenuOutline" />
+            </template>
+          </n-button>
           <n-button
             v-if="isCompact"
             aria-label="打开会话列表"
@@ -139,12 +152,15 @@ function onSelect(id) {
   padding: 10px calc(14px + var(--safe-right)) 10px calc(14px + var(--safe-left));
 }
 
+/* 与 useBreakpoints isMobile(<768) 对齐 */
 @media (max-width: 767.98px) {
   .toolbar {
-    padding: 6px calc(12px + var(--safe-right)) 6px calc(12px + var(--safe-left));
+    min-height: calc(44px + var(--safe-top));
+    padding: var(--safe-top) calc(12px + var(--safe-right)) 6px calc(12px + var(--safe-left));
     flex-wrap: wrap;
     row-gap: 6px;
     column-gap: 6px;
+    background: var(--color-titlebar);
   }
 
   .left {
@@ -179,7 +195,7 @@ function onSelect(id) {
     :deep(.toolbar-clear) {
       flex: 0 0 auto;
       min-width: var(--touch-min);
-      min-height: 36px;
+      min-height: var(--touch-min);
       padding: 0 10px;
     }
   }

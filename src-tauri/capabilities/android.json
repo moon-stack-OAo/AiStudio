@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "android",
+  "description": "Android 侧载更新命令",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": [
+    "allow-android-download-apk",
+    "allow-android-install-apk",
+    "allow-android-can-install-packages",
+    "allow-android-request-install-permission"
+  ]
+}

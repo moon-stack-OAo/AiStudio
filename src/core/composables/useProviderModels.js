@@ -12,9 +12,9 @@ function cacheKey(provider) {
 }
 
 /**
- * 拉取并缓存当前提供商模型列表，供对话/生图/设置页选择
+ * 拉取并缓存当前提供商模型列表，供对话/生图/视频/设置页选择
  * @param {() => object|null} getProvider
- * @param {{ kind?: 'chat'|'image'|'all' }} options
+ * @param {{ kind?: 'chat'|'image'|'video'|'all' }} options
  */
 export function useProviderModels(getProvider, options = {}) {
   const kind = options.kind || 'all'
@@ -27,18 +27,21 @@ export function useProviderModels(getProvider, options = {}) {
 
   const optionsList = computed(() => {
     let filtered = filterModelsByKind(models.value, kind)
-    // 中转站命名不规范时，生图筛选可能为空，回退到全量列表便于手动挑
+    // 中转站命名不规范时，筛选可能为空，回退到全量列表便于手动挑
     if (kind !== 'all' && !filtered.length && models.value.length) {
       filtered = models.value
     }
-    return toSelectOptions(filtered, {
-      current:
-        kind === 'image'
-          ? provider.value?.imageModel
+    const current =
+      kind === 'image'
+        ? provider.value?.imageModel
+        : kind === 'video'
+          ? provider.value?.videoModel
           : kind === 'chat'
             ? provider.value?.chatModel
-            : provider.value?.chatModel || provider.value?.imageModel,
-    })
+            : provider.value?.chatModel ||
+              provider.value?.imageModel ||
+              provider.value?.videoModel
+    return toSelectOptions(filtered, { current })
   })
 
   async function refresh({ force = false } = {}) {

@@ -4,16 +4,20 @@ import {useDialog, useMessage} from 'naive-ui'
 import {useSettingsStore} from '@core/stores/settings'
 import {clearAppStorage} from '@core/utils/storage'
 import {clearImageCache} from '@core/utils/imageCache'
-import {isDesktopTauri} from '@core/utils/request'
+import {isAndroidTauri} from '@core/utils/request'
 import {getAppVersion} from '@core/utils/version'
-import {checkForUpdate, installUpdateAndRelaunch} from '@core/utils/updater'
+import {
+  checkAndroidUpdate,
+  downloadAndInstallAndroidUpdate,
+  openAndroidApkInBrowser,
+} from '@core/utils/androidUpdater'
 import {CHAT_CONTEXT_MAX_TURNS_OPTIONS} from '@core/utils/constants'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
 const settings = useSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
-const inTauri = isDesktopTauri()
+const inAndroid = isAndroidTauri()
 
 const appVersion = ref('…')
 const checkingUpdate = ref(false)
@@ -21,15 +25,7 @@ const installingUpdate = ref(false)
 const clearing = ref(false)
 const updateProgress = ref('')
 const updateResult = ref(null)
-const pendingUpdate = ref(null)
-const closePref = ref('ask')
-const savingClosePref = ref(false)
-
-const closePrefOptions = [
-  { label: '每次询问', value: 'ask' },
-  { label: '直接退出', value: 'quit' },
-  { label: '最小化到托盘', value: 'tray' },
-]
+const pendingLatest = ref(null)
 
 const maxTurnsOptions = computed(() =>
   CHAT_CONTEXT_MAX_TURNS_OPTIONS.map((n) => ({
@@ -40,45 +36,29 @@ const maxTurnsOptions = computed(() =>
 
 onMounted(async () => {
   appVersion.value = await getAppVersion()
-  if (inTauri) {
-    try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      closePref.value = await invoke('get_close_action_pref')
-    } catch {
-      closePref.value = 'ask'
-    }
-  }
 })
 
-async function onClosePrefChange(value) {
-  if (!inTauri || savingClosePref.value) return
-  savingClosePref.value = true
-  try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('set_close_action_pref', { action: value })
-    closePref.value = value
-    message.success('已更新关闭行为')
-  } catch (e) {
-    message.error(e?.message || '保存失败')
-  } finally {
-    savingClosePref.value = false
-  }
+function formatBytes(n) {
+  if (!n || n <= 0) return ''
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
 }
 
 async function onCheckUpdate() {
-  if (!inTauri) {
-    message.info('应用内更新仅支持桌面客户端')
+  if (!inAndroid) {
+    message.info('应用内更新仅支持 Android 客户端')
     return
   }
   if (checkingUpdate.value || installingUpdate.value) return
   checkingUpdate.value = true
   updateResult.value = null
-  pendingUpdate.value = null
+  pendingLatest.value = null
   updateProgress.value = ''
   try {
-    const result = await checkForUpdate()
+    const result = await checkAndroidUpdate()
     updateResult.value = result
-    pendingUpdate.value = result.update
+    pendingLatest.value = result.latest
     if (result.hasUpdate) {
       settings.clearSkippedUpdateVersion()
       settings.setAvailableUpdate(result.latest.version)
@@ -95,24 +75,39 @@ async function onCheckUpdate() {
 }
 
 async function onInstallUpdate() {
-  if (!pendingUpdate.value || installingUpdate.value) return
+  if (!pendingLatest.value || installingUpdate.value) return
   installingUpdate.value = true
   updateProgress.value = '准备下载…'
   try {
-    await installUpdateAndRelaunch(pendingUpdate.value, (event) => {
-      if (event?.event === 'Started') {
-        const total = event.data?.contentLength
-        updateProgress.value = total ? `开始下载（${Math.round(total / 1024 / 1024)} MB）…` : '开始下载…'
-      } else if (event?.event === 'Progress') {
-        updateProgress.value = '正在下载更新…'
-      } else if (event?.event === 'Finished') {
-        updateProgress.value = '下载完成，准备重启…'
+    await downloadAndInstallAndroidUpdate(pendingLatest.value, (info) => {
+      if (info.phase === 'permission') {
+        updateProgress.value = '检查安装权限…'
+      } else if (info.phase === 'download') {
+        const done = formatBytes(info.downloaded)
+        const total = formatBytes(info.total)
+        updateProgress.value = total
+          ? `正在下载 ${done} / ${total}…`
+          : `正在下载 ${done || '…'}…`
+      } else if (info.phase === 'install') {
+        updateProgress.value = '下载完成，正在调起系统安装器…'
       }
     })
+    message.success('已调起系统安装器，请按提示完成安装')
+    updateProgress.value = '已调起安装器。若未弹出，请检查「允许安装未知应用」。'
   } catch (e) {
     message.error(e?.message || '安装更新失败')
-    installingUpdate.value = false
     updateProgress.value = ''
+  } finally {
+    installingUpdate.value = false
+  }
+}
+
+async function onOpenApkLink() {
+  if (!pendingLatest.value?.url) return
+  try {
+    await openAndroidApkInBrowser(pendingLatest.value.url)
+  } catch (e) {
+    message.error(e?.message || '打开下载链接失败')
   }
 }
 
@@ -150,7 +145,11 @@ function onClearLocalData() {
         <div class="version-badge">v{{ appVersion }}</div>
         <div class="version-app">AI Studio</div>
         <div class="version-desc">
-          {{ inTauri ? '通过 Tauri Updater 检查并安装更新' : '应用内更新仅桌面客户端可用' }}
+          {{
+            inAndroid
+              ? '通过侧载清单检查更新，下载 APK 后由系统安装器完成安装'
+              : '应用内更新仅 Android 客户端可用'
+          }}
         </div>
       </div>
 
@@ -165,14 +164,14 @@ function onClearLocalData() {
         <div class="update-row">
           <div class="inline-row">
             <n-switch
-              :disabled="!inTauri"
+              :disabled="!inAndroid"
               :value="settings.autoCheckUpdate"
               @update:value="(v) => settings.setAutoCheckUpdate(v)"
             />
             <span class="field-label tight">启动时自动检查</span>
           </div>
           <n-button
-            :disabled="!inTauri || installingUpdate"
+            :disabled="!inAndroid || installingUpdate"
             :loading="checkingUpdate"
             block
             type="primary"
@@ -205,8 +204,19 @@ function onClearLocalData() {
               >
                 下载并安装
               </n-button>
+              <n-button
+                :disabled="installingUpdate"
+                block
+                secondary
+                @click="onOpenApkLink"
+              >
+                浏览器打开 APK
+              </n-button>
             </div>
             <div v-if="updateProgress" class="hint">{{ updateProgress }}</div>
+            <div class="hint">
+              首次安装需在系统设置中允许本应用「安装未知应用」。安装完成后请按提示确认。
+            </div>
           </template>
           <template v-else>
             <div class="status-main">当前已是最新版本（v{{ updateResult.currentVersion }}）</div>
@@ -242,26 +252,6 @@ function onClearLocalData() {
         </div>
         <div class="hint context-extra-hint">
           1 轮 = 一次用户提问及其后回复；接近上限时对话页会提示
-        </div>
-      </div>
-
-      <div v-if="inTauri" class="section-card data-card">
-        <div class="section-head">
-          <div>
-            <div class="section-title">关闭行为</div>
-            <div class="section-desc">点击窗口关闭时的默认动作</div>
-          </div>
-        </div>
-        <div class="data-row">
-          <n-select
-            :loading="savingClosePref"
-            :options="closePrefOptions"
-            :render-label="renderSelectLabel"
-            :value="closePref"
-            class="select-close"
-            @update:value="onClosePrefChange"
-          />
-          <div class="hint">选择「每次询问」后，关闭时会再次弹出提示</div>
         </div>
       </div>
 
