@@ -16,12 +16,18 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   publish-windows:
     runs-on: windows-latest
+    outputs:
+      releaseId: ${{ steps.tauri.outputs.releaseId }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,6 +61,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app & create Release
+        id: tauri
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,7 +80,7 @@ jobs:
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
 
-  # 等 Windows job 创建 Release 后再上传 APK，避免抢建/覆盖 Release
+  # 等 Windows job 创建 Release 后只上传 APK，不改 Release 标题/正文
   publish-android:
     needs: publish-windows
     runs-on: ubuntu-latest
@@ -145,6 +152,7 @@ jobs:
       # 起步策略：--debug 使用 Android 调试密钥签名，产出可侧载安装的 APK
       # （无 Play 长期密钥时，release 未签名 APK 无法直接安装）
       # 正式上架：配置 ANDROID_KEY_* Secrets 后改为 release 签名构建，勿在未备好 keystore 时改掉 --debug
+      # 仅传 releaseId：只上传资产，避免覆盖 Windows 写入的 CHANGELOG 正文
       - name: Build Android APK (arm64, debug-signed)
         uses: tauri-apps/tauri-action@v1
         env:
@@ -157,10 +165,8 @@ jobs:
           tauriScript: npm run tauri
           mobile: android
           args: --apk --ci --target aarch64 --debug
+          releaseId: ${{ needs.publish-windows.outputs.releaseId }}
           tagName: ${{ github.ref_name }}
-          releaseName: AI Studio ${{ github.ref_name }}
-          releaseDraft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
           uploadUpdaterJson: false
           uploadUpdaterSignatures: false
 
