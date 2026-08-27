@@ -1,0 +1,186 @@
+@use './settings-shared.scss';
+
+.about-pane {
+  align-items: center;
+  /* 桌面：外层 pane 不滚动时，关于页自身滚动 */
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.about-wrap {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.version-card {
+  border-radius: var(--radius-lg);
+  padding: 22px 20px;
+  text-align: center;
+  background:
+    radial-gradient(600px 180px at 50% 0%, var(--glow-primary), transparent 70%),
+    var(--surface-1);
+  border: 1px solid var(--border-subtle);
+}
+
+.version-badge {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-primary-hover);
+  line-height: 1.2;
+}
+
+.version-app {
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.version-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-4);
+  line-height: 1.5;
+}
+
+.update-card {
+  .update-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+}
+
+.data-card {
+  .data-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+}
+
+.context-extra-hint {
+  margin-top: 10px;
+}
+
+.status-bar {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-ok {
+  background: rgba(52, 211, 153, 0.12);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
+}
+
+.status-updatable {
+  background: var(--primary-soft);
+  border: 1px solid rgba(124, 156, 255, 0.28);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+}
+
+.status-main {
+  font-size: 13px;
+  color: var(--text-1);
+
+  strong {
+    color: var(--color-primary-hover);
+    font-weight: 600;
+  }
+}
+
+.status-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+
+.update-notes {
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow: auto;
+}
+
+@media (max-width: 1023.98px) {
+  .about-wrap {
+    max-width: none;
+  }
+}
+
+.select-turns {
+  width: 120px;
+}
+
+.select-close {
+  width: 200px;
+}
+
+@media (max-width: 767.98px) {
+  .about-wrap {
+    gap: 14px;
+  }
+
+  .version-card {
+    padding: 22px 18px;
+  }
+
+  .version-badge {
+    font-size: 26px;
+  }
+
+  .version-app {
+    margin-top: 8px;
+  }
+
+  .version-desc {
+    margin-top: 8px;
+    line-height: 1.55;
+  }
+
+  .update-card .update-row,
+  .data-card .data-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .select-turns,
+  .select-close {
+    width: 100%;
+  }
+
+  .update-card .update-row :deep(.n-button),
+  .data-card .data-row :deep(.n-button) {
+    width: 100%;
+    min-height: var(--touch-min);
+  }
+
+  .status-bar {
+    margin-top: 14px;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .update-notes {
+    max-height: 180px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .context-extra-hint {
+    margin-top: 12px;
+  }
+}

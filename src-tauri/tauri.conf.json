@@ -4,10 +4,10 @@
   "version": "0.1.1",
   "identifier": "com.moon.aistudio",
   "build": {
-    "frontendDist": "../dist",
+    "frontendDist": "../dist-desktop",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeDevCommand": "npm run dev:desktop",
+    "beforeBuildCommand": "npm run build:desktop"
   },
   "app": {
     "windows": [

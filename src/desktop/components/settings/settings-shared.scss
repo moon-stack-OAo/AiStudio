@@ -1,0 +1,178 @@
+.tab-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.section {
+  flex-shrink: 0;
+}
+
+.section-card {
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  &.compact {
+    margin-bottom: 10px;
+  }
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.section-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+.section-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.group {
+  & + & {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 10px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+
+  &.tight {
+    margin: 0;
+  }
+}
+
+.inline-row,
+.inline-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+@media (max-width: 1023.98px) {
+  .tab-pane {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .tab-pane {
+    gap: 16px;
+  }
+
+  .section-card {
+    padding: 16px;
+    border-radius: var(--radius-lg);
+  }
+
+  .section-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 15px;
+  }
+
+  .section-desc {
+    margin-top: 6px;
+    line-height: 1.55;
+  }
+
+  .section-foot {
+    margin-top: 16px;
+    padding-top: 14px;
+  }
+
+  .group + .group {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+
+  .group-title {
+    margin-bottom: 12px;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .field {
+    gap: 8px;
+  }
+
+  .inline-row,
+  .inline-actions {
+    gap: 10px;
+
+    :deep(.n-button) {
+      min-height: var(--touch-min);
+    }
+  }
+
+  .hint {
+    width: 100%;
+    line-height: 1.55;
+  }
+}

@@ -1,0 +1,304 @@
+/* 对话页 / 生成页共享：消息气泡与输入区（slot 内容，由页面 scoped 生效） */
+
+.provider-select {
+  width: 160px;
+  flex-shrink: 0;
+}
+
+.empty {
+  margin-top: 18vh;
+  text-align: center;
+  color: var(--text-3);
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-1);
+}
+
+.empty-desc {
+  font-size: 13px;
+}
+
+.msg {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.msg.user {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.role {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  flex-shrink: 0;
+  background: var(--role-ai-bg);
+  color: var(--role-ai-fg);
+}
+
+.msg.user .role {
+  background: var(--role-user-bg);
+  color: var(--role-user-fg);
+}
+
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  max-width: calc(100% - 38px);
+}
+
+.msg.user .msg-body {
+  align-items: flex-end;
+}
+
+.bubble {
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.msg.user .bubble {
+  background: var(--bubble-user-bg);
+}
+
+.msg.error .bubble {
+  border-color: rgba(248, 113, 113, 0.4);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+}
+
+.msg-status {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.msg-status.stopped {
+  color: var(--color-warning);
+}
+
+.msg-status.error {
+  color: var(--color-danger);
+}
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-4);
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.msg-actions :deep(.n-button) {
+  color: var(--text-4);
+}
+
+.msg-actions :deep(.n-button:hover) {
+  color: var(--text-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .msg-actions {
+    opacity: 0;
+  }
+
+  .msg:hover .msg-actions,
+  .msg-actions:focus-within {
+    opacity: 1;
+  }
+}
+
+.composer {
+  padding: 10px calc(18px + var(--safe-right)) 14px calc(18px + var(--safe-left));
+  padding-bottom: max(14px, calc(8px + var(--safe-bottom)));
+  background: transparent;
+}
+
+.composer-card {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 10px 10px 10px 12px;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--composer-border);
+  background: var(--composer-bg);
+  box-shadow: var(--composer-shadow);
+  backdrop-filter: blur(12px);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:focus-within {
+    border-color: var(--composer-focus-border);
+    box-shadow: var(--composer-focus-shadow);
+  }
+}
+
+.composer-field {
+  flex: 1;
+  min-width: 0;
+
+  :deep(.n-input) {
+    --n-border: transparent !important;
+    --n-border-hover: transparent !important;
+    --n-border-focus: transparent !important;
+    --n-color: transparent !important;
+    --n-color-focus: transparent !important;
+    --n-box-shadow: none !important;
+    --n-font-size: 14px;
+    --n-line-height: 1.55;
+    --n-padding-vertical: 6px;
+    --n-padding-left: 4px;
+    --n-padding-right: 4px;
+    background: transparent !important;
+  }
+
+  :deep(.n-input__border),
+  :deep(.n-input__state-border) {
+    display: none;
+  }
+
+  :deep(.n-input__textarea-el),
+  :deep(.n-input__placeholder) {
+    padding-top: var(--n-padding-vertical) !important;
+    padding-bottom: var(--n-padding-vertical) !important;
+    padding-left: var(--n-padding-left) !important;
+    padding-right: var(--n-padding-right) !important;
+    font-size: var(--n-font-size);
+    line-height: var(--n-line-height);
+  }
+
+  :deep(.n-input__textarea-el) {
+    cursor: text;
+    caret-color: var(--color-primary-hover);
+    color: var(--text-1);
+  }
+}
+
+.composer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+  min-width: 0;
+}
+
+.action-btn {
+  border-radius: var(--radius-pill) !important;
+  font-weight: 600;
+}
+
+.send-btn {
+  width: 40px;
+  height: 40px;
+  box-shadow: var(--shadow-send);
+}
+
+.composer-hint {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.page.compact .composer {
+  padding: 8px calc(14px + var(--safe-right)) 12px calc(14px + var(--safe-left));
+}
+
+@media (max-width: 767.98px) {
+  .provider-select {
+    width: auto;
+  }
+
+  .empty {
+    margin-top: 16vh;
+    padding: 0 12px;
+  }
+
+  .empty-title {
+    font-size: 17px;
+    margin-bottom: 10px;
+  }
+
+  .empty-desc {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  /* 移动端隐藏角色头像，把横向空间还给气泡 */
+  .role {
+    display: none;
+  }
+
+  .msg-body {
+    max-width: 100%;
+    gap: 8px;
+  }
+
+  .bubble {
+    max-width: 100%;
+    padding: 14px 16px;
+    border-radius: var(--radius-xl);
+    line-height: 1.55;
+  }
+
+  .msg {
+    gap: 0;
+    margin-bottom: 22px;
+  }
+
+  .msg-actions {
+    opacity: 1;
+    margin-top: 4px;
+  }
+
+  .composer {
+    padding: 8px calc(12px + var(--safe-right)) 10px calc(12px + var(--safe-left));
+    padding-bottom: max(10px, calc(8px + var(--safe-bottom)));
+  }
+
+  .composer-card {
+    border-radius: var(--radius-xl);
+    padding: 8px 8px 8px 10px;
+    gap: 8px;
+  }
+
+  .composer-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  /* 常态隐藏底部说明，减少占高；仅保留关键提示由页面按需覆盖 */
+  .composer-hint {
+    display: none;
+  }
+
+  .composer-hint.is-critical {
+    display: flex;
+    margin-top: 6px;
+    font-size: 11px;
+    gap: 6px 10px;
+    line-height: 1.5;
+  }
+}

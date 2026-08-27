@@ -1,0 +1,214 @@
+.settings-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) calc(18px + var(--safe-right)) var(--space-3) calc(18px + var(--safe-left));
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.header-text {
+  min-width: 0;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-tabs {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+
+  // left（桌面）：整页不滚动；三栏各自独立滚动由 ProvidersSettings 负责
+  &.n-tabs--left {
+    :deep(.n-tabs-nav) {
+      flex: 0 0 148px;
+      width: 148px;
+      min-width: 148px;
+      max-width: 148px;
+      align-self: stretch;
+      height: auto;
+      max-height: 100%;
+      padding: 10px 0 10px 8px;
+      border-right: 1px solid var(--border-subtle);
+      box-sizing: border-box;
+    }
+
+    :deep(.n-tabs-tab) {
+      justify-content: flex-start;
+    }
+
+    :deep(.n-tabs-tab--active) {
+      background: var(--primary-soft);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+
+    :deep(.n-tabs-pane-wrapper) {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    :deep(.n-tab-pane) {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      max-height: 100%;
+      /* 桌面：pane 本身不滚动，避免与内部列表/表单一起滚 */
+      overflow: hidden;
+      padding: 14px calc(18px + var(--safe-right)) calc(20px + var(--safe-bottom))
+        calc(18px + var(--safe-left));
+      box-sizing: border-box;
+    }
+  }
+
+  // top（窄屏/安卓）：导航固定，仅 pane 滚动；与桌面 left 布局隔离
+  &.n-tabs--top {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+
+    :deep(.n-tabs-nav) {
+      width: 100%;
+      flex: 0 0 auto;
+      padding: 8px calc(12px + var(--safe-right)) 0 calc(12px + var(--safe-left));
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    :deep(.n-tabs-pane-wrapper) {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    :deep(.n-tab-pane) {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding: 12px calc(14px + var(--safe-right)) calc(16px + var(--safe-bottom))
+        calc(14px + var(--safe-left));
+      box-sizing: border-box;
+    }
+  }
+
+  :deep(.n-tabs-tab) {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  :deep(.n-tabs-tab--active) {
+    color: var(--color-primary);
+  }
+
+  :deep(.n-tabs-bar) {
+    background-color: var(--color-primary);
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    padding: var(--space-3) calc(14px + var(--safe-right)) var(--space-3) calc(14px + var(--safe-left));
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .scroll {
+    overflow: hidden;
+  }
+
+  .settings-tabs {
+    :deep(.n-tabs-tab) {
+      min-height: 40px;
+      padding: 10px 14px;
+    }
+  }
+}
+
+@media (max-width: 767.98px) {
+  .header {
+    gap: 12px;
+    padding: 16px calc(16px + var(--safe-right)) 16px calc(16px + var(--safe-left));
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .desc {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+    gap: 10px;
+
+    :deep(.n-button) {
+      flex: 1 1 calc(50% - 5px);
+      min-height: var(--touch-min);
+    }
+  }
+
+  .settings-tabs.n-tabs--top {
+    :deep(.n-tabs-nav) {
+      padding: 8px calc(14px + var(--safe-right)) 0 calc(14px + var(--safe-left));
+    }
+
+    :deep(.n-tab-pane) {
+      padding: 16px calc(16px + var(--safe-right)) calc(24px + var(--safe-bottom))
+        calc(16px + var(--safe-left));
+    }
+
+    :deep(.n-tabs-tab) {
+      flex: 1;
+      justify-content: center;
+      min-height: var(--touch-min);
+    }
+  }
+}

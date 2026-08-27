@@ -1,0 +1,48 @@
+@use '@/styles/session-workspace.scss';
+
+.message-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px calc(22px + var(--safe-right)) 18px calc(22px + var(--safe-left));
+}
+
+.context-hint {
+  color: var(--color-warning);
+}
+
+.context-meta {
+  color: var(--text-3);
+}
+
+@media (max-width: 1279.98px) {
+  .message-list {
+    padding: 14px calc(16px + var(--safe-right)) 14px calc(16px + var(--safe-left));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .message-list {
+    padding: 18px calc(16px + var(--safe-right)) 24px calc(16px + var(--safe-left));
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .composer-card {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .composer-field {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .composer-actions {
+    width: auto;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    padding-bottom: 2px;
+  }
+}

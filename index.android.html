@@ -26,6 +26,7 @@
                 if (document.body) document.body.style.backgroundColor = color
             })
 
+            // Android：尽早同步系统栏图标（Bridge 可能稍后才注入）
             function syncBars() {
                 try {
                     if (window.TauriSystemBars && typeof window.TauriSystemBars.setTheme === 'function') {
@@ -43,6 +44,6 @@
 </head>
 <body style="background-color: #0f1115; margin: 0">
 <div id="app"></div>
-<script src="/src/desktop/main.js" type="module"></script>
+<script src="/src/android/main.js" type="module"></script>
 </body>
 </html>

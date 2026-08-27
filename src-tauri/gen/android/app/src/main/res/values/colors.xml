@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与前端 THEME_BG / color-primary 对齐 -->
+    <color name="app_bg_dark">#FF0F1115</color>
+    <color name="app_bg_light">#FFF4F6FB</color>
+    <color name="app_primary">#FF7C9CFF</color>
+    <color name="app_primary_light">#FF5B7CFA</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

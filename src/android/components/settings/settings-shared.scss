@@ -1,0 +1,129 @@
+.tab-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: auto;
+  min-height: 0;
+}
+
+.section {
+  flex-shrink: 0;
+}
+
+.section-card {
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+}
+
+.section-head {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 12px;
+
+  &.compact {
+    margin-bottom: 8px;
+  }
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.section-desc {
+  margin-top: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+.section-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.group {
+  & + & {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 10px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+
+  &.tight {
+    margin: 0;
+  }
+}
+
+.inline-row,
+.inline-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  :deep(.n-button) {
+    min-height: var(--touch-min);
+  }
+}
+
+.hint {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
+/* 触控友好：表单控件默认高度 */
+.field :deep(.n-input),
+.field :deep(.n-base-selection) {
+  --n-height: var(--touch-min) !important;
+}
+
+.field :deep(.n-input .n-input__input-el),
+.field :deep(.n-base-selection-label) {
+  min-height: var(--touch-min);
+}
+
+.inline-row :deep(.n-switch) {
+  transform: scale(1.05);
+  transform-origin: left center;
+}

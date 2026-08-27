@@ -1,0 +1,146 @@
+:root,
+[data-theme='dark'] {
+  --color-bg: #0f1115;
+  --color-bg-elevated: rgba(16, 18, 24, 0.72);
+  --color-text: #e8eaed;
+  --color-primary: #7c9cff;
+  --color-primary-hover: #9bb2ff;
+  --color-primary-pressed: #5f7fe6;
+  --color-accent: #8b5cf6;
+  --color-success: #34d399;
+  --color-danger: #f87171;
+  --color-warning: #fbbf24;
+  --color-titlebar: rgba(14, 16, 22, 0.92);
+
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-muted: rgba(255, 255, 255, 0.08);
+  --surface-1: rgba(255, 255, 255, 0.03);
+  --surface-2: rgba(255, 255, 255, 0.04);
+  --surface-3: rgba(255, 255, 255, 0.05);
+  --surface-pressed: rgba(255, 255, 255, 0.12);
+  --primary-soft: rgba(124, 156, 255, 0.14);
+
+  --text-1: rgba(255, 255, 255, 0.92);
+  --text-2: rgba(255, 255, 255, 0.72);
+  --text-3: rgba(255, 255, 255, 0.55);
+  --text-4: rgba(255, 255, 255, 0.5);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --glow-primary: rgba(124, 156, 255, 0.16);
+  --glow-accent: rgba(120, 80, 200, 0.12);
+
+  --role-ai-bg: rgba(124, 156, 255, 0.2);
+  --role-ai-fg: #c5d2ff;
+  --role-user-bg: rgba(52, 211, 153, 0.18);
+  --role-user-fg: #9af0c9;
+  --bubble-user-bg: rgba(124, 156, 255, 0.14);
+
+  --composer-bg: rgba(22, 24, 32, 0.92);
+  --composer-border: rgba(255, 255, 255, 0.1);
+  --composer-focus-border: rgba(124, 156, 255, 0.45);
+  --composer-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --composer-focus-shadow: 0 12px 32px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(124, 156, 255, 0.18);
+
+  --overlay-scrim: rgba(0, 0, 0, 0.45);
+  --chip-warning-bg: rgba(230, 162, 60, 0.9);
+  --on-primary: #fff;
+  --shadow-send: 0 6px 16px rgba(124, 156, 255, 0.28);
+
+  --code-bg: rgba(0, 0, 0, 0.45);
+  --code-inline-bg: rgba(0, 0, 0, 0.35);
+  --code-fg: #e6e6e6;
+  --code-inline-fg: #f0c674;
+  --hljs-comment: #7a828e;
+  --hljs-keyword: #c678dd;
+  --hljs-string: #98c379;
+  --hljs-title: #61afef;
+  --hljs-attr: #e5c07b;
+  --hljs-built-in: #56b6c2;
+  --hljs-deletion: #e06c75;
+
+  --radius-xs: 5px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+
+  /* 移动端最小可点热区（约 44–48dp） */
+  --touch-min: 44px;
+
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 64px;
+
+  /* Android WebView 上 env(safe-area-inset-*) 常为 0，优先用原生注入的 --safe-area-inset-* */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --app-height: 100%;
+}
+
+[data-theme='light'] {
+  --color-bg: #f4f6fb;
+  --color-bg-elevated: rgba(255, 255, 255, 0.86);
+  --color-text: #1a1d26;
+  --color-primary: #5b7cfa;
+  --color-primary-hover: #7c9cff;
+  --color-primary-pressed: #4a68e0;
+  --color-accent: #7c5cbf;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #d97706;
+  --color-titlebar: rgba(255, 255, 255, 0.92);
+
+  --border-subtle: rgba(15, 23, 42, 0.06);
+  --border-muted: rgba(15, 23, 42, 0.1);
+  --surface-1: rgba(15, 23, 42, 0.03);
+  --surface-2: rgba(15, 23, 42, 0.045);
+  --surface-3: rgba(15, 23, 42, 0.06);
+  --surface-pressed: rgba(15, 23, 42, 0.1);
+  --primary-soft: rgba(91, 124, 250, 0.12);
+
+  --text-1: rgba(15, 23, 42, 0.92);
+  --text-2: rgba(15, 23, 42, 0.72);
+  --text-3: rgba(15, 23, 42, 0.58);
+  --text-4: rgba(15, 23, 42, 0.5);
+
+  --scrollbar-thumb: rgba(15, 23, 42, 0.22);
+  --glow-primary: rgba(91, 124, 250, 0.12);
+  --glow-accent: rgba(124, 92, 191, 0.08);
+
+  --role-ai-bg: rgba(91, 124, 250, 0.16);
+  --role-ai-fg: #3b5bdb;
+  --role-user-bg: rgba(16, 185, 129, 0.14);
+  --role-user-fg: #059669;
+  --bubble-user-bg: rgba(91, 124, 250, 0.1);
+
+  --composer-bg: rgba(255, 255, 255, 0.96);
+  --composer-border: rgba(15, 23, 42, 0.1);
+  --composer-focus-border: rgba(91, 124, 250, 0.5);
+  --composer-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --composer-focus-shadow: 0 10px 28px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(91, 124, 250, 0.2);
+
+  --overlay-scrim: rgba(15, 23, 42, 0.4);
+  --chip-warning-bg: rgba(217, 119, 6, 0.92);
+  --on-primary: #fff;
+  --shadow-send: 0 6px 16px rgba(91, 124, 250, 0.28);
+
+  --code-bg: rgba(15, 23, 42, 0.06);
+  --code-inline-bg: rgba(15, 23, 42, 0.07);
+  --code-fg: rgba(15, 23, 42, 0.88);
+  --code-inline-fg: #b45309;
+  --hljs-comment: #6a737d;
+  --hljs-keyword: #a626a4;
+  --hljs-string: #22863a;
+  --hljs-title: #005cc5;
+  --hljs-attr: #e36209;
+  --hljs-built-in: #0550ae;
+  --hljs-deletion: #b31d28;
+}
