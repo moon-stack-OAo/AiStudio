@@ -79,7 +79,7 @@ npm run tauri:build:check
 
 ## Android（Tauri 2 Mobile）
 
-推送 `v*` tag 时，CI 会在 Ubuntu 上初始化 Android 工程并构建 **arm64（aarch64）debug 签名 APK**，上传到同一 GitHub Release。无需本机安装 Android SDK；本机有完整 SDK 时可本地构建。
+推送 `v*` tag 时，CI 会在 Ubuntu 上初始化 Android 工程并构建 **arm64（aarch64）正式签名 APK**，上传到同一 GitHub Release。无需本机安装 Android SDK；本机有完整 SDK 时可本地构建。
 
 ### 本机环境（可选）
 
@@ -89,14 +89,15 @@ npm run tauri:build:check
 | Android SDK | `platforms;android-34`、Build-Tools、NDK 27.x |
 | 环境变量 | `ANDROID_HOME`、`NDK_HOME` |
 | Rust target | `rustup target add aarch64-linux-android` |
+| 正式签名 | 配置 `src-tauri/gen/android/keystore.properties`（见 [签名文档](https://v2.tauri.app/distribute/sign/android/)） |
 
 ```bash
 npm run tauri:android:init          # 生成 src-tauri/gen/android（--ci）
-npm run tauri:build:android:debug   # 可安装 debug APK（推荐起步）
-npm run tauri:build:android         # release APK（需配置签名，否则多为 unsigned）
+npm run tauri:build:android:debug   # debug 签名 APK（本地调试）
+npm run tauri:build:android         # release APK（需 keystore.properties）
 ```
 
-> 本地若无 SDK，`android init` 可能失败；**不影响发版**：CI 会在每次 Release 时执行 `tauri android init --ci`。
+> 本地若无 SDK，`android init` 可能失败；**不影响发版**：CI 会在每次 Release 时执行 `tauri android init --ci`，并使用仓库 Secrets 正式签名。
 
 ### 配置摘要
 
@@ -136,7 +137,7 @@ npm run tauri:build:android         # release APK（需配置签名，否则多�
 
 1. 从 `CHANGELOG.md` 截取对应版本说明写入 GitHub Release
 2. 构建 Windows 安装包（NSIS / MSI），签名并上传 Updater 产物（含 `latest.json`）
-3. 再构建 Android APK（arm64，debug 签名，可侧载安装）并上传到**同一** Release
+3. 再构建 Android APK（arm64，正式签名，可侧载安装）并上传到**同一** Release
 
 Release 资产通常包含：Windows NSIS / MSI（及 `.sig`）、`latest.json`、Android `.apk`。
 
@@ -146,11 +147,11 @@ Release 资产通常包含：Windows NSIS / MSI（及 `.sig`）、`latest.json`�
 |--------------------------------------|------|
 | `TAURI_SIGNING_PRIVATE_KEY`          | **必需**（Windows Updater）：更新签名私钥全文 |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **必需**（Windows Updater）：私钥密码 |
-| `ANDROID_KEY_ALIAS`                  | 可选（正式上架）：Keystore alias |
-| `ANDROID_KEY_PASSWORD`               | 可选（正式上架）：密钥密码 |
-| `ANDROID_KEY_BASE64`                 | 可选（正式上架）：`.jks` 的 base64 |
+| `ANDROID_KEY_ALIAS`                  | **必需**（Android）：Keystore alias |
+| `ANDROID_KEY_PASSWORD`               | **必需**（Android）：密钥密码 |
+| `ANDROID_KEY_BASE64`                 | **必需**（Android）：`.jks` 的 base64 |
 
-> 当前 Android 起步使用 **debug 签名 APK**（可安装，非 Play 上架包）。正式长期签名需配置上表 Secrets，并按 [Tauri Android 签名文档](https://v2.tauri.app/distribute/sign/android/) 写入 `keystore.properties` / Gradle。
+> CI 会写入 `keystore.properties` 并注入 Gradle release 签名，产出**可侧载安装的正式签名 APK**。本地 keystore 请自行备份，勿提交仓库。
 
 本地生成密钥（勿提交私钥）：
 

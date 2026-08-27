@@ -5,8 +5,8 @@
 # - TAURI_SIGNING_PRIVATE_KEY：私钥全文（~/.tauri/ai-studio.key 内容）
 # - TAURI_SIGNING_PRIVATE_KEY_PASSWORD：私钥密码
 #
-# Android APK（起步）：debug 签名，可侧载安装；正式 Play 签名后续再配 Secrets
-# （ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD / ANDROID_KEY_BASE64）
+# Android APK（正式签名，可侧载安装）：
+# - ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD / ANDROID_KEY_BASE64
 #
 # Release 正文：自动从 CHANGELOG.md 截取与 tag 对应的版本章节
 name: release
@@ -149,11 +149,47 @@ jobs:
           fi
           test -d "src-tauri/gen/android"
 
-      # 起步策略：--debug 使用 Android 调试密钥签名，产出可侧载安装的 APK
-      # （无 Play 长期密钥时，release 未签名 APK 无法直接安装）
-      # 正式上架：配置 ANDROID_KEY_* Secrets 后改为 release 签名构建，勿在未备好 keystore 时改掉 --debug
-      # 仅传 releaseId：只上传资产，避免覆盖 Windows 写入的 CHANGELOG 正文
-      - name: Build Android APK (arm64, debug-signed)
+      # init 生成的是默认图标；用仓库内 icons/android 覆盖到 Android 工程 res
+      - name: Apply Android launcher icons
+        run: |
+          SRC="src-tauri/icons/android"
+          DEST="src-tauri/gen/android/app/src/main/res"
+          test -d "$SRC"
+          test -d "$DEST"
+          for density in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi mipmap-anydpi-v26; do
+            if [ -d "$SRC/$density" ]; then
+              mkdir -p "$DEST/$density"
+              cp -f "$SRC/$density/"* "$DEST/$density/"
+              echo "copied $density"
+            fi
+          done
+          if [ -f "$SRC/values/ic_launcher_background.xml" ]; then
+            mkdir -p "$DEST/values"
+            cp -f "$SRC/values/ic_launcher_background.xml" "$DEST/values/"
+            echo "copied values/ic_launcher_background.xml"
+          fi
+
+      - name: Setup Android release signing
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ] || [ -z "$ANDROID_KEY_BASE64" ]; then
+            echo "::error::缺少 ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD / ANDROID_KEY_BASE64 Secrets"
+            exit 1
+          fi
+          cd src-tauri/gen/android
+          echo "keyAlias=${ANDROID_KEY_ALIAS}" > keystore.properties
+          echo "password=${ANDROID_KEY_PASSWORD}" >> keystore.properties
+          echo "${ANDROID_KEY_BASE64}" | base64 -d > "${RUNNER_TEMP}/keystore.jks"
+          echo "storeFile=${RUNNER_TEMP}/keystore.jks" >> keystore.properties
+          test -s "${RUNNER_TEMP}/keystore.jks"
+          cd ../../..
+          node .github/scripts/patch-android-signing.mjs
+
+      # 正式 release 签名 APK；仅传 releaseId，避免覆盖 Windows 写入的 CHANGELOG 正文
+      - name: Build Android APK (arm64, release-signed)
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -164,7 +200,7 @@ jobs:
           projectPath: .
           tauriScript: npm run tauri
           mobile: android
-          args: --apk --ci --target aarch64 --debug
+          args: --apk --ci --target aarch64
           releaseId: ${{ needs.publish-windows.outputs.releaseId }}
           tagName: ${{ github.ref_name }}
           uploadUpdaterJson: false
