@@ -1,4 +1,6 @@
 <script setup>
+defineOptions({name: 'SettingsView'})
+
 import {computed, ref} from 'vue'
 import {AddOutline, RefreshOutline} from '@vicons/ionicons5'
 import {useBreakpoints} from '@core/composables/useBreakpoints'

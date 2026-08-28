@@ -10,11 +10,10 @@ import {
 import {useVideoStore} from '@core/stores/video'
 
 /**
- * 视频生成流程辅助（Phase 1：供后续 VideoView 复用）
+ * 视频生成流程辅助（busy 状态由 View 侧 videoGeneration runtime 管理）
  */
 export function useVideoGeneration() {
   const videoStore = useVideoStore()
-  const generating = ref(false)
   const lastError = ref('')
 
   async function runGenerate(provider, sessionId, options = {}) {
@@ -32,7 +31,6 @@ export function useVideoGeneration() {
     } = options
 
     lastError.value = ''
-    generating.value = true
 
     let refPreview = ''
     if (imageFile) {
@@ -63,7 +61,6 @@ export function useVideoGeneration() {
     })
 
     if (!item) {
-      generating.value = false
       throw new Error('会话不存在')
     }
 
@@ -138,13 +135,10 @@ export function useVideoGeneration() {
         })
       }
       throw e
-    } finally {
-      generating.value = false
     }
   }
 
   return {
-    generating,
     lastError,
     runGenerate,
     createVideoJob,

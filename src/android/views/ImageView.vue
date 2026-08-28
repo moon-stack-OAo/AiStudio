@@ -1,7 +1,7 @@
 <script setup>
 defineOptions({name: 'ImageView'})
 
-import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {
   AddOutline,
@@ -34,16 +34,18 @@ import {isAndroidTauri, isDesktopTauri} from '@core/utils/request'
 import {trySaveToAndroidGallery} from '@core/utils/androidMediaSave'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
+import {imageGeneration} from '@core/runtime/generationRuntime'
+import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
 
 const imageStore = useImageStore()
 const settings = useSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
 const {copiedId, copyText} = useCopyFeedback()
+const gen = useGenerationRuntime(imageGeneration)
 
 const mode = ref('txt2img')
 const prompt = ref('')
-const loading = ref(false)
 const n = ref(1)
 const size = ref('1024x1024')
 const aspectRatio = ref('1:1')
@@ -52,11 +54,6 @@ const imageFile = ref(null)
 const previewUrl = ref('')
 
 const listRef = ref(null)
-const abortRef = ref(null)
-/** 当前进行中的生成条目 id，停止时用于回写状态 */
-const pendingItemId = ref('')
-/** 正在生成的会话 id；切换/删除时 abort */
-const generatingSessionId = ref(null)
 const mounted = ref(true)
 
 /** itemId -> imageIndex -> objectURL，用于 idb 图片展示 */
@@ -90,9 +87,7 @@ const provider = computed(() => settings.activeProvider)
 const isXai = computed(() => provider.value?.provider === 'xai')
 const isAgnes = computed(() => isAgnesProvider(provider.value))
 const supportsQuality = computed(() => supportsImageQuality(provider.value))
-const isGeneratingCurrent = computed(
-    () => loading.value && generatingSessionId.value === session.value?.id,
-)
+const isGeneratingCurrent = computed(() => gen.isCurrent(session.value?.id))
 
 const canGenerate = computed(() => {
   if (!prompt.value.trim() || isGeneratingCurrent.value) return false
@@ -386,10 +381,13 @@ onMounted(() => {
   scheduleScrollToBottom()
 })
 
+onActivated(() => {
+  scheduleScrollToBottom()
+})
+
 onBeforeUnmount(() => {
   mounted.value = false
   window.removeEventListener('paste', onPaste)
-  abortRef.value?.abort()
   revokeAllObjectUrls()
 })
 
@@ -403,8 +401,7 @@ async function generate() {
     message.warning('请输入提示词')
     return
   }
-  // 全局同一时间仅允许一路生成；切换会话时会 abort 并清 loading
-  if (!session.value || loading.value) return
+  if (!session.value || gen.busy) return
   if (!ensureProvider()) return
   if (mode.value === 'img2img' && !imageFile.value) {
     message.warning('图生图请先上传参考图')
@@ -412,9 +409,9 @@ async function generate() {
   }
 
   const sessionId = session.value.id
-  abortRef.value?.abort()
+  gen.abort()
   const controller = new AbortController()
-  abortRef.value = controller
+  gen.begin(sessionId, controller)
 
   prompt.value = ''
 
@@ -434,19 +431,14 @@ async function generate() {
   })
 
   if (!pending?.id) {
-    loading.value = false
-    generatingSessionId.value = null
+    gen.end(sessionId)
     return
   }
-
-  pendingItemId.value = pending.id
-  generatingSessionId.value = sessionId
 
   if (mode.value === 'img2img' && previewUrl.value) {
     refThumbMap.value = {...refThumbMap.value, [pending.id]: previewUrl.value}
   }
 
-  loading.value = true
   await nextTick()
   scrollToBottom()
 
@@ -472,12 +464,12 @@ async function generate() {
             })
 
     if (!sessionStillHasItem(sessionId, pending.id)) return
-    if (controller.signal.aborted || !mounted.value) return
+    if (controller.signal.aborted) return
 
     const images = await cacheGeneratedImages(rawImages)
 
     if (!sessionStillHasItem(sessionId, pending.id)) return
-    if (controller.signal.aborted || !mounted.value) return
+    if (controller.signal.aborted) return
 
     const tempCount = images.filter((img) => img.temporary).length
 
@@ -487,14 +479,15 @@ async function generate() {
       errorMessage: '',
     })
 
-    if (tempCount > 0) {
-      message.warning(`生成成功，但有 ${tempCount} 张未缓存（临时链接，可能过期）`)
-    } else {
-      message.success(`生成成功，共 ${images.length} 张`)
+    if (mounted.value && imageStore.activeId === sessionId) {
+      if (tempCount > 0) {
+        message.warning(`生成成功，但有 ${tempCount} 张未缓存（临时链接，可能过期）`)
+      } else {
+        message.success(`生成成功，共 ${images.length} 张`)
+      }
+      await nextTick()
+      scrollToBottom()
     }
-
-    await nextTick()
-    if (imageStore.activeId === sessionId) scrollToBottom()
   } catch (err) {
     if (!sessionStillHasItem(sessionId, pending.id)) return
     if (err?.name === 'AbortError' || err?.message === 'canceled' || controller.signal.aborted) {
@@ -504,44 +497,30 @@ async function generate() {
       })
       return
     }
-    if (!mounted.value) return
     const errText = toErrorMessage(err, '生成失败')
     imageStore.updateItem(sessionId, pending.id, {
       status: 'error',
       errorMessage: errText,
     })
-    message.error(errText)
-  } finally {
-    if (abortRef.value === controller) abortRef.value = null
-    if (pendingItemId.value === pending.id) pendingItemId.value = ''
-    if (generatingSessionId.value === sessionId) {
-      generatingSessionId.value = null
-      loading.value = false
+    if (mounted.value && imageStore.activeId === sessionId) {
+      message.error(errText)
     }
+  } finally {
+    gen.end(sessionId)
   }
 }
 
-function abortIfLeavingGenerate(nextId) {
-  if (!loading.value || !generatingSessionId.value) return
-  if (nextId != null && generatingSessionId.value === nextId) return
-  abortRef.value?.abort()
-}
-
 function selectSession(id) {
-  abortIfLeavingGenerate(id)
   imageStore.setActive(id)
 }
 
 function createSession() {
-  abortIfLeavingGenerate(null)
   imageStore.createSession()
   message.success('已新建会话')
 }
 
 function removeSession(id) {
-  if (loading.value && generatingSessionId.value === id) {
-    abortRef.value?.abort()
-  }
+  gen.abortIfSession(id)
   imageStore.removeSession(id)
 }
 
@@ -749,8 +728,8 @@ async function onCardUseAsReference() {
 }
 
 function stopGenerate() {
-  if (!loading.value) return
-  abortRef.value?.abort()
+  if (!gen.busy) return
+  gen.abort()
 }
 
 async function copyPrompt(item) {

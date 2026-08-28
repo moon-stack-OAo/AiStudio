@@ -28,13 +28,16 @@ import {isAndroidTauri, isDesktopTauri} from '@core/utils/request'
 import {trySaveToAndroidGallery} from '@core/utils/androidMediaSave'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
+import {videoGeneration} from '@core/runtime/generationRuntime'
+import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
 
 const videoStore = useVideoStore()
 const settings = useSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
 const {copiedId, copyText} = useCopyFeedback()
-const {generating, runGenerate} = useVideoGeneration()
+const {runGenerate} = useVideoGeneration()
+const gen = useGenerationRuntime(videoGeneration)
 
 const mode = ref('txt2video')
 const prompt = ref('')
@@ -45,9 +48,6 @@ const imageFile = ref(null)
 const previewUrl = ref('')
 
 const listRef = ref(null)
-const abortRef = ref(null)
-const pendingItemId = ref('')
-const generatingSessionId = ref(null)
 const mounted = ref(true)
 const resumeAbortRef = ref(null)
 
@@ -68,9 +68,7 @@ useBackCloseLayer(cardActionShow)
 const session = computed(() => videoStore.activeSession)
 const provider = computed(() => settings.activeProvider)
 const isXai = computed(() => provider.value?.provider === 'xai')
-const isGeneratingCurrent = computed(
-  () => generating.value && generatingSessionId.value === session.value?.id,
-)
+const isGeneratingCurrent = computed(() => gen.isCurrent(session.value?.id))
 
 const canGenerate = computed(() => {
   if (!prompt.value.trim() || isGeneratingCurrent.value) return false
@@ -298,9 +296,6 @@ onActivated(() => {
 onBeforeUnmount(() => {
   mounted.value = false
   window.removeEventListener('paste', onPaste)
-  abortRef.value?.abort()
-  resumeAbortRef.value?.abort()
-  resumeInFlight = false
 })
 
 function onComposerFocus() {
@@ -313,7 +308,7 @@ async function generate() {
     message.warning('请输入提示词')
     return
   }
-  if (!session.value || generating.value) return
+  if (!session.value || gen.busy) return
   if (!ensureProvider()) return
   if (mode.value === 'img2video' && !imageFile.value) {
     message.warning('图生视频请先上传参考图')
@@ -321,9 +316,9 @@ async function generate() {
   }
 
   const sessionId = session.value.id
-  abortRef.value?.abort()
+  gen.abort()
   const controller = new AbortController()
-  abortRef.value = controller
+  gen.begin(sessionId, controller)
 
   const savedPrompt = text
   const savedMode = mode.value
@@ -331,7 +326,6 @@ async function generate() {
   const savedPreview = previewUrl.value
 
   prompt.value = ''
-  generatingSessionId.value = sessionId
 
   const itemsBefore = new Set((session.value?.items || []).map((i) => i.id))
 
@@ -357,12 +351,12 @@ async function generate() {
       refThumbMap.value = {...refThumbMap.value, [newItemId]: savedPreview}
     }
 
-    if (!mounted.value) return
     if (controller.signal.aborted) return
-
-    message.success('视频生成成功')
-    await nextTick()
-    if (videoStore.activeId === sessionId) scrollToBottom()
+    if (mounted.value && videoStore.activeId === sessionId) {
+      message.success('视频生成成功')
+      await nextTick()
+      scrollToBottom()
+    }
   } catch (err) {
     const newItemId = (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
     if (savedMode === 'img2video' && savedPreview && newItemId) {
@@ -371,44 +365,31 @@ async function generate() {
     if (err?.name === 'AbortError' || err?.message === 'canceled' || controller.signal.aborted) {
       return
     }
-    if (!mounted.value) return
-    message.error(err?.message || '生成失败')
-  } finally {
-    if (abortRef.value === controller) abortRef.value = null
-    if (generatingSessionId.value === sessionId) {
-      generatingSessionId.value = null
+    if (mounted.value && videoStore.activeId === sessionId) {
+      message.error(err?.message || '生成失败')
     }
-    pendingItemId.value = ''
+  } finally {
+    gen.end(sessionId)
   }
 }
 
-function abortIfLeavingGenerate(nextId) {
-  if (!generating.value || !generatingSessionId.value) return
-  if (nextId != null && generatingSessionId.value === nextId) return
-  abortRef.value?.abort()
-}
-
 function selectSession(id) {
-  abortIfLeavingGenerate(id)
   videoStore.setActive(id)
 }
 
 function createSession() {
-  abortIfLeavingGenerate(null)
   videoStore.createSession()
   message.success('已新建会话')
 }
 
 function removeSession(id) {
-  if (generating.value && generatingSessionId.value === id) {
-    abortRef.value?.abort()
-  }
+  gen.abortIfSession(id)
   videoStore.removeSession(id)
 }
 
 function stopGenerate() {
-  if (!generating.value) return
-  abortRef.value?.abort()
+  if (!gen.busy) return
+  gen.abort()
 }
 
 async function copyPrompt(item) {
@@ -550,7 +531,7 @@ async function downloadVideo(item, name) {
 }
 
 async function retryItem(item) {
-  if (!item || generating.value) return
+  if (!item || gen.busy) return
   if (!ensureProvider()) return
   if (!session.value) return
 
@@ -569,10 +550,9 @@ async function retryItem(item) {
     return
   }
 
-  abortRef.value?.abort()
+  gen.abort()
   const controller = new AbortController()
-  abortRef.value = controller
-  generatingSessionId.value = sessionId
+  gen.begin(sessionId, controller)
 
   const p = item.params || {}
   try {
@@ -585,17 +565,19 @@ async function retryItem(item) {
       aspectRatio: p.aspectRatio || aspectRatio.value,
       signal: controller.signal,
     })
-    if (!mounted.value || controller.signal.aborted) return
-    message.success('视频生成成功')
-    await nextTick()
-    if (videoStore.activeId === sessionId) scrollToBottom()
+    if (controller.signal.aborted) return
+    if (mounted.value && videoStore.activeId === sessionId) {
+      message.success('视频生成成功')
+      await nextTick()
+      scrollToBottom()
+    }
   } catch (err) {
     if (err?.name === 'AbortError' || controller.signal.aborted) return
-    if (!mounted.value) return
-    message.error(err?.message || '重试失败')
+    if (mounted.value && videoStore.activeId === sessionId) {
+      message.error(err?.message || '重试失败')
+    }
   } finally {
-    if (abortRef.value === controller) abortRef.value = null
-    if (generatingSessionId.value === sessionId) generatingSessionId.value = null
+    gen.end(sessionId)
   }
 }
 
@@ -733,7 +715,7 @@ const emptyDesc = computed(() => {
               <div v-else-if="itemStatus(item) === 'error'" class="ai-error-block">
                 <div class="ai-error">{{ item.errorMessage || '生成失败' }}</div>
                 <n-button
-                  :disabled="generating"
+                  :disabled="gen.busy"
                   class="retry-btn"
                   secondary
                   size="tiny"
@@ -754,7 +736,7 @@ const emptyDesc = computed(() => {
                   }}
                 </div>
                 <n-button
-                  :disabled="generating"
+                  :disabled="gen.busy"
                   class="retry-btn"
                   secondary
                   size="tiny"

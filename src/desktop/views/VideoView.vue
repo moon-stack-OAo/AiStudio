@@ -1,5 +1,7 @@
 <script setup>
-import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+defineOptions({name: 'VideoView'})
+
+import {computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {
   DownloadOutline,
@@ -26,6 +28,8 @@ import {useClipboardImage} from '@core/composables/useClipboardImage'
 import {downloadMediaBlob} from '@core/composables/useMediaDownload'
 import {useManualDropdown} from '@/composables/useManualDropdown'
 import {renderSelectLabel} from '@core/utils/selectRender'
+import {videoGeneration} from '@core/runtime/generationRuntime'
+import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
 
 const videoStore = useVideoStore()
 const settings = useSettingsStore()
@@ -34,7 +38,8 @@ const dialog = useDialog()
 const {isMobile, isCompact} = useBreakpoints()
 const {tooltipTrigger} = useTooltipTrigger()
 const {copiedId, copyText} = useCopyFeedback()
-const {generating, runGenerate} = useVideoGeneration()
+const {runGenerate} = useVideoGeneration()
+const gen = useGenerationRuntime(videoGeneration)
 const {
   show: ctxShow,
   x: ctxX,
@@ -56,8 +61,6 @@ const previewUrl = ref('')
 
 const listRef = ref(null)
 const {scrollToBottom, scheduleScrollToBottom} = useScrollToBottom(listRef)
-const abortRef = ref(null)
-const generatingSessionId = ref(null)
 const mounted = ref(true)
 const resumeAbortRef = ref(null)
 
@@ -71,9 +74,7 @@ const paramsDrawerShow = ref(false)
 const session = computed(() => videoStore.activeSession)
 const provider = computed(() => settings.activeProvider)
 const isXai = computed(() => provider.value?.provider === 'xai')
-const isGeneratingCurrent = computed(
-  () => generating.value && generatingSessionId.value === session.value?.id,
-)
+const isGeneratingCurrent = computed(() => gen.isCurrent(session.value?.id))
 
 const canGenerate = computed(() => {
   if (!prompt.value.trim() || isGeneratingCurrent.value) return false
@@ -220,9 +221,11 @@ function getProviderById(id) {
   return settings.providers.find((p) => p.id === id) || null
 }
 
-onMounted(() => {
-  window.addEventListener('paste', onPaste)
-  scheduleScrollToBottom()
+let resumeInFlight = false
+
+function startResumeIfNeeded() {
+  if (resumeInFlight) return
+  resumeInFlight = true
   const controller = new AbortController()
   resumeAbortRef.value = controller
   videoStore
@@ -231,13 +234,27 @@ onMounted(() => {
       if (e?.name === 'AbortError') return
       console.warn('[video] resumePendingJobs', e)
     })
+    .finally(() => {
+      if (resumeAbortRef.value === controller) {
+        resumeInFlight = false
+      }
+    })
+}
+
+onMounted(() => {
+  window.addEventListener('paste', onPaste)
+  scheduleScrollToBottom()
+  startResumeIfNeeded()
+})
+
+onActivated(() => {
+  scheduleScrollToBottom()
+  startResumeIfNeeded()
 })
 
 onBeforeUnmount(() => {
   mounted.value = false
   window.removeEventListener('paste', onPaste)
-  abortRef.value?.abort()
-  resumeAbortRef.value?.abort()
 })
 
 function onKeydown(e) {
@@ -259,7 +276,7 @@ async function generate() {
     message.warning('请输入提示词')
     return
   }
-  if (!session.value || generating.value) return
+  if (!session.value || gen.busy) return
   if (!ensureProvider()) return
   if (mode.value === 'img2video' && !imageFile.value) {
     message.warning('图生视频请先上传参考图')
@@ -267,9 +284,9 @@ async function generate() {
   }
 
   const sessionId = session.value.id
-  abortRef.value?.abort()
+  gen.abort()
   const controller = new AbortController()
-  abortRef.value = controller
+  gen.begin(sessionId, controller)
 
   const savedPrompt = text
   const savedMode = mode.value
@@ -277,7 +294,6 @@ async function generate() {
   const savedPreview = previewUrl.value
 
   prompt.value = ''
-  generatingSessionId.value = sessionId
 
   const itemsBefore = new Set((session.value?.items || []).map((i) => i.id))
 
@@ -303,12 +319,12 @@ async function generate() {
       refThumbMap.value = {...refThumbMap.value, [newItemId]: savedPreview}
     }
 
-    if (!mounted.value) return
     if (controller.signal.aborted) return
-
-    message.success('视频生成成功')
-    await nextTick()
-    if (videoStore.activeId === sessionId) scrollToBottom()
+    if (mounted.value && videoStore.activeId === sessionId) {
+      message.success('视频生成成功')
+      await nextTick()
+      scrollToBottom()
+    }
   } catch (err) {
     const newItemId = (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
     if (savedMode === 'img2video' && savedPreview && newItemId) {
@@ -317,42 +333,30 @@ async function generate() {
     if (err?.name === 'AbortError' || err?.message === 'canceled' || controller.signal.aborted) {
       return
     }
-    if (!mounted.value) return
-    message.error(err?.message || '生成失败')
-  } finally {
-    if (abortRef.value === controller) abortRef.value = null
-    if (generatingSessionId.value === sessionId) {
-      generatingSessionId.value = null
+    if (mounted.value && videoStore.activeId === sessionId) {
+      message.error(err?.message || '生成失败')
     }
+  } finally {
+    gen.end(sessionId)
   }
 }
 
-function abortIfLeavingGenerate(nextId) {
-  if (!generating.value || !generatingSessionId.value) return
-  if (nextId != null && generatingSessionId.value === nextId) return
-  abortRef.value?.abort()
-}
-
 function selectSession(id) {
-  abortIfLeavingGenerate(id)
   videoStore.setActive(id)
 }
 
 function createSession() {
-  abortIfLeavingGenerate(null)
   videoStore.createSession()
 }
 
 function removeSession(id) {
-  if (generating.value && generatingSessionId.value === id) {
-    abortRef.value?.abort()
-  }
+  gen.abortIfSession(id)
   videoStore.removeSession(id)
 }
 
 function stopGenerate() {
-  if (!generating.value) return
-  abortRef.value?.abort()
+  if (!gen.busy) return
+  gen.abort()
 }
 
 async function copyPrompt(item) {
@@ -383,7 +387,7 @@ function onAiBubbleContextMenu(e, item) {
   const options = []
   if (status === 'error' || isVideoBroken(item)) {
     options.push({label: '复制错误信息', key: 'copy-error'})
-    options.push({label: '重试', key: 'retry', disabled: generating.value})
+    options.push({label: '重试', key: 'retry', disabled: gen.busy})
   } else if (item?.videoUrl) {
     options.push({label: '下载', key: 'download'})
   }
@@ -433,7 +437,7 @@ async function downloadVideo(item, name) {
 }
 
 async function retryItem(item) {
-  if (!item || generating.value) return
+  if (!item || gen.busy) return
   if (!ensureProvider()) return
   if (!session.value) return
 
@@ -452,10 +456,9 @@ async function retryItem(item) {
     return
   }
 
-  abortRef.value?.abort()
+  gen.abort()
   const controller = new AbortController()
-  abortRef.value = controller
-  generatingSessionId.value = sessionId
+  gen.begin(sessionId, controller)
 
   const p = item.params || {}
   try {
@@ -468,17 +471,19 @@ async function retryItem(item) {
       aspectRatio: p.aspectRatio || aspectRatio.value,
       signal: controller.signal,
     })
-    if (!mounted.value || controller.signal.aborted) return
-    message.success('视频生成成功')
-    await nextTick()
-    if (videoStore.activeId === sessionId) scrollToBottom()
+    if (controller.signal.aborted) return
+    if (mounted.value && videoStore.activeId === sessionId) {
+      message.success('视频生成成功')
+      await nextTick()
+      scrollToBottom()
+    }
   } catch (err) {
     if (err?.name === 'AbortError' || controller.signal.aborted) return
-    if (!mounted.value) return
-    message.error(err?.message || '重试失败')
+    if (mounted.value && videoStore.activeId === sessionId) {
+      message.error(err?.message || '重试失败')
+    }
   } finally {
-    if (abortRef.value === controller) abortRef.value = null
-    if (generatingSessionId.value === sessionId) generatingSessionId.value = null
+    gen.end(sessionId)
   }
 }
 
@@ -588,7 +593,7 @@ const emptyDesc = computed(() => {
                   <n-button
                     size="tiny"
                     secondary
-                    :disabled="generating"
+                    :disabled="gen.busy"
                     @click="retryItem(item)"
                   >
                     <template #icon>
@@ -608,7 +613,7 @@ const emptyDesc = computed(() => {
                   <n-button
                     size="tiny"
                     secondary
-                    :disabled="generating"
+                    :disabled="gen.busy"
                     @click="retryItem(item)"
                   >
                     <template #icon>

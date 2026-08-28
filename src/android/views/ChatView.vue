@@ -1,7 +1,7 @@
 <script setup>
 defineOptions({name: 'ChatView'})
 
-import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {AddOutline, ArrowUndoOutline, EllipsisHorizontalOutline, SendOutline,} from '@vicons/ionicons5'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
@@ -18,6 +18,8 @@ import {useCopyFeedback} from '@core/composables/useCopyFeedback'
 import {trimChatMessages} from '@core/utils/chatContext'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
+import {chatGeneration} from '@core/runtime/generationRuntime'
+import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
 
 const chatStore = useChatStore()
 const settings = useSettingsStore()
@@ -25,13 +27,10 @@ const message = useMessage()
 const dialog = useDialog()
 const {copiedId, copyText} = useCopyFeedback()
 const {tooltipTrigger} = useTooltipTrigger()
+const gen = useGenerationRuntime(chatGeneration)
 
 const input = ref('')
-const loading = ref(false)
 const listRef = ref(null)
-const abortRef = ref(null)
-/** 正在流式生成的会话 id；切换/删除时用于 abort */
-const streamingSessionId = ref(null)
 const contextHintShown = ref(false)
 const moreShow = ref(false)
 useBackCloseLayer(moreShow)
@@ -74,9 +73,7 @@ function cancelStreamUiSchedule() {
 
 const session = computed(() => chatStore.activeSession)
 const provider = computed(() => settings.activeProvider)
-const isStreamingCurrent = computed(
-  () => loading.value && streamingSessionId.value === session.value?.id,
-)
+const isStreamingCurrent = computed(() => gen.isCurrent(session.value?.id))
 
 const contextInfo = computed(() => {
   const msgs = (session.value?.messages || [])
@@ -152,10 +149,13 @@ onMounted(() => {
   scheduleScrollToBottom()
 })
 
+onActivated(() => {
+  scheduleScrollToBottom()
+})
+
 async function send() {
   const text = input.value.trim()
-  // 全局同一时间仅允许一路流式；切换会话时会 abort 并清 loading
-  if (!text || loading.value || !session.value) return
+  if (!text || gen.busy || !session.value) return
   if (!ensureProvider()) return
 
   const sessionId = session.value.id
@@ -195,10 +195,8 @@ async function send() {
     streaming: true,
   })
 
-  loading.value = true
-  streamingSessionId.value = sessionId
   const controller = new AbortController()
-  abortRef.value = controller
+  gen.begin(sessionId, controller)
 
   try {
     await streamChatCompletions(provider.value, {
@@ -235,39 +233,25 @@ async function send() {
     }
   } finally {
     cancelStreamUiSchedule()
-    if (streamingSessionId.value === sessionId) {
-      loading.value = false
-      streamingSessionId.value = null
-      abortRef.value = null
-    }
+    gen.end(sessionId)
   }
 }
 
 function stop() {
-  abortRef.value?.abort()
-}
-
-function abortIfLeavingStream(nextId) {
-  if (!loading.value || !streamingSessionId.value) return
-  if (nextId != null && streamingSessionId.value === nextId) return
-  abortRef.value?.abort()
+  gen.abort()
 }
 
 function selectSession(id) {
-  abortIfLeavingStream(id)
   chatStore.setActive(id)
 }
 
 function createSession() {
-  abortIfLeavingStream(null)
   chatStore.createSession()
   message.success('已新建会话')
 }
 
 function removeSession(id) {
-  if (loading.value && streamingSessionId.value === id) {
-    abortRef.value?.abort()
-  }
+  gen.abortIfSession(id)
   chatStore.removeSession(id)
 }
 
@@ -286,8 +270,8 @@ function recallMessage(msg) {
     negativeText: '取消',
     onPositiveClick: () => {
       const sessionId = session.value.id
-      if (loading.value && streamingSessionId.value === sessionId) {
-        abortRef.value?.abort()
+      if (gen.isCurrent(sessionId)) {
+        gen.abort()
       }
       chatStore.recallUserMessage(sessionId, msg.id)
     },
@@ -312,7 +296,6 @@ function clearMessages() {
 
 onBeforeUnmount(() => {
   cancelStreamUiSchedule()
-  abortRef.value?.abort()
 })
 </script>
 

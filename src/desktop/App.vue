@@ -142,7 +142,11 @@ function onMenuUpdate(key) {
               </aside>
 
               <main class="main">
-                <router-view />
+                <router-view v-slot="{ Component }">
+                  <keep-alive :include="['ChatView', 'ImageView', 'VideoView', 'SettingsView']">
+                    <component :is="Component" />
+                  </keep-alive>
+                </router-view>
               </main>
             </div>
           </div>
