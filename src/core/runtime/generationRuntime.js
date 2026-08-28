@@ -38,8 +38,12 @@ function createGenerationRuntime() {
       controller = abortController || null
       notify()
     },
-    /** 仅当仍是同一会话时清理 */
-    end(sessionId) {
+    /**
+     * 仅当仍是同一会话（且可选同一 controller）时清理。
+     * 传入 abortController 可避免「旧任务 finally」清掉新任务。
+     */
+    end(sessionId, abortController) {
+      if (abortController != null && controller !== abortController) return
       if (sessionId != null && state.sessionId !== sessionId) return
       state.sessionId = null
       controller = null

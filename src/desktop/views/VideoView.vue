@@ -18,7 +18,7 @@ import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue
 import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'
 import {useVideoStore} from '@core/stores/video'
 import {useSettingsStore} from '@core/stores/settings'
-import {fileToPreview} from '@core/api/client'
+import {fileToPreview, getCapabilities} from '@core/api/client'
 import {useVideoGeneration} from '@core/composables/useVideoGeneration'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
@@ -60,7 +60,7 @@ const imageFile = ref(null)
 const previewUrl = ref('')
 
 const listRef = ref(null)
-const {scrollToBottom, scheduleScrollToBottom} = useScrollToBottom(listRef)
+const {scheduleScrollToBottom} = useScrollToBottom(listRef)
 const mounted = ref(true)
 const resumeAbortRef = ref(null)
 
@@ -73,7 +73,10 @@ const paramsDrawerShow = ref(false)
 
 const session = computed(() => videoStore.activeSession)
 const provider = computed(() => settings.activeProvider)
-const isXai = computed(() => provider.value?.provider === 'xai')
+const caps = computed(() => getCapabilities(provider.value))
+const videoCaps = computed(() => caps.value?.video || {})
+/** aspectOnly 仅选比例；其余（含 Agnes tier）UI 仍选 WxH */
+const useAspectOnly = computed(() => videoCaps.value.sizeMode === 'aspectOnly')
 const isGeneratingCurrent = computed(() => gen.isCurrent(session.value?.id))
 
 const canGenerate = computed(() => {
@@ -94,34 +97,38 @@ const sizeOptionsDesktop = [
   {label: '1024×1792', value: '1024x1792'},
 ]
 
-const aspectOptions = [
-  {label: '16:9', value: '16:9'},
-  {label: '9:16', value: '9:16'},
-  {label: '1:1', value: '1:1'},
-  {label: '4:3', value: '4:3'},
-  {label: '3:4', value: '3:4'},
-]
+const aspectOptions = computed(() => {
+  const list = videoCaps.value.ratios
+  if (Array.isArray(list) && list.length) {
+    return list.map((v) => ({label: v, value: v}))
+  }
+  return [
+    {label: '16:9', value: '16:9'},
+    {label: '9:16', value: '9:16'},
+    {label: '1:1', value: '1:1'},
+    {label: '4:3', value: '4:3'},
+    {label: '3:4', value: '3:4'},
+  ]
+})
 
-const durationOptionsOpenAi = [
-  {label: '4 秒', value: 4},
-  {label: '8 秒', value: 8},
-  {label: '12 秒', value: 12},
-]
-
-const durationOptionsXai = Array.from({length: 15}, (_, i) => ({
-  label: `${i + 1} 秒`,
-  value: i + 1,
-}))
-
-const durationOptions = computed(() =>
-  isXai.value ? durationOptionsXai : durationOptionsOpenAi,
-)
+const durationOptions = computed(() => {
+  const v = videoCaps.value
+  if (Array.isArray(v.durationOptions) && v.durationOptions.length) {
+    return v.durationOptions.map((sec) => ({label: `${sec} 秒`, value: sec}))
+  }
+  const min = Number(v.durationMin) || 1
+  const max = Number(v.durationMax) || 15
+  return Array.from({length: max - min + 1}, (_, i) => {
+    const sec = min + i
+    return {label: `${sec} 秒`, value: sec}
+  })
+})
 
 const modeLabel = computed(() => (mode.value === 'img2video' ? '图生视频' : '文生视频'))
 
 const sizeLabel = computed(() => {
-  if (isXai.value) {
-    return aspectOptions.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
+  if (useAspectOnly.value) {
+    return aspectOptions.value.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
   }
   return sizeOptionsDesktop.find((o) => o.value === size.value)?.label || size.value
 })
@@ -192,29 +199,35 @@ const {onPaste} = useClipboardImage(
 )
 
 watch(
-  () => timelineItems.value.length,
+  () => session.value?.id,
   () => {
-    scheduleScrollToBottom()
+    refThumbMap.value = {}
+    videoErrorIds.value = {}
+    // 切会话时滚到底；停留在当前页播放时不自动拽底
+    scheduleScrollToBottom({force: true})
+  },
+)
+
+watch(
+  durationOptions,
+  (opts) => {
+    if (!opts.some((o) => o.value === seconds.value)) {
+      const def = videoCaps.value.durationDefault
+      seconds.value = opts.some((o) => o.value === def) ? def : (opts[0]?.value ?? 8)
+    }
   },
   {immediate: true},
 )
 
 watch(
-  () => session.value?.id,
-  () => {
-    refThumbMap.value = {}
-    videoErrorIds.value = {}
-    scheduleScrollToBottom()
+  aspectOptions,
+  (opts) => {
+    if (!opts.some((o) => o.value === aspectRatio.value)) {
+      aspectRatio.value = opts[0]?.value || '16:9'
+    }
   },
+  {immediate: true},
 )
-
-watch(isXai, (xai) => {
-  if (xai) {
-    if (seconds.value < 1 || seconds.value > 15) seconds.value = 8
-  } else if (![4, 8, 12].includes(seconds.value)) {
-    seconds.value = 8
-  }
-})
 
 function getProviderById(id) {
   if (!id) return null
@@ -243,12 +256,13 @@ function startResumeIfNeeded() {
 
 onMounted(() => {
   window.addEventListener('paste', onPaste)
-  scheduleScrollToBottom()
+  scheduleScrollToBottom({force: true})
   startResumeIfNeeded()
 })
 
 onActivated(() => {
-  scheduleScrollToBottom()
+  // 仅切回本页时滚到底
+  scheduleScrollToBottom({force: true})
   startResumeIfNeeded()
 })
 
@@ -267,7 +281,7 @@ function onKeydown(e) {
 }
 
 function onComposerFocus() {
-  scheduleScrollToBottom()
+  // 视频页不因输入框聚焦自动滚底，避免播放时误跳
 }
 
 async function generate() {
@@ -298,7 +312,6 @@ async function generate() {
   const itemsBefore = new Set((session.value?.items || []).map((i) => i.id))
 
   await nextTick()
-  scrollToBottom()
 
   try {
     const result = await runGenerate(provider.value, sessionId, {
@@ -307,8 +320,8 @@ async function generate() {
       imageFile: savedMode === 'img2video' ? savedFile : undefined,
       seconds: seconds.value,
       duration: seconds.value,
-      size: isXai.value ? undefined : size.value,
-      aspectRatio: isXai.value ? aspectRatio.value : undefined,
+      size: useAspectOnly.value ? undefined : size.value,
+      aspectRatio: useAspectOnly.value ? aspectRatio.value : undefined,
       signal: controller.signal,
     })
 
@@ -322,8 +335,6 @@ async function generate() {
     if (controller.signal.aborted) return
     if (mounted.value && videoStore.activeId === sessionId) {
       message.success('视频生成成功')
-      await nextTick()
-      scrollToBottom()
     }
   } catch (err) {
     const newItemId = (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
@@ -337,7 +348,7 @@ async function generate() {
       message.error(err?.message || '生成失败')
     }
   } finally {
-    gen.end(sessionId)
+    gen.end(sessionId, controller)
   }
 }
 
@@ -355,8 +366,21 @@ function removeSession(id) {
 }
 
 function stopGenerate() {
-  if (!gen.busy) return
+  const sessionId = session.value?.id
+  if (!sessionId || !gen.isCurrent(sessionId)) return
+  const loadingItem = session.value?.items?.find(
+    (i) => i.status === 'loading' || i.status === 'pending_resume',
+  )
+  if (loadingItem) {
+    const hasJob = Boolean(loadingItem.jobId)
+    videoStore.updateItem(sessionId, loadingItem.id, {
+      status: hasJob ? 'pending_resume' : 'error',
+      needsResume: hasJob,
+      errorMessage: hasJob ? '' : '已取消',
+    })
+  }
   gen.abort()
+  gen.end(sessionId)
 }
 
 async function copyPrompt(item) {
@@ -474,8 +498,6 @@ async function retryItem(item) {
     if (controller.signal.aborted) return
     if (mounted.value && videoStore.activeId === sessionId) {
       message.success('视频生成成功')
-      await nextTick()
-      scrollToBottom()
     }
   } catch (err) {
     if (err?.name === 'AbortError' || controller.signal.aborted) return
@@ -483,7 +505,7 @@ async function retryItem(item) {
       message.error(err?.message || '重试失败')
     }
   } finally {
-    gen.end(sessionId)
+    gen.end(sessionId, controller)
   }
 }
 
@@ -702,7 +724,7 @@ const emptyDesc = computed(() => {
                 size="small"
               />
             </label>
-            <label v-if="!isXai" class="opt-item opt-size" title="画幅">
+            <label v-if="!useAspectOnly" class="opt-item opt-size" title="画幅">
               <span class="opt-label">画幅</span>
               <n-select
                 v-model:value="size"
@@ -857,9 +879,9 @@ const emptyDesc = computed(() => {
         </div>
 
         <div class="params-section params-section-full">
-          <div class="params-label">{{ isXai ? '比例' : '画幅' }}</div>
+          <div class="params-label">{{ useAspectOnly ? '比例' : '画幅' }}</div>
           <n-select
-            v-if="!isXai"
+            v-if="!useAspectOnly"
             v-model:value="size"
             :options="sizeOptionsDesktop"
             :render-label="renderSelectLabel"

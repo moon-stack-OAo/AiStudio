@@ -15,8 +15,7 @@ import {
   editImage,
   fileToPreview,
   generateImage,
-  isAgnesProvider,
-  supportsImageQuality,
+  getCapabilities,
   toErrorMessage,
 } from '@core/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@core/utils/imageCache'
@@ -60,7 +59,7 @@ const imageFile = ref(null)
 const previewUrl = ref('')
 
 const listRef = ref(null)
-const {scrollToBottom, scheduleScrollToBottom} = useScrollToBottom(listRef)
+const {scheduleScrollToBottom} = useScrollToBottom(listRef)
 const mounted = ref(true)
 
 /** itemId -> imageIndex -> objectURL，用于 idb 图片展示 */
@@ -82,9 +81,15 @@ const paramsDrawerShow = ref(false)
 
 const session = computed(() => imageStore.activeSession)
 const provider = computed(() => settings.activeProvider)
-const isXai = computed(() => provider.value?.provider === 'xai')
-const isAgnes = computed(() => isAgnesProvider(provider.value))
-const supportsQuality = computed(() => supportsImageQuality(provider.value))
+const caps = computed(() => getCapabilities(provider.value))
+const imageCaps = computed(() => caps.value?.image || {})
+const supportsQuality = computed(() => !!imageCaps.value.supportsQuality)
+const supportsN = computed(() => imageCaps.value.supportsN !== false)
+const showSize = computed(() => imageCaps.value.sizeMode !== 'aspectOnly')
+const useAspectRatio = computed(() => {
+  const ratios = imageCaps.value.ratios
+  return Array.isArray(ratios) && ratios.length > 0
+})
 const isGeneratingCurrent = computed(() => gen.isCurrent(session.value?.id))
 
 const canGenerate = computed(() => {
@@ -107,24 +112,36 @@ const sizeOptionsDefault = [
   {label: '2160×3840', value: '2160x3840'},
 ]
 
-const sizeOptionsAgnes = [
-  {label: '1024×1024', value: '1024x1024'},
-  {label: '1024×768', value: '1024x768'},
-  {label: '768×1024', value: '768x1024'},
-]
+function formatSizeLabel(v) {
+  const s = String(v || '')
+  if (/^\d+x\d+$/i.test(s)) return s.replace(/x/i, '×')
+  return s
+}
 
-const sizeOptionsDesktop = computed(() =>
-  isAgnes.value ? sizeOptionsAgnes : sizeOptionsDefault,
-)
+const sizeOptionsDesktop = computed(() => {
+  const list = imageCaps.value.sizes
+  if (Array.isArray(list) && list.length) {
+    return list.map((v) => ({label: formatSizeLabel(v), value: v}))
+  }
+  return sizeOptionsDefault
+})
 
-const aspectOptions = [
-  {label: '1:1', value: '1:1'},
-  {label: '16:9', value: '16:9'},
-  {label: '9:16', value: '9:16'},
-  {label: '4:3', value: '4:3'},
-  {label: '3:4', value: '3:4'},
-  {label: '21:9', value: '21:9'},
-]
+const aspectOptions = computed(() => {
+  const list = imageCaps.value.ratios
+  if (Array.isArray(list) && list.length) {
+    return list.map((v) => ({label: v, value: v}))
+  }
+  return [
+    {label: '1:1', value: '1:1'},
+    {label: '16:9', value: '16:9'},
+    {label: '9:16', value: '9:16'},
+    {label: '4:3', value: '4:3'},
+    {label: '3:4', value: '3:4'},
+    {label: '3:2', value: '3:2'},
+    {label: '2:3', value: '2:3'},
+    {label: '21:9', value: '21:9'},
+  ]
+})
 
 const qualityOptionsDesktop = [
   {label: '低质量', value: 'low'},
@@ -135,8 +152,14 @@ const qualityOptionsDesktop = [
 const modeLabel = computed(() => (mode.value === 'img2img' ? '图生图' : '文生图'))
 
 const sizeLabel = computed(() => {
-  if (isXai.value) {
-    return aspectOptions.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
+  if (useAspectRatio.value) {
+    const ratio =
+      aspectOptions.value.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
+    if (showSize.value) {
+      const tier = sizeOptionsDesktop.value.find((o) => o.value === size.value)?.label || size.value
+      return `${tier} · ${ratio}`
+    }
+    return ratio
   }
   return sizeOptionsDesktop.value.find((o) => o.value === size.value)?.label || size.value
 })
@@ -146,7 +169,9 @@ const qualityLabel = computed(() => {
 })
 
 const paramsSummary = computed(() => {
-  const parts = [modeLabel.value, `${n.value}张`, sizeLabel.value]
+  const parts = [modeLabel.value]
+  if (supportsN.value) parts.push(`${n.value}张`)
+  parts.push(sizeLabel.value)
   if (supportsQuality.value) parts.push(qualityLabel.value)
   if (mode.value === 'img2img') {
     parts.push(previewUrl.value ? '已选参考图' : '未选参考图')
@@ -302,18 +327,11 @@ watch(
 )
 
 watch(
-    () => timelineItems.value.length,
-    () => {
-      scheduleScrollToBottom()
-    },
-    {immediate: true},
-)
-
-watch(
     () => session.value?.id,
     () => {
       refThumbMap.value = {}
-      scheduleScrollToBottom()
+      // 切会话时滚到底；停留当前页生成时不自动拽底
+      scheduleScrollToBottom({force: true})
     },
 )
 
@@ -327,13 +345,24 @@ watch(
   { immediate: true },
 )
 
+watch(
+  aspectOptions,
+  (opts) => {
+    if (!opts.some((o) => o.value === aspectRatio.value)) {
+      aspectRatio.value = opts[0]?.value || '1:1'
+    }
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
   window.addEventListener('paste', onPaste)
-  scheduleScrollToBottom()
+  scheduleScrollToBottom({force: true})
 })
 
 onActivated(() => {
-  scheduleScrollToBottom()
+  // 仅切回本页时滚到底
+  scheduleScrollToBottom({force: true})
 })
 
 onBeforeUnmount(() => {
@@ -352,7 +381,7 @@ function onKeydown(e) {
 }
 
 function onComposerFocus() {
-  scheduleScrollToBottom()
+  // 生图页不因输入框聚焦自动滚底
 }
 
 async function generate() {
@@ -383,8 +412,8 @@ async function generate() {
     images: [],
     refPreview: '',
     n: n.value,
-    size: isXai.value ? undefined : size.value,
-    aspectRatio: isXai.value ? aspectRatio.value : undefined,
+    size: showSize.value ? size.value : undefined,
+    aspectRatio: useAspectRatio.value ? aspectRatio.value : undefined,
     quality: supportsQuality.value ? quality.value : undefined,
     status: 'loading',
     errorMessage: '',
@@ -400,7 +429,6 @@ async function generate() {
   }
 
   await nextTick()
-  scrollToBottom()
 
   try {
     const rawImages =
@@ -445,12 +473,17 @@ async function generate() {
       } else {
         message.success(`生成成功，共 ${images.length} 张`)
       }
-      await nextTick()
-      scrollToBottom()
     }
   } catch (err) {
     if (!sessionStillHasItem(sessionId, pending.id)) return
-    if (err?.name === 'AbortError' || err?.message === 'canceled' || controller.signal.aborted) {
+    const current = imageStore.sessions.find((s) => s.id === sessionId)?.items?.find((i) => i.id === pending.id)
+    if (current?.errorMessage === '已取消') return
+    if (
+      err?.name === 'AbortError' ||
+      err?.message === 'canceled' ||
+      /cancel+ed|已取消/i.test(String(err?.message || '')) ||
+      controller.signal.aborted
+    ) {
       imageStore.updateItem(sessionId, pending.id, {
         status: 'error',
         errorMessage: '已取消',
@@ -466,7 +499,7 @@ async function generate() {
       message.error(errText)
     }
   } finally {
-    gen.end(sessionId)
+    gen.end(sessionId, controller)
   }
 }
 
@@ -586,8 +619,17 @@ async function useLightboxAsReference() {
 }
 
 function stopGenerate() {
-  if (!gen.busy) return
+  const sessionId = session.value?.id
+  if (!sessionId || !gen.isCurrent(sessionId)) return
+  const loadingItem = session.value?.items?.find((i) => i.status === 'loading')
+  if (loadingItem) {
+    imageStore.updateItem(sessionId, loadingItem.id, {
+      status: 'error',
+      errorMessage: '已取消',
+    })
+  }
   gen.abort()
+  gen.end(sessionId)
 }
 
 async function copyPrompt(item) {
@@ -820,11 +862,11 @@ const sendTooltip = computed(() =>
           </div>
 
           <div class="opt-group">
-            <label class="opt-item opt-count" title="数量">
+            <label v-if="supportsN" class="opt-item opt-count" title="数量">
               <span class="opt-label">数量</span>
               <n-input-number v-model:value="n" :max="4" :min="1" size="small"/>
             </label>
-            <label v-if="!isXai" class="opt-item opt-size" title="尺寸">
+            <label v-if="showSize" class="opt-item opt-size" title="尺寸">
               <span class="opt-label">尺寸</span>
               <n-select
                 v-model:value="size"
@@ -833,7 +875,7 @@ const sendTooltip = computed(() =>
                 size="small"
               />
             </label>
-            <label v-else class="opt-item opt-ratio" title="比例">
+            <label v-if="useAspectRatio" class="opt-item opt-ratio" title="比例">
               <span class="opt-label">比例</span>
               <n-select
                 v-model:value="aspectRatio"
@@ -975,7 +1017,7 @@ const sendTooltip = computed(() =>
       </div>
 
       <div class="params-grid">
-        <div class="params-section">
+        <div v-if="supportsN" class="params-section">
           <div class="params-label">数量</div>
           <n-input-number v-model:value="n" :max="4" :min="1" class="params-control" size="medium"/>
         </div>
@@ -991,18 +1033,19 @@ const sendTooltip = computed(() =>
           />
         </div>
 
-        <div class="params-section params-section-full">
-          <div class="params-label">{{ isXai ? '比例' : '尺寸' }}</div>
+        <div v-if="showSize" class="params-section params-section-full">
+          <div class="params-label">尺寸</div>
           <n-select
-            v-if="!isXai"
             v-model:value="size"
             :options="sizeOptionsDesktop"
             :render-label="renderSelectLabel"
             class="params-control"
             size="medium"
           />
+        </div>
+        <div v-if="useAspectRatio" class="params-section params-section-full">
+          <div class="params-label">比例</div>
           <n-select
-            v-else
             v-model:value="aspectRatio"
             :options="aspectOptions"
             :render-label="renderSelectLabel"

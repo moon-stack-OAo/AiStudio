@@ -1,7 +1,7 @@
 <script setup>
 defineOptions({name: 'ChatView'})
 
-import {computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {computed, onActivated, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {AddOutline, ArrowUndoOutline, EllipsisHorizontalOutline, SendOutline,} from '@vicons/ionicons5'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
@@ -15,6 +15,7 @@ import {useChatStore} from '@core/stores/chat'
 import {useSettingsStore} from '@core/stores/settings'
 import {streamChatCompletions, toErrorMessage} from '@core/api/client'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
+import {useScrollToBottom} from '@core/composables/useScrollToBottom'
 import {trimChatMessages} from '@core/utils/chatContext'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
@@ -31,6 +32,7 @@ const gen = useGenerationRuntime(chatGeneration)
 
 const input = ref('')
 const listRef = ref(null)
+const {scheduleScrollToBottom} = useScrollToBottom(listRef)
 const contextHintShown = ref(false)
 const moreShow = ref(false)
 useBackCloseLayer(moreShow)
@@ -54,7 +56,6 @@ function flushStreamUi() {
     {content, streaming: true},
     {persist: false},
   )
-  if (chatStore.activeId === sessionId) scrollToBottom()
 }
 
 function scheduleStreamUi(sessionId, messageId, content) {
@@ -103,7 +104,8 @@ watch(
   () => session.value?.id,
   () => {
     contextHintShown.value = false
-    scheduleScrollToBottom()
+    // 切会话时滚到底；停留当前页流式输出时不自动拽底
+    scheduleScrollToBottom({force: true})
   },
 )
 
@@ -119,38 +121,13 @@ function ensureProvider() {
   return true
 }
 
-watch(
-  () => session.value?.messages?.length,
-  () => {
-    scheduleScrollToBottom()
-  },
-  {immediate: true},
-)
-
-function scrollToBottom() {
-  const el = listRef.value
-  if (el) el.scrollTop = el.scrollHeight
-}
-
-function scheduleScrollToBottom() {
-  nextTick(() => {
-    scrollToBottom()
-    requestAnimationFrame(() => {
-      scrollToBottom()
-      requestAnimationFrame(scrollToBottom)
-    })
-    // 软键盘弹起有动画，延迟再滚一次保证输入区可见
-    window.setTimeout(scrollToBottom, 180)
-    window.setTimeout(scrollToBottom, 360)
-  })
-}
-
 onMounted(() => {
-  scheduleScrollToBottom()
+  scheduleScrollToBottom({force: true})
 })
 
 onActivated(() => {
-  scheduleScrollToBottom()
+  // 仅切回本页时滚到底
+  scheduleScrollToBottom({force: true})
 })
 
 async function send() {
@@ -203,10 +180,23 @@ async function send() {
       messages: trimmed.messages,
       signal: controller.signal,
       onDelta: (_delta, full) => {
+        if (controller.signal.aborted) return
         scheduleStreamUi(sessionId, assistant.id, full)
       },
     })
     flushStreamUi()
+    const target = chatStore.sessions.find((s) => s.id === sessionId)
+      ?.messages?.find((m) => m.id === assistant.id)
+    if (controller.signal.aborted || target?.stopped) {
+      if (!target?.stopped) {
+        chatStore.updateMessage(sessionId, assistant.id, {
+          streaming: false,
+          stopped: true,
+          content: target?.content || '',
+        })
+      }
+      return
+    }
     chatStore.updateMessage(sessionId, assistant.id, {
       streaming: false,
     })
@@ -214,7 +204,12 @@ async function send() {
     flushStreamUi()
     const target = chatStore.sessions.find((s) => s.id === sessionId)
       ?.messages?.find((m) => m.id === assistant.id)
-    if (err?.name === 'AbortError') {
+    if (target?.stopped) return
+    if (
+      err?.name === 'AbortError' ||
+      controller.signal.aborted ||
+      /cancel+ed|已取消/i.test(String(err?.message || ''))
+    ) {
       chatStore.updateMessage(sessionId, assistant.id, {
         streaming: false,
         stopped: true,
@@ -233,12 +228,24 @@ async function send() {
     }
   } finally {
     cancelStreamUiSchedule()
-    gen.end(sessionId)
+    gen.end(sessionId, controller)
   }
 }
 
 function stop() {
+  const sessionId = session.value?.id
+  if (!sessionId || !gen.isCurrent(sessionId)) return
+  cancelStreamUiSchedule()
+  const streamingMsg = session.value?.messages?.find((m) => m.streaming)
+  if (streamingMsg) {
+    chatStore.updateMessage(sessionId, streamingMsg.id, {
+      streaming: false,
+      stopped: true,
+      content: streamingMsg.content || '',
+    })
+  }
   gen.abort()
+  gen.end(sessionId)
 }
 
 function selectSession(id) {
@@ -279,7 +286,7 @@ function recallMessage(msg) {
 }
 
 function onComposerFocus() {
-  scheduleScrollToBottom()
+  // 对话页不因输入框聚焦自动滚底
 }
 
 function clearMessages() {

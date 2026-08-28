@@ -87,11 +87,27 @@ export function formatNetworkError(error, useCorsProxy) {
 
   const viaProxy = shouldUseCorsProxy(useCorsProxy)
 
-  if (code === 'ECONNABORTED' || /timeout/i.test(msg)) {
-    return '请求超时，请稍后重试或检查网络'
+  // 主动取消不应当成超时文案（由上层识别 AbortError）
+  if (code === 'ERR_CANCELED' || /cancel+ed|已取消/i.test(msg)) {
+    return msg || '已取消'
   }
+  if (
+    code === 'ECONNABORTED' ||
+    code === 'ETIMEDOUT' ||
+    /timeout/i.test(msg)
+  ) {
+    return '请求超时：生图可能需数秒到数分钟，请稍后重试；Agnes 建议客户端超时 60s–360s'
+  }
+  const detail =
+    msg &&
+    msg !== 'Network Error' &&
+    msg !== '网络请求失败' &&
+    msg !== 'Error' &&
+    !/^HTTP\s+\d+$/i.test(msg)
+      ? `（${msg.length > 160 ? `${msg.slice(0, 160)}…` : msg}）`
+      : ''
   if (isTauri()) {
-    return '网络失败：请检查 Base URL、API Key、上游服务是否可达，以及本机网络/证书（桌面端已走 Rust HTTP，与浏览器 CORS 无关）'
+    return `网络失败：请检查 Base URL、API Key、上游服务是否可达，以及本机网络/证书（桌面端已走 Rust HTTP，与浏览器 CORS 无关）${detail}`
   }
   if (import.meta.env.DEV && !viaProxy) {
     return '网络失败（多为 CORS）。请在设置中开启「开发代理」，或改用 npm run tauri:dev'

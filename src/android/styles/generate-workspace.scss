@@ -28,6 +28,7 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 18px calc(16px + var(--safe-right)) 24px calc(16px + var(--safe-left));
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;

@@ -116,14 +116,20 @@ export function useVideoGeneration() {
       const current = videoStore.sessions
         .find((s) => s.id === sessionId)
         ?.items?.find((i) => i.id === item.id)
-      if (e?.name === 'AbortError') {
+      if (
+        e?.name === 'AbortError' ||
+        e?.message === 'canceled' ||
+        /cancel+ed|已取消/i.test(String(e?.message || ''))
+      ) {
         const hasJob = Boolean(current?.jobId)
         videoStore.updateItem(sessionId, item.id, {
           status: hasJob ? 'pending_resume' : 'error',
           needsResume: hasJob,
           errorMessage: hasJob ? '' : '已取消',
         })
-        throw e
+        const abortErr = new Error('已取消')
+        abortErr.name = 'AbortError'
+        throw abortErr
       }
       const msg = toErrorMessage(e, '视频生成失败')
       lastError.value = msg

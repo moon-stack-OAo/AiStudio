@@ -1,26 +1,29 @@
 @use '@/styles/generate-workspace.scss';
 
 .msg.assistant .ai-bubble {
-  width: 80%;
+  width: fit-content;
   max-width: 80%;
   padding: 0;
   overflow: hidden;
 }
 
+.msg.assistant .ai-bubble:has(.video-wrap) {
+  width: 80%;
+}
+
 .ai-loading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  padding: 12px;
+  padding: 12px 14px;
   color: var(--text-3);
   font-size: 13px;
-  min-width: 160px;
   box-sizing: border-box;
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .loading-meta {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -28,8 +31,8 @@
 }
 
 .video-progress {
-  width: 100%;
-  max-width: 280px;
+  width: 180px;
+  max-width: 100%;
 }
 
 .progress-text {
@@ -84,6 +87,8 @@
   display: block;
   width: 100%;
   max-height: 280px;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
   background: var(--video-surface);
   vertical-align: middle;
 }

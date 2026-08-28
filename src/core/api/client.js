@@ -3,11 +3,49 @@ import {appFetch} from '@core/utils/http'
 import {compressImageFile} from '@core/utils/imageCompress'
 import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl,} from '@core/utils/request'
 import {API_TIMEOUT_MS, DEFAULT_TEMPERATURE} from '@core/utils/constants'
+import {
+  prepareEditImage,
+  prepareGenerateImage,
+} from '@core/providers/adapters/image'
+import {
+  prepareCreateVideoJob,
+  preparePollVideoJob,
+  shouldFetchVideoContent,
+} from '@core/providers/adapters/video'
+
+export {
+  getCapabilities,
+  resolveProfile,
+  supportsImageQuality,
+  isAgnesProvider,
+  isAgnesImage21,
+  isAgnesVideoFlash,
+  normalizeAgnesVideoSize,
+  normalizeAgnesImageSize20,
+  normalizeAgnesImageSize,
+  normalizeAgnesImageRatio,
+  buildAgnesImageSizeFields,
+} from '@core/providers'
 
 const HTTP_413_HINT =
   '上传内容过大（HTTP 413）。请换更小的参考图，或已自动压缩仍失败则换图重试。'
 
 const MAX_ERROR_TEXT_LEN = 240
+
+/** 统一识别取消：浏览器 AbortError、axios canceled、Tauri plugin-http「Request cancelled/canceled」 */
+function isAbortLike(error, signal) {
+  if (signal?.aborted) return true
+  if (error?.name === 'AbortError') return true
+  if (error?.code === 'ERR_CANCELED') return true
+  const msg = String(error?.message || error || '')
+  return /cancel+ed|aborted|已取消/i.test(msg)
+}
+
+function toAbortError() {
+  const err = new Error('已取消')
+  err.name = 'AbortError'
+  return err
+}
 
 /** 脱敏密钥 / 截断过长文案，避免把 Axios 整包或 Token 展示到 UI */
 function sanitizeErrorText(text, fallback = '') {
@@ -154,6 +192,10 @@ export function createApiClient(provider) {
   client.interceptors.response.use(
     (res) => res,
     (error) => {
+      // 取消必须原样抛出，否则上层无法识别停止
+      if (isAbortLike(error, error?.config?.signal)) {
+        return Promise.reject(toAbortError())
+      }
       const status = error.response?.status
       const data = error.response?.data
       const fromBody =
@@ -308,11 +350,7 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
       connectTimeout: API_TIMEOUT_MS,
     })
   } catch (error) {
-    if (error?.name === 'AbortError' || signal?.aborted) {
-      const abortErr = new Error('已取消')
-      abortErr.name = 'AbortError'
-      throw abortErr
-    }
+    if (isAbortLike(error, signal)) throw toAbortError()
     throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
   }
 
@@ -338,7 +376,18 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
   let buffer = ''
   let fullText = ''
 
+  const onAbort = () => {
+    try {
+      reader.cancel()
+    } catch {
+      // ignore
+    }
+  }
+  signal?.addEventListener?.('abort', onAbort, { once: true })
+  if (signal?.aborted) onAbort()
+
   const consumeSseLine = (line) => {
+    if (signal?.aborted) return
     const trimmed = line.trim()
     if (!trimmed.startsWith('data:')) return
     const payload = trimmed.slice(5).trim()
@@ -369,19 +418,38 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
 
   try {
     while (true) {
-      const { done, value } = await reader.read()
+      if (signal?.aborted) throw toAbortError()
+      let chunk
+      try {
+        chunk = await reader.read()
+      } catch (error) {
+        if (isAbortLike(error, signal)) throw toAbortError()
+        throw error
+      }
+      const { done, value } = chunk
+      // Tauri plugin-http 取消后常以 done:true 正常结束，必须主动当成 Abort
+      if (signal?.aborted) throw toAbortError()
       if (done) break
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
-      for (const line of lines) consumeSseLine(line)
+      for (const line of lines) {
+        if (signal?.aborted) throw toAbortError()
+        consumeSseLine(line)
+      }
     }
+    if (signal?.aborted) throw toAbortError()
     // flush 解码器残留，再解析循环结束后的 buffer
     buffer += decoder.decode()
     if (buffer.trim()) {
       for (const line of buffer.split('\n')) consumeSseLine(line)
     }
+    if (signal?.aborted) throw toAbortError()
+  } catch (error) {
+    if (isAbortLike(error, signal)) throw toAbortError()
+    throw error
   } finally {
+    signal?.removeEventListener?.('abort', onAbort)
     try {
       await reader.cancel()
     } catch {
@@ -401,202 +469,12 @@ function fileToDataUrl(file) {
   })
 }
 
-/** 是否向生图接口附带 quality（自定义中转一律不传，避免队列拒参） */
-export function supportsImageQuality(provider) {
-  // 自定义提供商（含 Agnes 等中转）一律不传
-  if (!provider?.builtin) return false
-  const kind = String(provider?.provider || '')
-  const model = String(provider?.imageModel || '').toLowerCase()
-  if (kind === 'openai') return true
-  if (kind === 'xai') {
-    return model.includes('imagine-image-2') || model.includes('2.0')
-  }
-  return false
-}
-
-/** Agnes APIHub：特殊请求体（禁止顶层 response_format） */
-export function isAgnesProvider(provider) {
-  const base = String(provider?.baseUrl || '').toLowerCase()
-  const imageModel = String(provider?.imageModel || '').toLowerCase()
-  const videoModel = String(provider?.videoModel || '').toLowerCase()
-  return (
-    base.includes('agnes-ai.com') ||
-    imageModel.includes('agnes-image') ||
-    videoModel.includes('agnes-video') ||
-    videoModel.includes('agnes-')
-  )
-}
-
-/** Agnes Video 2.5：size 档位 */
-const AGNES_VIDEO_SIZES = ['720P', '960P', '2K']
-
-/** Flash 仅支持 720P */
-export function isAgnesVideoFlash(provider) {
-  return String(provider?.videoModel || '')
-    .toLowerCase()
-    .includes('flash')
-}
-
-export function normalizeAgnesVideoSize(size, provider) {
-  if (isAgnesVideoFlash(provider)) return '720P'
-  const raw = String(size || '').trim()
-  if (!raw) return '720P'
-  const upper = raw.toUpperCase()
-  if (AGNES_VIDEO_SIZES.includes(upper)) return upper
-  if (upper === '720' || upper === '720P') return '720P'
-  if (upper === '960' || upper === '960P') return '960P'
-  if (upper === '2K' || upper === '1080P' || upper === '1080') return '2K'
-  // WxH：Agnes 档位按短边/档名，1280x720 对应 720P（勿误判为 960P）
-  const m = raw.toLowerCase().match(/^(\d+)\s*x\s*(\d+)$/)
-  if (m) {
-    const w = Number(m[1])
-    const h = Number(m[2])
-    const long = Math.max(w, h)
-    if (long >= 1800) return '2K'
-    if (long > 1280) return '960P'
-    return '720P'
-  }
-  return '720P'
-}
-
-function clampAgnesVideoSeconds(seconds, duration) {
-  const n = Number(seconds ?? duration)
-  if (!Number.isFinite(n)) return '5'
-  const clamped = Math.min(12, Math.max(4, Math.round(n)))
-  return String(clamped)
-}
-
-/** Agnes 查询接口在网关根路径 /agnesapi，不在 /v1 下 */
-function resolveAgnesApiHubRoot(baseUrl, useCorsProxy) {
-  const resolved = resolveBaseUrl(baseUrl, useCorsProxy)
-  return String(resolved || '')
-    .replace(/\/+$/, '')
-    .replace(/\/v1$/i, '')
-}
-
-const AGNES_SIZES = ['1024x1024', '1024x768', '768x1024']
-
-/** 将 UI 尺寸映射为 Agnes 支持的 WxH */
-export function normalizeAgnesImageSize(size) {
-  const s = String(size || '').toLowerCase()
-  if (AGNES_SIZES.includes(s)) return s
-  const m = s.match(/^(\d+)\s*x\s*(\d+)$/)
-  if (!m) return '1024x1024'
-  const w = Number(m[1])
-  const h = Number(m[2])
-  if (!w || !h) return '1024x1024'
-  const ratio = w / h
-  if (Math.abs(ratio - 1) < 0.08) return '1024x1024'
-  if (ratio > 1) return '1024x768'
-  return '768x1024'
-}
-
-export async function generateImage(provider, options) {
-  const {
-    prompt,
-    n = 1,
-    size = '1024x1024',
-    aspectRatio,
-    quality,
-    responseFormat = 'b64_json',
-    signal,
-  } = options
-
-  const client = createApiClient(provider)
-  const agnes = isAgnesProvider(provider)
-  const body = {
-    model: provider.imageModel,
-    prompt,
-    n,
-  }
-  const sendQuality = quality && supportsImageQuality(provider)
-
-  if (agnes) {
-    // Agnes：禁止顶层 response_format；文生图用 return_base64
-    body.size = normalizeAgnesImageSize(size)
-    if (responseFormat === 'b64_json') body.return_base64 = true
-    else body.extra_body = { response_format: 'url' }
-  } else if (provider.provider === 'xai') {
-    body.response_format = responseFormat
-    if (aspectRatio) body.aspect_ratio = aspectRatio
-    if (sendQuality) body.quality = quality
-  } else {
-    body.response_format = responseFormat
-    if (size) body.size = size
-    if (sendQuality) body.quality = quality
-  }
-
-  const { data } = await client.post('/images/generations', body, { signal })
-  return normalizeImageResponse(data)
-}
-
-export async function editImage(provider, options) {
-  const {
-    prompt,
-    imageFile,
-    n = 1,
-    size = '1024x1024',
-    aspectRatio,
-    quality,
-    responseFormat = 'b64_json',
-    signal,
-  } = options
-
+async function postMultipart(provider, path, form, signal, timeout = API_TIMEOUT_MS) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
-
-  const compressed = await compressImageFile(imageFile)
-
-  // Agnes：图生图也走 /images/generations + extra_body.image
-  if (isAgnesProvider(provider)) {
-    const dataUrl = await fileToDataUrl(compressed)
-    const client = createApiClient(provider)
-    const body = {
-      model: provider.imageModel,
-      prompt,
-      n,
-      size: normalizeAgnesImageSize(size),
-      extra_body: {
-        image: [dataUrl],
-        response_format: responseFormat === 'b64_json' ? 'b64_json' : 'url',
-      },
-    }
-    const { data } = await client.post('/images/generations', body, { signal })
-    return normalizeImageResponse(data)
-  }
-
-  if (provider.provider === 'xai') {
-    const dataUrl = await fileToDataUrl(compressed)
-    const client = createApiClient(provider)
-    const body = {
-      model: provider.imageModel,
-      prompt,
-      n,
-      response_format: responseFormat,
-      image: {
-        url: dataUrl,
-        type: 'image_url',
-      },
-    }
-    if (aspectRatio) body.aspect_ratio = aspectRatio
-    if (quality && supportsImageQuality(provider)) body.quality = quality
-    const { data } = await client.post('/images/edits', body, { signal })
-    return normalizeImageResponse(data)
-  }
-
-  // OpenAI / 兼容：multipart form
-  const form = new FormData()
-  form.append('model', provider.imageModel)
-  form.append('prompt', prompt)
-  form.append('n', String(n))
-  form.append('size', size)
-  form.append('response_format', responseFormat)
-  form.append('image', compressed)
-
   const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
-
   let res
   try {
-    res = await appFetch(`${baseUrl}/images/edits`, {
+    res = await appFetch(`${baseUrl}${path}`, {
       method: 'POST',
       headers: proxyHeaders(
         provider.baseUrl,
@@ -605,11 +483,11 @@ export async function editImage(provider, options) {
       ),
       body: form,
       signal,
-      connectTimeout: API_TIMEOUT_MS,
+      connectTimeout: timeout,
     })
   } catch (error) {
-    if (error?.name === 'AbortError' || signal?.aborted) throw error
-    throw new Error(formatNetworkError(error, useCorsProxy))
+    if (isAbortLike(error, signal)) throw toAbortError()
+    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
   }
 
   if (!res.ok) {
@@ -623,7 +501,74 @@ export async function editImage(provider, options) {
     throw new Error(httpStatusErrorMessage(res.status, message) || message)
   }
 
-  const data = await res.json()
+  return res.json()
+}
+
+async function getJsonByUrl(provider, url, signal) {
+  const useCorsProxy = Boolean(provider.useCorsProxy)
+  let res
+  try {
+    res = await appFetch(url, {
+      method: 'GET',
+      headers: proxyHeaders(
+        provider.baseUrl,
+        useCorsProxy,
+        authHeaders(provider.apiKey),
+      ),
+      signal,
+      connectTimeout: API_TIMEOUT_MS,
+    })
+  } catch (error) {
+    if (isAbortLike(error, signal)) throw toAbortError()
+    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+  }
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try {
+      const err = await res.json()
+      message = extractApiErrorMessage(err) || message
+    } catch {
+      // ignore
+    }
+    throw new Error(httpStatusErrorMessage(res.status, message) || message)
+  }
+  return res.json()
+}
+
+export async function generateImage(provider, options) {
+  const {signal} = options
+  const prepared = await prepareGenerateImage(provider, options)
+  const client = createApiClient(provider)
+  const {data} = await client.post(prepared.path, prepared.body, {
+    signal,
+    timeout: prepared.timeout || API_TIMEOUT_MS,
+  })
+  return normalizeImageResponse(data)
+}
+
+export async function editImage(provider, options) {
+  const {signal} = options
+  const prepared = await prepareEditImage(provider, options, {
+    compressImageFile,
+    fileToDataUrl,
+  })
+
+  if (prepared.transport === 'multipart') {
+    const data = await postMultipart(
+      provider,
+      prepared.path,
+      prepared.form,
+      signal,
+      prepared.timeout || API_TIMEOUT_MS,
+    )
+    return normalizeImageResponse(data)
+  }
+
+  const client = createApiClient(provider)
+  const {data} = await client.post(prepared.path, prepared.body, {
+    signal,
+    timeout: prepared.timeout || API_TIMEOUT_MS,
+  })
   return normalizeImageResponse(data)
 }
 
@@ -756,7 +701,7 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
       connectTimeout: API_TIMEOUT_MS,
     })
   } catch (error) {
-    if (error?.name === 'AbortError' || signal?.aborted) throw error
+    if (isAbortLike(error, signal)) throw toAbortError()
     throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
   }
   if (!res.ok) {
@@ -780,226 +725,40 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
   return URL.createObjectURL(blob)
 }
 
-async function createAgnesVideoJob(provider, options) {
-  const {
-    prompt,
-    mode = 'txt2video',
-    imageFile,
-    seconds,
-    duration,
-    size,
-    aspectRatio,
-    signal,
-  } = options
-  const model = String(provider.videoModel || '').trim()
-  if (!model) throw new Error('请先设置视频模型')
-  if (!prompt?.trim() && mode !== 'img2video') {
-    throw new Error('请输入提示词')
-  }
-  if (mode === 'img2video' && !imageFile) {
-    throw new Error('图生视频需要上传参考图')
-  }
-
-  const client = createApiClient(provider)
-  const body = {
-    model,
-    prompt: prompt || '',
-    seconds: clampAgnesVideoSeconds(seconds, duration),
-    size: normalizeAgnesVideoSize(size, provider),
-    n: 1,
-  }
-  if (aspectRatio) body.aspect_ratio = aspectRatio
-
-  if (mode === 'img2video' && imageFile) {
-    // Agnes 2.5：首帧控制用 keyframe + first_frame（需可访问 URL / dataURL）
-    const compressed = await compressImageFile(imageFile)
-    const dataUrl = await fileToDataUrl(compressed)
-    body.mode = 'keyframe'
-    body.first_frame = dataUrl
-  } else {
-    body.mode = 'text'
-  }
-
-  const { data } = await client.post('/videos', body, { signal })
-  const job = buildNormalizedVideoJob(data)
-  if (!job.jobId) throw new Error('未返回 video_id')
-  return job
-}
-
-async function createOpenAiVideoJob(provider, options) {
-  const {
-    prompt,
-    mode = 'txt2video',
-    imageFile,
-    seconds,
-    duration,
-    size,
-    signal,
-  } = options
-  const model = String(provider.videoModel || '').trim()
-  if (!model) throw new Error('请先设置视频模型')
-  if (!prompt?.trim() && mode !== 'img2video') {
-    throw new Error('请输入提示词')
-  }
-  if (mode === 'img2video' && !imageFile) {
-    throw new Error('图生视频需要上传参考图')
-  }
-
-  const sec = seconds ?? duration
-  const useCorsProxy = Boolean(provider.useCorsProxy)
-
-  if (mode === 'img2video' && imageFile) {
-    const compressed = await compressImageFile(imageFile)
-    const form = new FormData()
-    form.append('model', model)
-    form.append('prompt', prompt || '')
-    if (sec != null && sec !== '') form.append('seconds', String(sec))
-    if (size) form.append('size', size)
-    form.append('input_reference', compressed)
-
-    const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
-    let res
-    try {
-      res = await appFetch(`${baseUrl}/videos`, {
-        method: 'POST',
-        headers: proxyHeaders(
-          provider.baseUrl,
-          useCorsProxy,
-          authHeaders(provider.apiKey),
-        ),
-        body: form,
-        signal,
-        connectTimeout: API_TIMEOUT_MS,
-      })
-    } catch (error) {
-      if (error?.name === 'AbortError' || signal?.aborted) throw error
-      throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
-    }
-    if (!res.ok) {
-      let message = `HTTP ${res.status}`
-      try {
-        const err = await res.json()
-        message = extractApiErrorMessage(err) || message
-      } catch {
-        // ignore
-      }
-      throw new Error(httpStatusErrorMessage(res.status, message) || message)
-    }
-    const data = await res.json()
-    return buildNormalizedVideoJob(data)
-  }
-
-  const client = createApiClient(provider)
-  const body = {
-    model,
-    prompt: prompt || '',
-  }
-  if (sec != null && sec !== '') body.seconds = String(sec)
-  if (size) body.size = size
-  const { data } = await client.post('/videos', body, { signal })
-  return buildNormalizedVideoJob(data)
-}
-
-async function createXaiVideoJob(provider, options) {
-  const {
-    prompt,
-    mode = 'txt2video',
-    imageFile,
-    seconds,
-    duration,
-    aspectRatio,
-    resolution,
-    signal,
-  } = options
-  const model = String(provider.videoModel || '').trim() || 'grok-imagine-video'
-  if (!prompt?.trim() && mode !== 'img2video') {
-    throw new Error('请输入提示词')
-  }
-  if (mode === 'img2video' && !imageFile) {
-    throw new Error('图生视频需要上传参考图')
-  }
-
-  const client = createApiClient(provider)
-  const body = {
-    model,
-    prompt: prompt || '',
-  }
-  const dur = duration ?? seconds
-  if (dur != null && dur !== '') body.duration = Number(dur) || dur
-  if (aspectRatio) body.aspect_ratio = aspectRatio
-  if (resolution) body.resolution = resolution
-
-  if (mode === 'img2video' && imageFile) {
-    const compressed = await compressImageFile(imageFile)
-    const dataUrl = await fileToDataUrl(compressed)
-    body.image = {
-      url: dataUrl,
-      type: 'image_url',
-    }
-  }
-
-  const { data } = await client.post('/videos/generations', body, { signal })
-  const job = buildNormalizedVideoJob(data)
-  if (!job.jobId) throw new Error('未返回 request_id')
-  if (!job.status || job.status === 'queued') {
-    job.status = 'queued'
-  }
-  return job
-}
-
 /**
  * 创建视频生成任务（文生 / 图生）
  * @returns {Promise<{ jobId, status, progress?, videoUrl?, errorMessage?, raw? }>}
  */
 export async function createVideoJob(provider, options = {}) {
   if (!provider?.baseUrl) throw new Error('请先填写 Base URL')
-  if (provider.provider === 'xai') {
-    return createXaiVideoJob(provider, options)
-  }
-  if (isAgnesProvider(provider)) {
-    return createAgnesVideoJob(provider, options)
-  }
-  return createOpenAiVideoJob(provider, options)
-}
+  const {signal} = options
+  const prepared = await prepareCreateVideoJob(provider, options, {
+    compressImageFile,
+    fileToDataUrl,
+  })
 
-async function getAgnesVideoJob(provider, jobId, options = {}) {
-  const id = String(jobId || '').trim()
-  const { signal } = options
-  const useCorsProxy = Boolean(provider.useCorsProxy)
-  const root = resolveAgnesApiHubRoot(provider.baseUrl, useCorsProxy)
-  const model = String(provider.videoModel || '').trim()
-  const qs = new URLSearchParams({ video_id: id })
-  if (model) qs.set('model_name', model)
-  const url = `${root}/agnesapi?${qs.toString()}`
-
-  let res
-  try {
-    res = await appFetch(url, {
-      method: 'GET',
-      headers: proxyHeaders(
-        provider.baseUrl,
-        useCorsProxy,
-        authHeaders(provider.apiKey),
-      ),
+  let data
+  if (prepared.transport === 'multipart') {
+    data = await postMultipart(
+      provider,
+      prepared.path,
+      prepared.form,
       signal,
-      connectTimeout: API_TIMEOUT_MS,
-    })
-  } catch (error) {
-    if (error?.name === 'AbortError' || signal?.aborted) throw error
-    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+      API_TIMEOUT_MS,
+    )
+  } else {
+    const client = createApiClient(provider)
+    ;({data} = await client.post(prepared.path, prepared.body, {signal}))
   }
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`
-    try {
-      const err = await res.json()
-      message = extractApiErrorMessage(err) || message
-    } catch {
-      // ignore
-    }
-    throw new Error(httpStatusErrorMessage(res.status, message) || message)
+
+  const job = buildNormalizedVideoJob(data)
+  if (prepared.requireJobId && !job.jobId) {
+    throw new Error(prepared.missingJobIdMessage || '未返回任务 ID')
   }
-  const data = await res.json()
-  return buildNormalizedVideoJob(data, id)
+  if (prepared.defaultQueuedIfEmpty && (!job.status || job.status === 'queued')) {
+    job.status = 'queued'
+  }
+  return job
 }
 
 /**
@@ -1010,28 +769,30 @@ export async function getVideoJob(provider, jobId, options = {}) {
   if (!id) throw new Error('缺少任务 ID')
   if (!provider?.baseUrl) throw new Error('请先填写 Base URL')
 
-  const { signal, fetchContent = true } = options
+  const {signal, fetchContent = true} = options
+  const prepared = preparePollVideoJob(provider, id, {resolveBaseUrl})
 
-  if (isAgnesProvider(provider)) {
-    return getAgnesVideoJob(provider, id, { signal })
+  let data
+  if (prepared.style === 'agnesapi') {
+    data = await getJsonByUrl(provider, prepared.url, signal)
+  } else {
+    const client = createApiClient(provider)
+    ;({data} = await client.get(prepared.path, {signal}))
   }
 
-  const client = createApiClient(provider)
-  const { data } = await client.get(`/videos/${encodeURIComponent(id)}`, { signal })
   const job = buildNormalizedVideoJob(data, id)
 
-  if (
+  const allowContent =
     fetchContent &&
-    job.status === 'completed' &&
-    !job.videoUrl &&
-    provider.provider !== 'xai'
-  ) {
+    prepared.fetchContent &&
+    shouldFetchVideoContent(provider)
+
+  if (allowContent && job.status === 'completed' && !job.videoUrl) {
     try {
       job.videoUrl = await fetchOpenAiVideoContentUrl(provider, id, signal)
     } catch (e) {
       if (e?.name === 'AbortError') throw e
       job.errorMessage = toErrorMessage(e, '下载视频内容失败')
-      // 仍标记 completed，由上层决定是否当失败；保留 raw
     }
   }
 
@@ -1069,20 +830,19 @@ export async function waitVideoJob(provider, jobId, options = {}) {
  * 创建并等待完成
  */
 export async function generateVideo(provider, options = {}) {
-  const { signal, onProgress, intervalMs, ...createOpts } = options
-  const created = await createVideoJob(provider, { ...createOpts, signal })
+  const {signal, onProgress, intervalMs, ...createOpts} = options
+  const created = await createVideoJob(provider, {...createOpts, signal})
   onProgress?.(created)
   if (created.status === 'completed' || created.status === 'failed') {
     if (
       created.status === 'completed' &&
       !created.videoUrl &&
-      provider.provider !== 'xai' &&
-      !isAgnesProvider(provider)
+      shouldFetchVideoContent(provider)
     ) {
-      return waitVideoJob(provider, created.jobId, { signal, onProgress, intervalMs })
+      return waitVideoJob(provider, created.jobId, {signal, onProgress, intervalMs})
     }
     return created
   }
   if (!created.jobId) throw new Error('未返回任务 ID')
-  return waitVideoJob(provider, created.jobId, { signal, onProgress, intervalMs })
+  return waitVideoJob(provider, created.jobId, {signal, onProgress, intervalMs})
 }

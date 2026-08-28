@@ -1,7 +1,7 @@
 <script setup>
 defineOptions({name: 'ChatView'})
 
-import {computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {computed, onActivated, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {ArrowUndoOutline, SendOutline} from '@vicons/ionicons5'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
@@ -43,7 +43,7 @@ const {
 
 const input = ref('')
 const listRef = ref(null)
-const {scrollToBottom, scheduleScrollToBottom} = useScrollToBottom(listRef)
+const {scheduleScrollToBottom} = useScrollToBottom(listRef)
 const contextHintShown = ref(false)
 
 /** 流式 UI 更新：合并同帧内的 delta 写入与滚动，停止/结束时 flush */
@@ -65,7 +65,6 @@ function flushStreamUi() {
       {content, streaming: true},
       {persist: false},
   )
-  if (chatStore.activeId === sessionId) scrollToBottom()
 }
 
 function scheduleStreamUi(sessionId, messageId, content) {
@@ -112,7 +111,8 @@ watch(
     () => session.value?.id,
     () => {
       contextHintShown.value = false
-      scheduleScrollToBottom()
+      // 切会话时滚到底；停留当前页流式输出时不自动拽底
+      scheduleScrollToBottom({force: true})
     },
 )
 
@@ -128,20 +128,13 @@ function ensureProvider() {
   return true
 }
 
-watch(
-    () => session.value?.messages?.length,
-    () => {
-      scheduleScrollToBottom()
-    },
-    {immediate: true},
-)
-
 onMounted(() => {
-  scheduleScrollToBottom()
+  scheduleScrollToBottom({force: true})
 })
 
 onActivated(() => {
-  scheduleScrollToBottom()
+  // 仅切回本页时滚到底
+  scheduleScrollToBottom({force: true})
 })
 
 async function send() {
@@ -194,10 +187,23 @@ async function send() {
       messages: trimmed.messages,
       signal: controller.signal,
       onDelta: (_delta, full) => {
+        if (controller.signal.aborted) return
         scheduleStreamUi(sessionId, assistant.id, full)
       },
     })
     flushStreamUi()
+    const target = chatStore.sessions.find((s) => s.id === sessionId)
+        ?.messages?.find((m) => m.id === assistant.id)
+    if (controller.signal.aborted || target?.stopped) {
+      if (!target?.stopped) {
+        chatStore.updateMessage(sessionId, assistant.id, {
+          streaming: false,
+          stopped: true,
+          content: target?.content || '',
+        })
+      }
+      return
+    }
     chatStore.updateMessage(sessionId, assistant.id, {
       streaming: false,
     })
@@ -205,7 +211,12 @@ async function send() {
     flushStreamUi()
     const target = chatStore.sessions.find((s) => s.id === sessionId)
         ?.messages?.find((m) => m.id === assistant.id)
-    if (err?.name === 'AbortError') {
+    if (target?.stopped) return
+    if (
+      err?.name === 'AbortError' ||
+      controller.signal.aborted ||
+      /cancel+ed|已取消/i.test(String(err?.message || ''))
+    ) {
       chatStore.updateMessage(sessionId, assistant.id, {
         streaming: false,
         stopped: true,
@@ -224,12 +235,24 @@ async function send() {
     }
   } finally {
     cancelStreamUiSchedule()
-    gen.end(sessionId)
+    gen.end(sessionId, controller)
   }
 }
 
 function stop() {
+  const sessionId = session.value?.id
+  if (!sessionId || !gen.isCurrent(sessionId)) return
+  cancelStreamUiSchedule()
+  const streamingMsg = session.value?.messages?.find((m) => m.streaming)
+  if (streamingMsg) {
+    chatStore.updateMessage(sessionId, streamingMsg.id, {
+      streaming: false,
+      stopped: true,
+      content: streamingMsg.content || '',
+    })
+  }
   gen.abort()
+  gen.end(sessionId)
 }
 
 function selectSession(id) {
@@ -304,7 +327,7 @@ function onKeydown(e) {
 }
 
 function onComposerFocus() {
-  scheduleScrollToBottom()
+  // 对话页不因输入框聚焦自动滚底
 }
 
 function clearMessages() {

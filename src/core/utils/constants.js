@@ -1,6 +1,9 @@
 /** API 请求默认超时（毫秒） */
 export const API_TIMEOUT_MS = 180000
 
+/** 生图超时（毫秒）。Agnes 文档建议 60s–360s */
+export const IMAGE_TIMEOUT_MS = 360000
+
 /** Chat Completions 默认温度 */
 export const DEFAULT_TEMPERATURE = 0.7
 
