@@ -1,6 +1,6 @@
 # AI Studio
 
-本地 AI 客户端：多轮对话、文生图、图生图。支持 OpenAI / xAI Grok / 任意 OpenAI 兼容接口。
+本地 AI 客户端：多轮对话、文生图 / 图生图、生视频。支持 OpenAI / xAI Grok / 任意 OpenAI 兼容接口。
 
 可在浏览器中以 Web 方式开发，也可通过 Tauri 2 打包为桌面应用（自定义标题栏、系统托盘、应用内自动更新），并可通过 CI 产出可侧载的 Android APK（arm64）。
 
@@ -10,10 +10,11 @@
 
 - **对话**：流式 SSE、停止生成、Markdown / 代码高亮、消息复制；会话新建 / 重命名 / 删除 / 清空；可选上下文自动裁剪（最近 N 轮）
 - **生图**：文生图 / 图生图，数量、尺寸或比例、质量；气泡时间线（提示词可复制）、灯箱预览与下载、用作参考图、生成中可停止
+- **生视频**：文生视频 / 图生视频，进度与停止、会话恢复未完成任务、播放与下载
 - **多提供商**：OpenAI、xAI、兼容中转；测试连接、远程拉取模型列表、自定义提供商；密钥仅存本机
 - **持久化**：配置与会话元数据 → `localStorage`；生图二进制 → IndexedDB
 - **设置**：提供商 / 关于与更新；关于页含版本、自动检查更新、跳过版本、清数据、关闭行为、对话上下文
-- **桌面端**：无边框自定义标题栏；系统托盘（显示 / 打开对话 / 设置 / 检查更新 / 退出）；关闭时可退出或最小化到托盘（可记住）
+- **桌面端**：无边框自定义标题栏（含最小化 / 最大化 / 关闭按钮；当前窗口 `resizable: false`，最大化可能无效或仅状态切换）；系统托盘（显示 / 打开对话 / 设置 / 检查更新 / 退出）；关闭时可退出或最小化到托盘（可记住）
 - **自动更新**：桌面端用 Tauri Updater（检查 → 下载安装 → 重启）；Android 用侧载清单 `android-latest.json`（检查 → 下载 APK → 系统安装器）
 
 ## 技术栈
@@ -73,8 +74,9 @@ npm run tauri:build:check
 
 产物目录：`src-tauri/target/release/bundle/`（`nsis/`、`msi/`，以及对应 `.sig`）。
 
-- `tauri:dev` 会先跑 `npm run dev`，再加载 `http://localhost:5173`
-- `tauri:build` 会先跑 `npm run build`，再打包 `dist`
+- `tauri:dev` 会先跑桌面前端开发服务，再加载 `http://localhost:5173`
+- `tauri:build` 会先跑 `npm run build:desktop`，再打包 `dist-desktop`
+- Android 前端产物目录为 `dist-android`（`npm run build:android`）
 - 纯 Web 开发仍可用 `npm run dev` / `npm run build`
 
 ## Android（Tauri 2 Mobile）
@@ -104,7 +106,7 @@ npm run tauri:build:android         # release APK（需 keystore.properties）
 ### 配置摘要
 
 - 应用名：`AI Studio` · Bundle ID：`com.moon.aistudio`
-- 默认窗口：1280×800（最小 960×640），无系统边框（自定义标题栏）
+- 默认窗口：1280×840（固定尺寸，`resizable: false`，最小尺寸等于初始尺寸），无系统边框（自定义标题栏）
 - 桌面 Updater 端点：GitHub Releases `latest.json`
 - Android 更新清单：GitHub Releases `android-latest.json`（侧载，非官方 Updater 格式）
 - CSP 已放行 `https:` / `http:` 的 `connect-src`
@@ -113,7 +115,7 @@ npm run tauri:build:android         # release APK（需 keystore.properties）
 ## 使用说明
 
 1. 「设置 → 提供商」填写 Base URL、API Key，并选择或拉取对话 / 生图模型（可测试连接）
-2. 「对话」或「生图」中切换提供商与模型后使用（Enter 发送 / 生成，Shift+Enter 换行；生图生成中可停止）
+2. 「对话」「生图」或「生视频」中切换提供商与模型后使用（Enter 发送 / 生成，Shift+Enter 换行；生图 / 生视频生成中可停止）
 3. 「设置 → 关于与更新」可检查并安装更新、调整对话上下文、清除本地数据（桌面另有关闭行为 / 托盘；Android 为侧载 APK 更新）
 
 > 浏览器 `npm run dev` 访问无 CORS 的中转站时，请开启设置里的「开发代理」。`tauri:dev` / 打包版无需该开关。

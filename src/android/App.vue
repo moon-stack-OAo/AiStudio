@@ -27,6 +27,7 @@ const tabs = [
 ]
 
 const activeKey = computed(() => String(route.name || 'chat'))
+const showUpdateBadge = computed(() => settings.hasAvailableUpdate)
 
 watch(
   () => settings.theme,
@@ -90,12 +91,19 @@ function goTab(tab) {
                 <button
                   v-for="tab in tabs"
                   :key="tab.key"
+                  :aria-label="tab.key === 'settings' && showUpdateBadge ? '设置，有可用更新' : tab.label"
                   :class="{ active: activeKey === tab.key }"
                   class="tab-item"
                   type="button"
                   @click="goTab(tab)"
                 >
-                  <n-icon :component="tab.icon" :size="22" class="tab-icon"/>
+                  <span class="tab-icon-wrap">
+                    <n-icon :component="tab.icon" :size="22" class="tab-icon"/>
+                    <span
+                      v-if="tab.key === 'settings' && showUpdateBadge"
+                      class="tab-icon-dot"
+                    />
+                  </span>
                   <span class="tab-label">{{ tab.label }}</span>
                 </button>
               </nav>
@@ -174,8 +182,27 @@ function goTab(tab) {
   }
 }
 
+.tab-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .tab-icon {
   display: block;
+}
+
+.tab-icon-dot {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 1.5px var(--color-titlebar, #1a1a1a);
+  pointer-events: none;
 }
 
 .tab-label {
@@ -192,5 +219,10 @@ function goTab(tab) {
   opacity: 0;
   pointer-events: none;
   border-top-width: 0;
+}
+
+/* 底栏收起后由其消费的 safe-bottom 失效，改由 composer 承接 */
+.keyboard-open :deep(.composer) {
+  padding-bottom: max(10px, var(--safe-bottom));
 }
 </style>

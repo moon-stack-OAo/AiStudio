@@ -66,7 +66,7 @@
 }
 
 .composer {
-  /* 底栏已含 safe-bottom；键盘弹起收起底栏时保留少量底边距即可 */
+  /* 底栏已含 safe-bottom，常态勿再叠；键盘弹起时由 App.vue .keyboard-open 补 inset */
   padding: 8px calc(12px + var(--safe-right)) 10px calc(12px + var(--safe-left));
   background: transparent;
 }
