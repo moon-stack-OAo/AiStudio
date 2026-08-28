@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # 供各构建/清理脚本 dot-source 的公共函数
 
 function Format-Duration([TimeSpan]$Elapsed) {
