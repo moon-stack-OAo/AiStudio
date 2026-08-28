@@ -82,3 +82,9 @@ const emit = defineEmits(['update:prompt', 'send', 'stop', 'focus', 'keydown'])
     </div>
   </div>
 </template>
+
+<style lang="scss" scoped>
+/* 壳内 .composer* 节点需本组件 scoped；slot（toolbar/reference）仍由父级 scoped 生效 */
+@use '@/styles/session-workspace.scss';
+@use '@/styles/generate-workspace.scss';
+</style>

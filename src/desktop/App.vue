@@ -277,7 +277,8 @@ function onMenuUpdate(key) {
 }
 
 .app-shell.mobile.has-mobile-topbar .main {
-  height: calc(100% - 44px - var(--safe-top));
+  /* 与 AppMobileChrome .mobile-topbar 高度（touch-min + safe-top）对齐 */
+  height: calc(100% - var(--touch-min) - var(--safe-top));
 }
 
 @media (max-width: 1279.98px) and (min-width: 768px) {

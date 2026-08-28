@@ -44,6 +44,7 @@ defineEmits(['copy', 'preview-ref'])
           <img
             :src="refThumbSrc"
             alt="reference"
+            :class="{ 'is-previewable': refPreviewable }"
             :title="refPreviewable ? '点击预览' : undefined"
             @click="refPreviewable && $emit('preview-ref', refThumbSrc)"
           />
@@ -60,3 +61,14 @@ defineEmits(['copy', 'preview-ref'])
     </div>
   </div>
 </template>
+
+<style lang="scss" scoped>
+/* 气泡 DOM 在子组件内，需本组件 scoped 才能命中 .msg / .bubble 等 */
+@use '@/styles/session-workspace.scss';
+@use '@/styles/generate-workspace.scss';
+
+/* ImageView 专属 zoom-in；父级 scoped 打不到子组件内 img */
+.ref-thumb img.is-previewable {
+  cursor: zoom-in;
+}
+</style>
