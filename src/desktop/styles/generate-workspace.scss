@@ -23,7 +23,7 @@
 .user-bubble {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .bubble-tags {
@@ -56,8 +56,8 @@
 }
 
 .ai-error {
-  padding: 8px 2px;
-  font-size: 13px;
+  padding: var(--space-2) 2px;
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--color-danger);
 }
@@ -70,14 +70,14 @@
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
-  padding: 12px;
+  padding: var(--space-3);
 }
 
 .composer-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -93,9 +93,9 @@
   border: none;
   background: transparent;
   color: var(--text-3);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1;
-  padding: 8px 14px;
+  padding: var(--space-2) 14px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -119,16 +119,16 @@
 .opt-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .opt-item {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-height: 34px;
-  padding: 0 8px 0 10px;
+  padding: 0 var(--space-2) 0 10px;
   border-radius: var(--radius-md);
   background: var(--surface-2);
   border: 1px solid var(--border-muted);
@@ -151,8 +151,8 @@
 .ref-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px 4px 4px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
   border-radius: var(--radius-md);
   background: var(--surface-2);
   border: 1px solid var(--border-muted);
@@ -172,20 +172,20 @@
 
 .composer-input {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: flex-end;
 }
 
 @media (max-width: 1279.98px) {
   .gallery {
-    padding: 14px calc(16px + var(--safe-right)) 14px calc(16px + var(--safe-left));
+    padding: 14px calc(var(--space-4) + var(--safe-right)) 14px calc(var(--space-4) + var(--safe-left));
   }
 }
 
 .params-summary {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   min-height: var(--touch-min);
   padding: 6px 10px;
@@ -223,7 +223,7 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 4px 2px max(12px, var(--safe-bottom));
+  padding: var(--space-1) 2px max(var(--space-3), var(--safe-bottom));
 }
 
 .params-section {
@@ -233,7 +233,7 @@
 }
 
 .params-label {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-2);
 }
@@ -245,7 +245,7 @@
 .params-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px 12px;
+  gap: 14px var(--space-3);
 }
 
 .params-section-full {
@@ -263,7 +263,7 @@
 .ref-chip-drawer {
   width: 100%;
   min-height: 56px;
-  padding: 8px 10px 8px 8px;
+  padding: var(--space-2) 10px var(--space-2) var(--space-2);
   box-sizing: border-box;
 
   img {
@@ -281,7 +281,7 @@
 }
 
 .ref-hint {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-4);
 }
 
@@ -297,11 +297,11 @@
 .mode-switch-full {
   width: 100%;
   display: flex;
-  padding: 4px;
+  padding: var(--space-1);
 
   .mode-item {
     flex: 1;
-    min-height: 44px;
+    min-height: var(--touch-min);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -310,13 +310,13 @@
 }
 
 .params-done {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   min-height: var(--touch-min);
 }
 
 @media (max-width: 767.98px) {
   .gallery {
-    padding: 18px calc(16px + var(--safe-right)) 24px calc(16px + var(--safe-left));
+    padding: 18px calc(var(--space-4) + var(--safe-right)) var(--space-6) calc(var(--space-4) + var(--safe-left));
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
@@ -343,7 +343,7 @@
   }
 
   .ref-name {
-    font-size: 11px;
+    font-size: var(--text-xs);
   }
 
   .composer-card {
@@ -362,8 +362,8 @@
     min-width: 0;
 
     :deep(.n-input) {
-      --n-font-size: 13px;
-      --n-padding-vertical: 4px;
+      --n-font-size: var(--text-sm);
+      --n-padding-vertical: var(--space-1);
     }
   }
 

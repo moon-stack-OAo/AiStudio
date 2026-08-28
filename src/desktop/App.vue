@@ -2,17 +2,17 @@
 import {computed, h, onMounted, provide, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
-import {ChatbubblesOutline, ImageOutline, MenuOutline, SettingsOutline, VideocamOutline,} from '@vicons/ionicons5'
+import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline,} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useVisualViewport} from '@core/composables/useVisualViewport'
 import {isDesktopTauri} from '@core/utils/request'
 import {applyDocumentTheme, THEME_OVERRIDES} from '@core/utils/theme'
 import TitleBar from '@/components/TitleBar.vue'
-import ThemeToggleButton from '@/components/ThemeToggleButton.vue'
 import UpdateChecker from '@/components/UpdateChecker.vue'
 import CloseConfirm from '@/components/CloseConfirm.vue'
 import TrayActionListener from '@/components/TrayActionListener.vue'
+import AppMobileChrome from '@/components/AppMobileChrome.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,7 +21,7 @@ const { isMobile, isCompact } = useBreakpoints()
 const desktopFrame = isDesktopTauri()
 if (!desktopFrame) useVisualViewport()
 
-const mobileNavShow = ref(false)
+const mobileChromeRef = ref(null)
 const isWorkspaceRoute = computed(() => {
   const name = String(route.name || '')
   return name === 'chat' || name === 'image' || name === 'video'
@@ -29,7 +29,7 @@ const isWorkspaceRoute = computed(() => {
 const showAppMobileTopbar = computed(() => isMobile.value && !isWorkspaceRoute.value)
 
 function openMobileNav() {
-  mobileNavShow.value = true
+  mobileChromeRef.value?.open()
 }
 
 provide('openMobileNav', openMobileNav)
@@ -67,13 +67,6 @@ const activeKey = computed(() => String(route.name || 'chat'))
 const collapsed = computed(() => isCompact.value && !isMobile.value)
 
 watch(
-  () => route.fullPath,
-  () => {
-    mobileNavShow.value = false
-  },
-)
-
-watch(
   () => settings.theme,
   (theme) => applyDocumentTheme(theme),
   { immediate: true },
@@ -85,7 +78,6 @@ onMounted(() => {
 
 function onMenuUpdate(key) {
   router.push(`/${key}`)
-  mobileNavShow.value = false
 }
 </script>
 
@@ -114,21 +106,13 @@ function onMenuUpdate(key) {
             <TitleBar v-if="desktopFrame" />
 
             <div class="app-body">
-              <header v-if="showAppMobileTopbar" class="mobile-topbar">
-                <n-button
-                    aria-label="打开菜单"
-                    circle
-                    class="touch-target"
-                    quaternary
-                    @click="openMobileNav"
-                >
-                  <template #icon>
-                    <n-icon :component="MenuOutline" />
-                  </template>
-                </n-button>
-                <div class="mobile-title">AI Studio</div>
-                <ThemeToggleButton variant="toolbar" />
-              </header>
+              <AppMobileChrome
+                ref="mobileChromeRef"
+                :show-topbar="showAppMobileTopbar"
+                :menu-options="menuOptions"
+                :active-key="activeKey"
+                @menu-update="onMenuUpdate"
+              />
 
               <aside v-if="!isMobile" :class="{ collapsed }" class="sidebar">
                 <div class="brand">
@@ -156,28 +140,6 @@ function onMenuUpdate(key) {
                   <div class="hint">密钥仅保存在本机</div>
                 </div>
               </aside>
-
-              <n-drawer
-                v-model:show="mobileNavShow"
-                :width="260"
-                placement="left"
-              >
-                <n-drawer-content closable title="AI Studio">
-                  <n-menu
-                    :options="menuOptions"
-                    :value="activeKey"
-                    @update:value="onMenuUpdate"
-                  />
-                  <div class="drawer-footer">
-                    <div v-if="settings.activeProvider" class="provider-chip">
-                      <span class="dot" />
-                      <span class="name">{{ settings.activeProvider.name }}</span>
-                    </div>
-                    <ThemeToggleButton variant="drawer" />
-                    <div class="hint">密钥仅保存在本机</div>
-                  </div>
-                </n-drawer-content>
-              </n-drawer>
 
               <main class="main">
                 <router-view />
@@ -215,30 +177,6 @@ function onMenuUpdate(key) {
   .app-shell.mobile & {
     flex-direction: column;
   }
-}
-
-.mobile-topbar {
-  position: relative;
-  z-index: var(--z-toolbar);
-  flex-shrink: 0;
-  min-height: calc(44px + var(--safe-top));
-  height: calc(44px + var(--safe-top));
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--safe-top) calc(10px + var(--safe-right)) 0 calc(10px + var(--safe-left));
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--color-titlebar);
-}
-
-.mobile-title {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-  font-size: 15px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .sidebar {
@@ -288,17 +226,9 @@ function onMenuUpdate(key) {
   margin-top: 2px;
 }
 
-.sidebar-footer,
-.drawer-footer {
+.sidebar-footer {
   margin-top: auto;
   padding: 12px 10px;
-}
-
-.drawer-footer {
-  margin-top: 24px;
-  padding-left: var(--safe-left);
-  padding-right: var(--safe-right);
-  padding-bottom: var(--safe-bottom);
 }
 
 .provider-chip {

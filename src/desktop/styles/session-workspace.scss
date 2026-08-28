@@ -15,18 +15,18 @@
 .empty-title {
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
   color: var(--text-1);
 }
 
 .empty-desc {
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .msg {
   display: flex;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
   width: 100%;
   max-width: 100%;
 }
@@ -37,7 +37,7 @@
   border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
-  font-size: 11px;
+  font-size: var(--text-xs);
   flex-shrink: 0;
   background: var(--role-ai-bg);
   color: var(--role-ai-fg);
@@ -51,14 +51,14 @@
 .msg-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
   flex: 1;
   max-width: calc(100% - 38px);
 }
 
 .bubble {
-  padding: 10px 12px;
+  padding: 10px var(--space-3);
   border-radius: var(--radius-lg);
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
@@ -95,9 +95,9 @@
 
 .composer-card {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: flex-end;
-  padding: 10px 10px 10px 12px;
+  padding: 10px 10px 10px var(--space-3);
   border-radius: var(--radius-2xl);
   border: 1px solid var(--composer-border);
   background: var(--composer-bg);
@@ -114,7 +114,7 @@
 .composer-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   flex-shrink: 0;
   align-items: center;
   min-width: 0;
@@ -129,18 +129,18 @@
 }
 
 .composer-hint {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 8px 14px;
-  font-size: 11px;
+  gap: var(--space-2) 14px;
+  font-size: var(--text-xs);
   color: var(--text-4);
 }
 
 .page.compact .composer {
-  padding: 8px calc(14px + var(--safe-right)) 12px calc(14px + var(--safe-left));
+  padding: var(--space-2) calc(14px + var(--safe-right)) var(--space-3) calc(14px + var(--safe-left));
 }
 
 /* 与 useBreakpoints isMobile(<768) 对齐 */
@@ -151,7 +151,7 @@
 
   .empty {
     margin-top: 16vh;
-    padding: 0 12px;
+    padding: 0 var(--space-3);
   }
 
   .empty-title {
@@ -160,7 +160,7 @@
   }
 
   .empty-desc {
-    font-size: 13px;
+    font-size: var(--text-sm);
     line-height: 1.55;
   }
 
@@ -171,12 +171,12 @@
 
   .msg-body {
     max-width: 100%;
-    gap: 8px;
+    gap: var(--space-2);
   }
 
   .bubble {
     max-width: 100%;
-    padding: 14px 16px;
+    padding: 14px var(--space-4);
     border-radius: var(--radius-xl);
     line-height: 1.55;
   }
@@ -188,18 +188,18 @@
 
   .msg-actions {
     opacity: 1;
-    margin-top: 4px;
+    margin-top: var(--space-1);
   }
 
   .composer {
-    padding: 8px calc(12px + var(--safe-right)) 10px calc(12px + var(--safe-left));
-    padding-bottom: max(10px, calc(8px + var(--safe-bottom)));
+    padding: var(--space-2) calc(var(--space-3) + var(--safe-right)) 10px calc(var(--space-3) + var(--safe-left));
+    padding-bottom: max(10px, calc(var(--space-2) + var(--safe-bottom)));
   }
 
   .composer-card {
     border-radius: var(--radius-xl);
-    padding: 8px 8px 8px 10px;
-    gap: 8px;
+    padding: var(--space-2) var(--space-2) var(--space-2) 10px;
+    gap: var(--space-2);
   }
 
   .composer-actions {
@@ -223,7 +223,7 @@
   .composer-hint.is-critical {
     display: flex;
     margin-bottom: 6px;
-    font-size: 11px;
+    font-size: var(--text-xs);
     gap: 6px 10px;
     line-height: 1.5;
   }

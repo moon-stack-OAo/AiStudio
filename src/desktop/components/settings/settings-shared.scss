@@ -12,7 +12,7 @@
 
 .section-card {
   border-radius: var(--radius-md);
-  padding: 12px 14px;
+  padding: var(--space-3) 14px;
   background: var(--surface-1);
   border: 1px solid var(--border-subtle);
 }
@@ -21,8 +21,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 
   &.compact {
     margin-bottom: 10px;
@@ -30,7 +30,7 @@
 }
 
 .section-title {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -42,15 +42,15 @@
 }
 
 .section-foot {
-  margin-top: 12px;
+  margin-top: var(--space-3);
   padding-top: 10px;
   border-top: 1px solid var(--border-subtle);
 }
 
 .group {
   & + & {
-    margin-top: 12px;
-    padding-top: 12px;
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
     border-top: 1px solid var(--border-subtle);
   }
 }
@@ -59,7 +59,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: 12px;
   font-weight: 600;
   color: var(--text-2);
@@ -69,7 +69,7 @@
 .field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 12px;
+  gap: 10px var(--space-3);
 }
 
 .field {
@@ -98,7 +98,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .hint {
@@ -115,11 +115,11 @@
 
 @media (max-width: 767.98px) {
   .tab-pane {
-    gap: 16px;
+    gap: var(--space-4);
   }
 
   .section-card {
-    padding: 16px;
+    padding: var(--space-4);
     border-radius: var(--radius-lg);
   }
 
@@ -127,11 +127,11 @@
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
   }
 
   .section-title {
-    font-size: 15px;
+    font-size: var(--text-md);
   }
 
   .section-desc {
@@ -140,26 +140,26 @@
   }
 
   .section-foot {
-    margin-top: 16px;
+    margin-top: var(--space-4);
     padding-top: 14px;
   }
 
   .group + .group {
-    margin-top: 16px;
-    padding-top: 16px;
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
   }
 
   .group-title {
-    margin-bottom: 12px;
+    margin-bottom: var(--space-3);
   }
 
   .field-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: var(--space-4);
   }
 
   .field {
-    gap: 8px;
+    gap: var(--space-2);
   }
 
   .inline-row,

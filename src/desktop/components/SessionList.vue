@@ -1,7 +1,7 @@
 <script setup>
-import {computed, h, ref} from 'vue'
+import {h, ref} from 'vue'
 import {NInput, useDialog, useMessage} from 'naive-ui'
-import {AddOutline, CreateOutline, TrashOutline,} from '@vicons/ionicons5'
+import {AddOutline, EllipsisHorizontalOutline} from '@vicons/ionicons5'
 
 const props = defineProps({
   title: { type: String, default: '会话' },
@@ -17,25 +17,29 @@ const dialog = useDialog()
 const message = useMessage()
 const renameValue = ref('')
 
-const options = computed(() =>
-  props.sessions.map((s) => ({
-    label: s.title || '未命名',
-    key: s.id,
-  })),
-)
+const rowActionOptions = [
+  { label: '重命名', key: 'rename' },
+  { label: '删除', key: 'remove' },
+]
 
-function onSelect(key) {
-  emit('select', key)
+function onSelect(id) {
+  if (id === props.activeId) return
+  emit('select', id)
 }
 
 function onCreate() {
   emit('create')
 }
 
-function onRename() {
-  const current = props.sessions.find((s) => s.id === props.activeId)
-  if (!current) return
-  renameValue.value = current.title || ''
+function onRowAction(action, id) {
+  if (action === 'rename') onRename(id)
+  else if (action === 'remove') onRemove(id)
+}
+
+function onRename(id) {
+  const session = props.sessions.find((s) => s.id === id)
+  if (!session) return
+  renameValue.value = session.title || ''
   dialog.create({
     title: '重命名会话',
     content: () =>
@@ -54,19 +58,21 @@ function onRename() {
         message.warning('标题不能为空')
         return false
       }
-      emit('rename', current.id, title)
+      emit('rename', session.id, title)
     },
   })
 }
 
-function onRemove() {
-  if (!props.activeId) return
+function onRemove(id) {
+  if (!id) return
+  const session = props.sessions.find((s) => s.id === id)
+  const name = session?.title || '未命名'
   dialog.warning({
     title: '删除会话',
-    content: '确定删除当前会话吗？此操作不可恢复。',
+    content: `确定删除「${name}」吗？此操作不可恢复。`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: () => emit('remove', props.activeId),
+    onPositiveClick: () => emit('remove', id),
   })
 }
 </script>
@@ -88,39 +94,43 @@ function onRemove() {
             <n-icon :component="AddOutline" />
           </template>
         </n-button>
-        <n-button
-          aria-label="重命名会话"
-          circle
-          class="touch-target"
-          quaternary
-          size="small"
-          @click="onRename"
-        >
-          <template #icon>
-            <n-icon :component="CreateOutline" />
-          </template>
-        </n-button>
-        <n-button
-          aria-label="删除会话"
-          circle
-          class="touch-target"
-          quaternary
-          size="small"
-          @click="onRemove"
-        >
-          <template #icon>
-            <n-icon :component="TrashOutline" />
-          </template>
-        </n-button>
       </div>
     </div>
 
-    <div class="session-list">
-      <n-menu
-        :options="options"
-        :value="activeId"
-        @update:value="onSelect"
-      />
+    <div class="session-list" role="menu">
+      <div
+        v-for="s in sessions"
+        :key="s.id"
+        :aria-current="s.id === activeId ? 'true' : undefined"
+        :class="{ active: s.id === activeId }"
+        class="session-item"
+        role="menuitem"
+        tabindex="0"
+        @click="onSelect(s.id)"
+        @keydown.enter.prevent="onSelect(s.id)"
+      >
+        <span class="session-item-title">{{ s.title || '未命名' }}</span>
+        <n-dropdown
+          :options="rowActionOptions"
+          placement="bottom-end"
+          trigger="click"
+          @select="(key) => onRowAction(key, s.id)"
+        >
+          <n-button
+            aria-label="会话操作"
+            circle
+            class="session-row-more touch-target"
+            quaternary
+            size="tiny"
+            @click.stop
+          >
+            <template #icon>
+              <n-icon :component="EllipsisHorizontalOutline" :size="16" />
+            </template>
+          </n-button>
+        </n-dropdown>
+      </div>
+      <div v-if="!sessions.length" class="session-empty">暂无会话</div>
     </div>
   </div>
 </template>
@@ -146,12 +156,12 @@ function onRemove() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 12px 8px;
+  padding: 14px var(--space-3) var(--space-2);
   flex-shrink: 0;
 }
 
 .session-title {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-2);
 }
@@ -167,10 +177,67 @@ function onRemove() {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  padding: var(--space-1) var(--space-2) var(--space-3);
+}
 
-  :deep(.n-menu-item-content) {
-    min-height: 40px;
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 40px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-2);
+  user-select: none;
+
+  &:hover {
+    background: var(--surface-2);
   }
+
+  &.active {
+    background: var(--primary-soft);
+    color: var(--color-primary);
+    font-weight: 500;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+}
+
+.session-item-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.session-row-more {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.session-item:hover .session-row-more,
+.session-item.active .session-row-more,
+.session-item:focus-within .session-row-more {
+  opacity: 1;
+}
+
+.session-panel.embedded .session-row-more {
+  opacity: 1;
+}
+
+.session-empty {
+  padding: var(--space-4) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  text-align: center;
 }
 
 @media (max-width: 1279.98px) {
@@ -181,15 +248,15 @@ function onRemove() {
 
 @media (max-width: 767.98px) {
   .session-header {
-    padding: 12px 10px 8px;
+    padding: var(--space-3) 10px var(--space-2);
   }
 
-  .session-list {
-    :deep(.n-menu-item-content) {
-      min-height: var(--touch-min);
-      padding-top: 10px;
-      padding-bottom: 10px;
-    }
+  .session-item {
+    min-height: var(--touch-min);
+  }
+
+  .session-row-more {
+    opacity: 1;
   }
 }
 </style>

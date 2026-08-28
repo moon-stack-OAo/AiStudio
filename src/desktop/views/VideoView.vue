@@ -11,8 +11,9 @@ import {
 } from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
-import CopyIconButton from '@core/components/CopyIconButton.vue'
-import ComposerSendStop from '@/components/ComposerSendStop.vue'
+import GenerateTimelineUserBubble from '@/components/generate/GenerateTimelineUserBubble.vue'
+import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue'
+import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'
 import {useVideoStore} from '@core/stores/video'
 import {useSettingsStore} from '@core/stores/settings'
 import {fileToPreview} from '@core/api/client'
@@ -487,40 +488,18 @@ const emptyDesc = computed(() => {
         </div>
 
         <template v-for="item in timelineItems" :key="item.id">
-          <div class="msg user">
-            <div class="role">你</div>
-            <div class="msg-body">
-              <div class="bubble user-bubble">
-                <div class="bubble-tags">
-                  <n-tag :bordered="false" size="tiny">
-                    {{ item.mode === 'img2video' ? '图生视频' : '文生视频' }}
-                  </n-tag>
-                  <n-tag
-                    v-if="paramSummary(item)"
-                    :bordered="false"
-                    size="tiny"
-                    type="info"
-                  >
-                    {{ paramSummary(item) }}
-                  </n-tag>
-                </div>
-                <div
-                  v-if="item.mode === 'img2video' && (refThumbMap[item.id] || item.refPreview)"
-                  class="ref-thumb"
-                >
-                  <img :src="refThumbMap[item.id] || item.refPreview" alt="reference"/>
-                </div>
-                <div class="prompt-text">{{ item.prompt }}</div>
-              </div>
-              <div v-if="item.prompt" class="msg-actions">
-                <CopyIconButton
-                  :active="copiedId === item.id"
-                  tooltip="复制提示词"
-                  @click="copyPrompt(item)"
-                />
-              </div>
-            </div>
-          </div>
+          <GenerateTimelineUserBubble
+            :mode-label="item.mode === 'img2video' ? '图生视频' : '文生视频'"
+            :param-summary="paramSummary(item)"
+            :prompt="item.prompt"
+            :ref-thumb-src="
+              item.mode === 'img2video'
+                ? (refThumbMap[item.id] || item.refPreview || null)
+                : null
+            "
+            :copied="copiedId === item.id"
+            @copy="copyPrompt(item)"
+          />
 
           <div
             :class="['msg', 'assistant', { error: itemStatus(item) === 'error' }]"
@@ -623,72 +602,74 @@ const emptyDesc = computed(() => {
         </template>
       </div>
 
-      <div class="composer">
-        <div
-          v-if="!isMobile || isGeneratingCurrent"
-          :class="{ 'is-critical': isMobile && isGeneratingCurrent }"
-          class="composer-hint"
-        >
-          {{
-            isGeneratingCurrent
-              ? '生成中可点击停止'
-              : 'Enter 生成 · Shift+Enter 换行 · Ctrl+V 粘贴参考图'
-          }}
-        </div>
-        <div class="composer-card">
-          <div v-if="!isMobile" class="composer-toolbar">
-            <div class="mode-switch">
-              <button
-                :class="{ active: mode === 'txt2video' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'txt2video'"
-              >
-                文生视频
-              </button>
-              <button
-                :class="{ active: mode === 'img2video' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'img2video'"
-              >
-                图生视频
-              </button>
-            </div>
-
-            <div class="opt-group">
-              <label class="opt-item opt-duration" title="时长">
-                <span class="opt-label">时长</span>
-                <n-select
-                  v-model:value="seconds"
-                  :options="durationOptions"
-                  :render-label="renderSelectLabel"
-                  size="small"
-                />
-              </label>
-              <label v-if="!isXai" class="opt-item opt-size" title="画幅">
-                <span class="opt-label">画幅</span>
-                <n-select
-                  v-model:value="size"
-                  :options="sizeOptionsDesktop"
-                  :render-label="renderSelectLabel"
-                  size="small"
-                />
-              </label>
-              <label v-else class="opt-item opt-ratio" title="比例">
-                <span class="opt-label">比例</span>
-                <n-select
-                  v-model:value="aspectRatio"
-                  :options="aspectOptions"
-                  :render-label="renderSelectLabel"
-                  size="small"
-                />
-              </label>
-            </div>
+      <GenerateComposerCard
+        v-model:prompt="prompt"
+        :is-mobile="isMobile"
+        :loading="isGeneratingCurrent"
+        :disabled="!canGenerate"
+        :show-hint="!isMobile || isGeneratingCurrent"
+        :hint-critical="isMobile && isGeneratingCurrent"
+        :placeholder="isMobile ? '描述画面与运动…' : '描述你想生成的视频，Enter 生成，Shift+Enter 换行'"
+        :send-icon="SparklesOutline"
+        :send-tooltip="sendTooltip"
+        @send="generate"
+        @stop="stopGenerate"
+        @focus="onComposerFocus"
+        @keydown="onKeydown"
+      >
+        <template #toolbar>
+          <div class="mode-switch">
+            <button
+              :class="{ active: mode === 'txt2video' }"
+              class="mode-item"
+              type="button"
+              @click="mode = 'txt2video'"
+            >
+              文生视频
+            </button>
+            <button
+              :class="{ active: mode === 'img2video' }"
+              class="mode-item"
+              type="button"
+              @click="mode = 'img2video'"
+            >
+              图生视频
+            </button>
           </div>
 
+          <div class="opt-group">
+            <label class="opt-item opt-duration" title="时长">
+              <span class="opt-label">时长</span>
+              <n-select
+                v-model:value="seconds"
+                :options="durationOptions"
+                :render-label="renderSelectLabel"
+                size="small"
+              />
+            </label>
+            <label v-if="!isXai" class="opt-item opt-size" title="画幅">
+              <span class="opt-label">画幅</span>
+              <n-select
+                v-model:value="size"
+                :options="sizeOptionsDesktop"
+                :render-label="renderSelectLabel"
+                size="small"
+              />
+            </label>
+            <label v-else class="opt-item opt-ratio" title="比例">
+              <span class="opt-label">比例</span>
+              <n-select
+                v-model:value="aspectRatio"
+                :options="aspectOptions"
+                :render-label="renderSelectLabel"
+                size="small"
+              />
+            </label>
+          </div>
+        </template>
+
+        <template #params-summary>
           <button
-            v-else
             class="params-summary"
             type="button"
             @click="paramsDrawerShow = true"
@@ -697,7 +678,9 @@ const emptyDesc = computed(() => {
             <span class="params-summary-text">{{ paramsSummary }}</span>
             <span class="params-summary-action">设置</span>
           </button>
+        </template>
 
+        <template #reference>
           <div v-if="mode === 'img2video' && !isMobile" class="upload-row">
             <n-upload
               v-if="!previewUrl"
@@ -738,145 +721,107 @@ const emptyDesc = computed(() => {
             <img :src="previewUrl" alt="reference"/>
             <span class="ref-name">参考图已选，点击可更换</span>
           </button>
-
-          <div class="composer-input">
-            <n-input
-              v-model:value="prompt"
-              :autosize="{ minRows: isMobile ? 1 : 3, maxRows: isMobile ? 4 : 8 }"
-              :disabled="isGeneratingCurrent"
-              class="composer-field"
-              :placeholder="isMobile ? '描述画面与运动…' : '描述你想生成的视频，Enter 生成，Shift+Enter 换行'"
-              type="textarea"
-              @focus="onComposerFocus"
-              @keydown="onKeydown"
-            />
-            <div class="composer-actions">
-              <ComposerSendStop
-                :disabled="!canGenerate"
-                :loading="isGeneratingCurrent"
-                :send-icon="SparklesOutline"
-                :send-tooltip="sendTooltip"
-                @send="generate"
-                @stop="stopGenerate"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+        </template>
+      </GenerateComposerCard>
     </div>
 
-    <n-drawer
+    <GenerateParamsDrawer
       v-model:show="paramsDrawerShow"
       :height="drawerHeight"
-      display-directive="show"
-      placement="bottom"
     >
-      <n-drawer-content closable title="生成参数">
-        <div class="params-drawer">
-          <div class="params-section">
-            <div class="params-label">模式</div>
-            <div class="mode-switch mode-switch-full">
-              <button
-                :class="{ active: mode === 'txt2video' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'txt2video'"
-              >
-                文生视频
-              </button>
-              <button
-                :class="{ active: mode === 'img2video' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'img2video'"
-              >
-                图生视频
-              </button>
-            </div>
-          </div>
-
-          <div v-if="mode === 'img2video'" class="params-section">
-            <div class="params-label">参考图</div>
-            <div class="params-upload">
-              <n-upload
-                v-if="!previewUrl"
-                :custom-request="onUpload"
-                :show-file-list="false"
-                accept="image/*"
-              >
-                <n-button block class="params-upload-btn" dashed>
-                  <template #icon>
-                    <n-icon :component="ImageOutline"/>
-                  </template>
-                  从相册选择参考图
-                </n-button>
-              </n-upload>
-              <div v-else class="ref-chip ref-chip-drawer">
-                <img :src="previewUrl" alt="reference"/>
-                <div class="ref-chip-meta">
-                  <span class="ref-name">参考图已选</span>
-                  <span class="ref-hint">可清除后重新选择</span>
-                </div>
-                <n-button
-                  aria-label="清除参考图"
-                  class="touch-target"
-                  quaternary
-                  size="small"
-                  @click="clearUpload"
-                >
-                  <template #icon>
-                    <n-icon :component="TrashOutline"/>
-                  </template>
-                </n-button>
-              </div>
-              <p class="ref-compress-hint">参考图会自动压缩后上传，建议不超过 4K 原图</p>
-            </div>
-          </div>
-
-          <div class="params-grid">
-            <div class="params-section">
-              <div class="params-label">时长</div>
-              <n-select
-                v-model:value="seconds"
-                :options="durationOptions"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-            </div>
-
-            <div class="params-section params-section-full">
-              <div class="params-label">{{ isXai ? '比例' : '画幅' }}</div>
-              <n-select
-                v-if="!isXai"
-                v-model:value="size"
-                :options="sizeOptionsDesktop"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-              <n-select
-                v-else
-                v-model:value="aspectRatio"
-                :options="aspectOptions"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-            </div>
-          </div>
-
-          <n-button
-            block
-            class="params-done"
-            type="primary"
-            @click="paramsDrawerShow = false"
+      <div class="params-section">
+        <div class="params-label">模式</div>
+        <div class="mode-switch mode-switch-full">
+          <button
+            :class="{ active: mode === 'txt2video' }"
+            class="mode-item"
+            type="button"
+            @click="mode = 'txt2video'"
           >
-            完成
-          </n-button>
+            文生视频
+          </button>
+          <button
+            :class="{ active: mode === 'img2video' }"
+            class="mode-item"
+            type="button"
+            @click="mode = 'img2video'"
+          >
+            图生视频
+          </button>
         </div>
-      </n-drawer-content>
-    </n-drawer>
+      </div>
+
+      <div v-if="mode === 'img2video'" class="params-section">
+        <div class="params-label">参考图</div>
+        <div class="params-upload">
+          <n-upload
+            v-if="!previewUrl"
+            :custom-request="onUpload"
+            :show-file-list="false"
+            accept="image/*"
+          >
+            <n-button block class="params-upload-btn" dashed>
+              <template #icon>
+                <n-icon :component="ImageOutline"/>
+              </template>
+              从相册选择参考图
+            </n-button>
+          </n-upload>
+          <div v-else class="ref-chip ref-chip-drawer">
+            <img :src="previewUrl" alt="reference"/>
+            <div class="ref-chip-meta">
+              <span class="ref-name">参考图已选</span>
+              <span class="ref-hint">可清除后重新选择</span>
+            </div>
+            <n-button
+              aria-label="清除参考图"
+              class="touch-target"
+              quaternary
+              size="small"
+              @click="clearUpload"
+            >
+              <template #icon>
+                <n-icon :component="TrashOutline"/>
+              </template>
+            </n-button>
+          </div>
+          <p class="ref-compress-hint">参考图会自动压缩后上传，建议不超过 4K 原图</p>
+        </div>
+      </div>
+
+      <div class="params-grid">
+        <div class="params-section">
+          <div class="params-label">时长</div>
+          <n-select
+            v-model:value="seconds"
+            :options="durationOptions"
+            :render-label="renderSelectLabel"
+            class="params-control"
+            size="medium"
+          />
+        </div>
+
+        <div class="params-section params-section-full">
+          <div class="params-label">{{ isXai ? '比例' : '画幅' }}</div>
+          <n-select
+            v-if="!isXai"
+            v-model:value="size"
+            :options="sizeOptionsDesktop"
+            :render-label="renderSelectLabel"
+            class="params-control"
+            size="medium"
+          />
+          <n-select
+            v-else
+            v-model:value="aspectRatio"
+            :options="aspectOptions"
+            :render-label="renderSelectLabel"
+            class="params-control"
+            size="medium"
+          />
+        </div>
+      </div>
+    </GenerateParamsDrawer>
   </SessionWorkspaceShell>
 </template>
 

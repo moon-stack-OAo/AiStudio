@@ -17,6 +17,8 @@ const showViteCorsProxy = import.meta.env.DEV && !isTauri()
 
 const selectedId = ref(settings.activeProviderId)
 const testing = ref(false)
+// 默认展开：基本信息 / 连接 / 模型；使用说明默认收起
+const expandedNames = ref(['basic', 'connection', 'models'])
 let persistTimer = null
 
 watch(
@@ -164,9 +166,7 @@ async function testConnection() {
   try {
     const result = await testProviderConnection(current.value)
     message.success(result.detail || '连接成功')
-    refreshChatModels({ force: true }).catch(() => {})
-    refreshImageModels({ force: true }).catch(() => {})
-    refreshVideoModels({ force: true }).catch(() => {})
+    refreshModels({ force: true }).catch(() => {})
   } catch (e) {
     message.error(e?.message || '连接失败')
   } finally {
@@ -212,160 +212,165 @@ defineExpose({ addCustom, reset })
             </div>
           </div>
 
-          <div class="group">
-            <div class="group-title">基本信息</div>
-            <div class="field-grid">
-              <div class="field">
-                <div class="field-label">名称</div>
-                <n-input
-                  :value="current.name"
-                  placeholder="例如 OpenAI / Grok / 中转站"
-                  size="small"
-                  @update:value="(v) => patch('name', v)"
-                />
-              </div>
-              <div class="field">
-                <div class="field-label">接口类型</div>
-                <n-select
-                  :options="providerTypeOptions"
-                  :render-label="renderSelectLabel"
-                  :value="current.provider"
-                  size="small"
-                  @update:value="(v) => patch('provider', v)"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div class="group">
-            <div class="group-title">连接</div>
-            <div class="field-grid">
-              <div class="field field-full">
-                <div class="field-label">Base URL</div>
-                <n-input
-                  :value="current.baseUrl"
-                  placeholder="https://api.openai.com/v1"
-                  size="small"
-                  @update:value="(v) => patch('baseUrl', v)"
-                />
-              </div>
-              <div class="field field-full">
-                <div class="field-label">API Key</div>
-                <n-input
-                  :value="current.apiKey"
-                  placeholder="sk-..."
-                  show-password-on="click"
-                  size="small"
-                  type="password"
-                  @update:value="(v) => patch('apiKey', v)"
-                />
-              </div>
-              <div v-if="showViteCorsProxy" class="field field-full">
-                <div class="field-label">开发代理（绕过 CORS）</div>
-                <div class="inline-row">
-                  <n-switch
-                    :value="Boolean(current.useCorsProxy)"
+          <n-collapse
+            v-model:expanded-names="expandedNames"
+            arrow-placement="right"
+            class="form-collapse"
+            display-directive="show"
+          >
+            <n-collapse-item name="basic" title="基本信息">
+              <div class="field-grid">
+                <div class="field">
+                  <div class="field-label">名称</div>
+                  <n-input
+                    :value="current.name"
+                    placeholder="例如 OpenAI / Grok / 中转站"
                     size="small"
-                    @update:value="(v) => patch('useCorsProxy', v)"
+                    @update:value="(v) => patch('name', v)"
                   />
-                  <span class="hint">浏览器 npm run dev 访问中转站时请开启</span>
+                </div>
+                <div class="field">
+                  <div class="field-label">接口类型</div>
+                  <n-select
+                    :options="providerTypeOptions"
+                    :render-label="renderSelectLabel"
+                    :value="current.provider"
+                    size="small"
+                    @update:value="(v) => patch('provider', v)"
+                  />
                 </div>
               </div>
-              <div class="field field-full">
-                <div class="field-label">连通性</div>
-                <div class="inline-row">
-                  <n-button
-                    :loading="testing"
+            </n-collapse-item>
+
+            <n-collapse-item name="connection" title="连接">
+              <div class="field-grid">
+                <div class="field field-full">
+                  <div class="field-label">Base URL</div>
+                  <n-input
+                    :value="current.baseUrl"
+                    placeholder="https://api.openai.com/v1"
                     size="small"
-                    @click="testConnection"
+                    @update:value="(v) => patch('baseUrl', v)"
+                  />
+                </div>
+                <div class="field field-full">
+                  <div class="field-label">API Key</div>
+                  <n-input
+                    :value="current.apiKey"
+                    placeholder="sk-..."
+                    show-password-on="click"
+                    size="small"
+                    type="password"
+                    @update:value="(v) => patch('apiKey', v)"
+                  />
+                </div>
+                <div v-if="showViteCorsProxy" class="field field-full">
+                  <div class="field-label">开发代理（绕过 CORS）</div>
+                  <div class="inline-row">
+                    <n-switch
+                      :value="Boolean(current.useCorsProxy)"
+                      size="small"
+                      @update:value="(v) => patch('useCorsProxy', v)"
+                    />
+                    <span class="hint">浏览器 npm run dev 访问中转站时请开启</span>
+                  </div>
+                </div>
+                <div class="field field-full">
+                  <div class="field-label">连通性</div>
+                  <div class="inline-row">
+                    <n-button
+                      :loading="testing"
+                      size="small"
+                      @click="testConnection"
+                    >
+                      <template #icon>
+                        <n-icon :component="FlashOutline" />
+                      </template>
+                      测试连接
+                    </n-button>
+                    <span class="hint">优先探测 /models，失败再试最小对话请求</span>
+                  </div>
+                </div>
+              </div>
+              <div v-if="showViteCorsProxy" class="tip-bar tip-warn tip-in-collapse">
+                若出现 net::ERR_FAILED，多为浏览器 CORS。请开启上方「开发代理」并重启
+                <code>npm run dev</code>。桌面端（<code>tauri:dev</code> / 安装包）已走 Rust HTTP，无需此开关。
+              </div>
+            </n-collapse-item>
+
+            <n-collapse-item name="models">
+              <template #header>
+                <div class="collapse-header-row">
+                  <span>模型</span>
+                  <n-button
+                    :loading="modelsLoading"
+                    quaternary
+                    size="tiny"
+                    @click.stop="refreshModelLists"
                   >
                     <template #icon>
-                      <n-icon :component="FlashOutline" />
+                      <n-icon :component="RefreshOutline" />
                     </template>
-                    测试连接
+                    刷新列表
                   </n-button>
-                  <span class="hint">优先探测 /models，失败再试最小对话请求</span>
+                </div>
+              </template>
+              <div class="field-grid">
+                <div class="field">
+                  <div class="field-label">对话模型</div>
+                  <n-select
+                    :loading="modelsLoading"
+                    :options="chatModelOptions"
+                    :render-label="renderSelectLabel"
+                    :value="current.chatModel || null"
+                    filterable
+                    placeholder="gpt-4o / grok-4.5"
+                    size="small"
+                    tag
+                    @update:value="(v) => patch('chatModel', v || '')"
+                  />
+                </div>
+                <div class="field">
+                  <div class="field-label">生图模型</div>
+                  <n-select
+                    :loading="modelsLoading"
+                    :options="imageModelOptions"
+                    :render-label="renderSelectLabel"
+                    :value="current.imageModel || null"
+                    filterable
+                    placeholder="gpt-image-1 / grok-imagine-image"
+                    size="small"
+                    tag
+                    @update:value="(v) => patch('imageModel', v || '')"
+                  />
+                </div>
+                <div class="field">
+                  <div class="field-label">视频模型</div>
+                  <n-select
+                    :loading="modelsLoading"
+                    :options="videoModelOptions"
+                    :render-label="renderSelectLabel"
+                    :value="current.videoModel || null"
+                    filterable
+                    placeholder="sora-2 / grok-imagine-video"
+                    size="small"
+                    tag
+                    @update:value="(v) => patch('videoModel', v || '')"
+                  />
                 </div>
               </div>
-            </div>
-          </div>
+            </n-collapse-item>
 
-          <div class="group">
-            <div class="group-title">
-              <span>模型</span>
-              <n-button
-                :loading="modelsLoading"
-                quaternary
-                size="tiny"
-                @click="refreshModelLists"
-              >
-                <template #icon>
-                  <n-icon :component="RefreshOutline" />
-                </template>
-                刷新列表
-              </n-button>
-            </div>
-            <div class="field-grid">
-              <div class="field">
-                <div class="field-label">对话模型</div>
-                <n-select
-                  :loading="modelsLoading"
-                  :options="chatModelOptions"
-                  :render-label="renderSelectLabel"
-                  :value="current.chatModel || null"
-                  filterable
-                  placeholder="gpt-4o / grok-4.5"
-                  size="small"
-                  tag
-                  @update:value="(v) => patch('chatModel', v || '')"
-                />
-              </div>
-              <div class="field">
-                <div class="field-label">生图模型</div>
-                <n-select
-                  :loading="modelsLoading"
-                  :options="imageModelOptions"
-                  :render-label="renderSelectLabel"
-                  :value="current.imageModel || null"
-                  filterable
-                  placeholder="gpt-image-1 / grok-imagine-image"
-                  size="small"
-                  tag
-                  @update:value="(v) => patch('imageModel', v || '')"
-                />
-              </div>
-              <div class="field">
-                <div class="field-label">视频模型</div>
-                <n-select
-                  :loading="modelsLoading"
-                  :options="videoModelOptions"
-                  :render-label="renderSelectLabel"
-                  :value="current.videoModel || null"
-                  filterable
-                  placeholder="sora-2 / grok-imagine-video"
-                  size="small"
-                  tag
-                  @update:value="(v) => patch('videoModel', v || '')"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div v-if="showViteCorsProxy" class="tip-bar tip-warn">
-            若出现 net::ERR_FAILED，多为浏览器 CORS。请开启上方「开发代理」并重启
-            <code>npm run dev</code>。桌面端（<code>tauri:dev</code> / 安装包）已走 Rust HTTP，无需此开关。
-          </div>
-
-          <div class="tip-bar tip-muted">
-            <div class="tip-bar-title">使用说明</div>
-            <ul class="tips">
-              <li>对话：POST {BaseURL}/chat/completions（支持流式）</li>
-              <li>文生图：POST {BaseURL}/images/generations</li>
-              <li>图生图：OpenAI 用 multipart /images/edits；xAI 用 JSON /images/edits</li>
-              <li>视频：OpenAI 兼容 POST /videos 并轮询；xAI POST /videos/generations</li>
-              <li>任意 OpenAI 兼容中转站，填对应 Base URL + Key 即可</li>
-            </ul>
-          </div>
+            <n-collapse-item name="tips" title="使用说明">
+              <ul class="tips">
+                <li>对话：POST {BaseURL}/chat/completions（支持流式）</li>
+                <li>文生图：POST {BaseURL}/images/generations</li>
+                <li>图生图：OpenAI 用 multipart /images/edits；xAI 用 JSON /images/edits</li>
+                <li>视频：OpenAI 兼容 POST /videos 并轮询；xAI POST /videos/generations</li>
+                <li>任意 OpenAI 兼容中转站，填对应 Base URL + Key 即可</li>
+              </ul>
+            </n-collapse-item>
+          </n-collapse>
 
           <div v-if="canRemoveCurrent" class="danger">
             <n-button quaternary size="small" type="error" @click="removeCurrent">

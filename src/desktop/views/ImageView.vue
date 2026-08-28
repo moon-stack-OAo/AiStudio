@@ -4,8 +4,9 @@ import {useDialog, useMessage} from 'naive-ui'
 import {DownloadOutline, ImageOutline, OptionsOutline, SparklesOutline, TrashOutline,} from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
-import CopyIconButton from '@core/components/CopyIconButton.vue'
-import ComposerSendStop from '@/components/ComposerSendStop.vue'
+import GenerateTimelineUserBubble from '@/components/generate/GenerateTimelineUserBubble.vue'
+import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue'
+import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'
 import {useImageStore} from '@core/stores/image'
 import {useSettingsStore} from '@core/stores/settings'
 import {editImage, fileToPreview, generateImage} from '@core/api/client'
@@ -625,45 +626,20 @@ const sendTooltip = computed(() =>
         </div>
 
         <template v-for="item in timelineItems" :key="item.id">
-          <div class="msg user">
-            <div class="role">你</div>
-            <div class="msg-body">
-              <div class="bubble user-bubble">
-                <div class="bubble-tags">
-                  <n-tag :bordered="false" size="tiny">
-                    {{ item.mode === 'txt2img' ? '文生图' : '图生图' }}
-                  </n-tag>
-                  <n-tag
-                    v-if="paramSummary(item)"
-                    :bordered="false"
-                    size="tiny"
-                    type="info"
-                  >
-                    {{ paramSummary(item) }}
-                  </n-tag>
-                </div>
-                <div
-                  v-if="item.mode === 'img2img' && (refThumbMap[item.id] || item.refPreview)"
-                  class="ref-thumb"
-                >
-                  <img
-                    :src="refThumbMap[item.id] || item.refPreview"
-                    alt="reference"
-                    title="点击预览"
-                    @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
-                  />
-                </div>
-                <div class="prompt-text">{{ item.prompt }}</div>
-              </div>
-              <div v-if="item.prompt" class="msg-actions">
-                <CopyIconButton
-                  :active="copiedId === item.id"
-                  tooltip="复制提示词"
-                  @click="copyPrompt(item)"
-                />
-              </div>
-            </div>
-          </div>
+          <GenerateTimelineUserBubble
+            :mode-label="item.mode === 'txt2img' ? '文生图' : '图生图'"
+            :param-summary="paramSummary(item)"
+            :prompt="item.prompt"
+            :ref-thumb-src="
+              item.mode === 'img2img'
+                ? (refThumbMap[item.id] || item.refPreview || null)
+                : null
+            "
+            ref-previewable
+            :copied="copiedId === item.id"
+            @copy="copyPrompt(item)"
+            @preview-ref="openRefLightbox"
+          />
 
           <div
             :class="['msg', 'assistant', { error: itemStatus(item) === 'error' }]"
@@ -737,78 +713,78 @@ const sendTooltip = computed(() =>
         </template>
       </div>
 
-      <div class="composer">
-        <div
-          v-if="!isMobile || isGeneratingCurrent"
-          :class="{ 'is-critical': isMobile && isGeneratingCurrent }"
-          class="composer-hint"
-        >
-          {{
-            isGeneratingCurrent
-              ? '生成中可点击停止'
-              : 'Enter 生成 · Shift+Enter 换行 · Ctrl+V 粘贴参考图'
-          }}
-        </div>
-        <div class="composer-card">
-          <!-- 桌面端：参数直接展示 -->
-          <div v-if="!isMobile" class="composer-toolbar">
-            <div class="mode-switch">
-              <button
-                :class="{ active: mode === 'txt2img' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'txt2img'"
-              >
-                文生图
-              </button>
-              <button
-                :class="{ active: mode === 'img2img' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'img2img'"
-              >
-                图生图
-              </button>
-            </div>
-
-            <div class="opt-group">
-              <label class="opt-item opt-count" title="数量">
-                <span class="opt-label">数量</span>
-                <n-input-number v-model:value="n" :max="4" :min="1" size="small"/>
-              </label>
-              <label v-if="!isXai" class="opt-item opt-size" title="尺寸">
-                <span class="opt-label">尺寸</span>
-                <n-select
-                  v-model:value="size"
-                  :options="sizeOptionsDesktop"
-                  :render-label="renderSelectLabel"
-                  size="small"
-                />
-              </label>
-              <label v-else class="opt-item opt-ratio" title="比例">
-                <span class="opt-label">比例</span>
-                <n-select
-                  v-model:value="aspectRatio"
-                  :options="aspectOptions"
-                  :render-label="renderSelectLabel"
-                  size="small"
-                />
-              </label>
-              <label class="opt-item opt-quality" title="质量">
-                <span class="opt-label">质量</span>
-                <n-select
-                  v-model:value="quality"
-                  :options="qualityOptionsDesktop"
-                  :render-label="renderSelectLabel"
-                  size="small"
-                />
-              </label>
-            </div>
+      <GenerateComposerCard
+        v-model:prompt="prompt"
+        :is-mobile="isMobile"
+        :loading="isGeneratingCurrent"
+        :disabled="!canGenerate"
+        :show-hint="!isMobile || isGeneratingCurrent"
+        :hint-critical="isMobile && isGeneratingCurrent"
+        :placeholder="isMobile ? '描述画面…' : '描述你想生成的画面，Enter 生成，Shift+Enter 换行'"
+        :send-icon="SparklesOutline"
+        :send-tooltip="sendTooltip"
+        @send="generate"
+        @stop="stopGenerate"
+        @focus="onComposerFocus"
+        @keydown="onKeydown"
+      >
+        <template #toolbar>
+          <div class="mode-switch">
+            <button
+              :class="{ active: mode === 'txt2img' }"
+              class="mode-item"
+              type="button"
+              @click="mode = 'txt2img'"
+            >
+              文生图
+            </button>
+            <button
+              :class="{ active: mode === 'img2img' }"
+              class="mode-item"
+              type="button"
+              @click="mode = 'img2img'"
+            >
+              图生图
+            </button>
           </div>
 
-          <!-- 移动端：一行摘要，点开底部抽屉 -->
+          <div class="opt-group">
+            <label class="opt-item opt-count" title="数量">
+              <span class="opt-label">数量</span>
+              <n-input-number v-model:value="n" :max="4" :min="1" size="small"/>
+            </label>
+            <label v-if="!isXai" class="opt-item opt-size" title="尺寸">
+              <span class="opt-label">尺寸</span>
+              <n-select
+                v-model:value="size"
+                :options="sizeOptionsDesktop"
+                :render-label="renderSelectLabel"
+                size="small"
+              />
+            </label>
+            <label v-else class="opt-item opt-ratio" title="比例">
+              <span class="opt-label">比例</span>
+              <n-select
+                v-model:value="aspectRatio"
+                :options="aspectOptions"
+                :render-label="renderSelectLabel"
+                size="small"
+              />
+            </label>
+            <label class="opt-item opt-quality" title="质量">
+              <span class="opt-label">质量</span>
+              <n-select
+                v-model:value="quality"
+                :options="qualityOptionsDesktop"
+                :render-label="renderSelectLabel"
+                size="small"
+              />
+            </label>
+          </div>
+        </template>
+
+        <template #params-summary>
           <button
-            v-else
             class="params-summary"
             type="button"
             @click="paramsDrawerShow = true"
@@ -817,8 +793,9 @@ const sendTooltip = computed(() =>
             <span class="params-summary-text">{{ paramsSummary }}</span>
             <span class="params-summary-action">设置</span>
           </button>
+        </template>
 
-          <!-- 桌面端参考图；移动端放到参数抽屉里，避免输入区被挤乱 -->
+        <template #reference>
           <div v-if="mode === 'img2img' && !isMobile" class="upload-row">
             <n-upload
               v-if="!previewUrl"
@@ -859,149 +836,111 @@ const sendTooltip = computed(() =>
             <img :src="previewUrl" alt="reference"/>
             <span class="ref-name">参考图已选，点击可更换</span>
           </button>
+        </template>
+      </GenerateComposerCard>
+    </div>
 
-          <div class="composer-input">
-              <n-input
-              v-model:value="prompt"
-              :autosize="{ minRows: isMobile ? 1 : 3, maxRows: isMobile ? 4 : 8 }"
-              :disabled="isGeneratingCurrent"
-              class="composer-field"
-              :placeholder="isMobile ? '描述画面…' : '描述你想生成的画面，Enter 生成，Shift+Enter 换行'"
-              type="textarea"
-              @focus="onComposerFocus"
-              @keydown="onKeydown"
-            />
-            <div class="composer-actions">
-              <ComposerSendStop
-                :disabled="!canGenerate"
-                :loading="isGeneratingCurrent"
-                :send-icon="SparklesOutline"
-                :send-tooltip="sendTooltip"
-                @send="generate"
-                @stop="stopGenerate"
-              />
+    <GenerateParamsDrawer
+      v-model:show="paramsDrawerShow"
+      :height="drawerHeight"
+    >
+      <div class="params-section">
+        <div class="params-label">模式</div>
+        <div class="mode-switch mode-switch-full">
+          <button
+            :class="{ active: mode === 'txt2img' }"
+            class="mode-item"
+            type="button"
+            @click="mode = 'txt2img'"
+          >
+            文生图
+          </button>
+          <button
+            :class="{ active: mode === 'img2img' }"
+            class="mode-item"
+            type="button"
+            @click="mode = 'img2img'"
+          >
+            图生图
+          </button>
+        </div>
+      </div>
+
+      <div v-if="mode === 'img2img'" class="params-section">
+        <div class="params-label">参考图</div>
+        <div class="params-upload">
+          <n-upload
+            v-if="!previewUrl"
+            :custom-request="onUpload"
+            :show-file-list="false"
+            accept="image/*"
+          >
+            <n-button block class="params-upload-btn" dashed>
+              <template #icon>
+                <n-icon :component="ImageOutline"/>
+              </template>
+              从相册选择参考图
+            </n-button>
+          </n-upload>
+          <div v-else class="ref-chip ref-chip-drawer">
+            <img :src="previewUrl" alt="reference"/>
+            <div class="ref-chip-meta">
+              <span class="ref-name">参考图已选</span>
+              <span class="ref-hint">可清除后重新选择</span>
             </div>
+            <n-button
+              aria-label="清除参考图"
+              class="touch-target"
+              quaternary
+              size="small"
+              @click="clearUpload"
+            >
+              <template #icon>
+                <n-icon :component="TrashOutline"/>
+              </template>
+            </n-button>
           </div>
         </div>
       </div>
-    </div>
 
-    <n-drawer
-      v-model:show="paramsDrawerShow"
-      :height="drawerHeight"
-      display-directive="show"
-      placement="bottom"
-    >
-      <n-drawer-content closable title="生成参数">
-        <div class="params-drawer">
-          <div class="params-section">
-            <div class="params-label">模式</div>
-            <div class="mode-switch mode-switch-full">
-              <button
-                :class="{ active: mode === 'txt2img' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'txt2img'"
-              >
-                文生图
-              </button>
-              <button
-                :class="{ active: mode === 'img2img' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'img2img'"
-              >
-                图生图
-              </button>
-            </div>
-          </div>
-
-          <div v-if="mode === 'img2img'" class="params-section">
-            <div class="params-label">参考图</div>
-            <div class="params-upload">
-              <n-upload
-                v-if="!previewUrl"
-                :custom-request="onUpload"
-                :show-file-list="false"
-                accept="image/*"
-              >
-                <n-button block class="params-upload-btn" dashed>
-                  <template #icon>
-                    <n-icon :component="ImageOutline"/>
-                  </template>
-                  从相册选择参考图
-                </n-button>
-              </n-upload>
-              <div v-else class="ref-chip ref-chip-drawer">
-                <img :src="previewUrl" alt="reference"/>
-                <div class="ref-chip-meta">
-                  <span class="ref-name">参考图已选</span>
-                  <span class="ref-hint">可清除后重新选择</span>
-                </div>
-                <n-button
-                  aria-label="清除参考图"
-                  class="touch-target"
-                  quaternary
-                  size="small"
-                  @click="clearUpload"
-                >
-                  <template #icon>
-                    <n-icon :component="TrashOutline"/>
-                  </template>
-                </n-button>
-              </div>
-            </div>
-          </div>
-
-          <div class="params-grid">
-            <div class="params-section">
-              <div class="params-label">数量</div>
-              <n-input-number v-model:value="n" :max="4" :min="1" class="params-control" size="medium"/>
-            </div>
-
-            <div class="params-section">
-              <div class="params-label">质量</div>
-              <n-select
-                v-model:value="quality"
-                :options="qualityOptionsDesktop"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-            </div>
-
-            <div class="params-section params-section-full">
-              <div class="params-label">{{ isXai ? '比例' : '尺寸' }}</div>
-              <n-select
-                v-if="!isXai"
-                v-model:value="size"
-                :options="sizeOptionsDesktop"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-              <n-select
-                v-else
-                v-model:value="aspectRatio"
-                :options="aspectOptions"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-            </div>
-          </div>
-
-          <n-button
-            block
-            class="params-done"
-            type="primary"
-            @click="paramsDrawerShow = false"
-          >
-            完成
-          </n-button>
+      <div class="params-grid">
+        <div class="params-section">
+          <div class="params-label">数量</div>
+          <n-input-number v-model:value="n" :max="4" :min="1" class="params-control" size="medium"/>
         </div>
-      </n-drawer-content>
-    </n-drawer>
+
+        <div class="params-section">
+          <div class="params-label">质量</div>
+          <n-select
+            v-model:value="quality"
+            :options="qualityOptionsDesktop"
+            :render-label="renderSelectLabel"
+            class="params-control"
+            size="medium"
+          />
+        </div>
+
+        <div class="params-section params-section-full">
+          <div class="params-label">{{ isXai ? '比例' : '尺寸' }}</div>
+          <n-select
+            v-if="!isXai"
+            v-model:value="size"
+            :options="sizeOptionsDesktop"
+            :render-label="renderSelectLabel"
+            class="params-control"
+            size="medium"
+          />
+          <n-select
+            v-else
+            v-model:value="aspectRatio"
+            :options="aspectOptions"
+            :render-label="renderSelectLabel"
+            class="params-control"
+            size="medium"
+          />
+        </div>
+      </div>
+    </GenerateParamsDrawer>
 
     <n-modal
       v-model:show="lightboxShow"

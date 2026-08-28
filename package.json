@@ -26,7 +26,8 @@
     "android:studio:host": "tauri android dev --open --host",
     "clean": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1",
     "clean:dry": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1 -DryRun",
-    "clean:all": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1 -IncludeNodeModules"
+    "clean:all": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1 -IncludeNodeModules",
+    "check:theme": "node ./scripts/check-theme-sync.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

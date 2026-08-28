@@ -118,7 +118,7 @@ function onToggle() {
 .drawer-theme-btn {
   width: 100%;
   justify-content: flex-start;
-  margin: 8px 0;
+  margin: var(--space-2) 0;
   min-height: var(--touch-min);
 }
 </style>
