@@ -1,7 +1,7 @@
 <script setup>
 import {computed, onBeforeUnmount, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
-import {FlashOutline, RefreshOutline, TrashOutline} from '@vicons/ionicons5'
+import {FlashOutline, HelpCircleOutline, RefreshOutline, TrashOutline} from '@vicons/ionicons5'
 import {isBuiltinProvider, useSettingsStore} from '@core/stores/settings'
 import {testProviderConnection} from '@core/api/client'
 import {useProviderModels} from '@core/composables/useProviderModels'
@@ -17,14 +17,16 @@ const showViteCorsProxy = import.meta.env.DEV && !isTauri()
 
 const selectedId = ref(settings.activeProviderId)
 const testing = ref(false)
-// 默认展开：基本信息 / 连接 / 模型；使用说明默认收起
+// 默认展开：基本信息 / 连接 / 模型
 const expandedNames = ref(['basic', 'connection', 'models'])
+const tipsShow = ref(false)
 let persistTimer = null
 
 watch(
   () => settings.activeProviderId,
   (id) => {
     selectedId.value = id
+    tipsShow.value = false
   },
 )
 
@@ -210,6 +212,34 @@ defineExpose({ addCustom, reset })
               <div class="section-title">{{ current.name || '提供商配置' }}</div>
               <div class="section-desc">接口凭证与模型名称</div>
             </div>
+            <n-popover
+              v-model:show="tipsShow"
+              :width="360"
+              content-class="provider-tips-popover"
+              placement="bottom-end"
+              trigger="click"
+            >
+              <template #trigger>
+                <n-button
+                  aria-label="使用说明"
+                  quaternary
+                  size="small"
+                  title="使用说明"
+                >
+                  <template #icon>
+                    <n-icon :component="HelpCircleOutline" />
+                  </template>
+                  使用说明
+                </n-button>
+              </template>
+              <ul class="tips">
+                <li>对话：POST {BaseURL}/chat/completions（支持流式）</li>
+                <li>文生图：POST {BaseURL}/images/generations</li>
+                <li>图生图：OpenAI 用 multipart /images/edits；xAI 用 JSON /images/edits</li>
+                <li>视频：OpenAI 兼容 POST /videos 并轮询；xAI POST /videos/generations</li>
+                <li>任意 OpenAI 兼容中转站，填对应 Base URL + Key 即可</li>
+              </ul>
+            </n-popover>
           </div>
 
           <n-collapse
@@ -360,16 +390,6 @@ defineExpose({ addCustom, reset })
                 </div>
               </div>
             </n-collapse-item>
-
-            <n-collapse-item name="tips" title="使用说明">
-              <ul class="tips">
-                <li>对话：POST {BaseURL}/chat/completions（支持流式）</li>
-                <li>文生图：POST {BaseURL}/images/generations</li>
-                <li>图生图：OpenAI 用 multipart /images/edits；xAI 用 JSON /images/edits</li>
-                <li>视频：OpenAI 兼容 POST /videos 并轮询；xAI POST /videos/generations</li>
-                <li>任意 OpenAI 兼容中转站，填对应 Base URL + Key 即可</li>
-              </ul>
-            </n-collapse-item>
           </n-collapse>
 
           <div v-if="canRemoveCurrent" class="danger">
@@ -390,3 +410,13 @@ defineExpose({ addCustom, reset })
 </template>
 
 <style lang="scss" scoped src="./ProvidersSettings.scss"></style>
+<style lang="scss">
+/* Popover 内容 teleport 到 body，需非 scoped */
+.provider-tips-popover .tips {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+  font-size: 12px;
+  color: var(--text-3);
+}
+</style>

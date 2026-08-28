@@ -16,14 +16,14 @@ defineProps({
   copied: {type: Boolean, default: false},
 })
 
-defineEmits(['copy', 'preview-ref'])
+defineEmits(['copy', 'preview-ref', 'contextmenu'])
 </script>
 
 <template>
   <div class="msg user">
     <div class="role">你</div>
     <div class="msg-body">
-      <div class="bubble user-bubble">
+      <div class="bubble user-bubble" @contextmenu="$emit('contextmenu', $event)">
         <div class="bubble-tags">
           <n-tag :bordered="false" size="tiny">
             {{ modeLabel }}

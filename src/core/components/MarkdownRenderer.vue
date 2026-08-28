@@ -114,6 +114,7 @@ const html = computed(() => {
 .markdown-body {
   font-size: 14px;
   line-height: 1.65;
+  overflow-wrap: anywhere;
   word-break: break-word;
   color: var(--text-1);
 
@@ -232,12 +233,13 @@ const html = computed(() => {
     color: var(--code-inline-fg);
   }
 
-  /* 代码块（highlight 输出） */
+  /* 代码块（highlight 输出）：横向滚动限制在代码块内，避免撑出页面底栏滚动条 */
   :deep(pre.hljs),
   :deep(pre) {
     margin: 0.75em 0;
     padding: 12px 14px;
     border-radius: var(--radius-md);
+    max-width: 100%;
     overflow-x: auto;
     background: var(--code-bg) !important;
     border: 1px solid var(--border-muted);

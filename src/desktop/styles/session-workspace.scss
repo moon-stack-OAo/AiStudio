@@ -29,6 +29,8 @@
   margin-bottom: var(--space-4);
   width: 100%;
   max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .role {
@@ -63,7 +65,11 @@
   background: var(--surface-3);
   border: 1px solid var(--border-subtle);
   width: fit-content;
-  max-width: 100%;
+  max-width: 80%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .msg-actions {
@@ -175,7 +181,7 @@
   }
 
   .bubble {
-    max-width: 100%;
+    max-width: 80%;
     padding: 14px var(--space-4);
     border-radius: var(--radius-xl);
     line-height: 1.55;

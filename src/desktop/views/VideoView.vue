@@ -24,6 +24,7 @@ import {useCopyFeedback} from '@core/composables/useCopyFeedback'
 import {useScrollToBottom} from '@core/composables/useScrollToBottom'
 import {useClipboardImage} from '@core/composables/useClipboardImage'
 import {downloadMediaBlob} from '@core/composables/useMediaDownload'
+import {useManualDropdown} from '@/composables/useManualDropdown'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
 const videoStore = useVideoStore()
@@ -34,6 +35,16 @@ const {isMobile, isCompact} = useBreakpoints()
 const {tooltipTrigger} = useTooltipTrigger()
 const {copiedId, copyText} = useCopyFeedback()
 const {generating, runGenerate} = useVideoGeneration()
+const {
+  show: ctxShow,
+  x: ctxX,
+  y: ctxY,
+  options: ctxOptions,
+  open: openCtxMenu,
+  handleSelect: onCtxSelect,
+  handleUpdateShow: onCtxUpdateShow,
+  handleClickOutside: onCtxClickOutside,
+} = useManualDropdown()
 
 const mode = ref('txt2video')
 const prompt = ref('')
@@ -181,10 +192,10 @@ const {onPaste} = useClipboardImage(
 
 watch(
   () => timelineItems.value.length,
-  async () => {
-    await nextTick()
-    scrollToBottom()
+  () => {
+    scheduleScrollToBottom()
   },
+  {immediate: true},
 )
 
 watch(
@@ -192,6 +203,7 @@ watch(
   () => {
     refThumbMap.value = {}
     videoErrorIds.value = {}
+    scheduleScrollToBottom()
   },
 )
 
@@ -210,6 +222,7 @@ function getProviderById(id) {
 
 onMounted(() => {
   window.addEventListener('paste', onPaste)
+  scheduleScrollToBottom()
   const controller = new AbortController()
   resumeAbortRef.value = controller
   videoStore
@@ -345,6 +358,42 @@ function stopGenerate() {
 async function copyPrompt(item) {
   const ok = await copyText(item?.id, item?.prompt)
   if (!ok) message.error('复制失败')
+}
+
+function onUserBubbleContextMenu(e, item) {
+  if (!String(item?.prompt || '').trim()) return
+  openCtxMenu(e, [{label: '复制提示词', key: 'copy'}], (key) => {
+    if (key === 'copy') copyPrompt(item)
+  })
+}
+
+async function copyErrorText(item) {
+  const text = String(
+    item?.errorMessage ||
+      (item?.videoUrl ? '视频链接已失效，请重新生成' : '暂无视频'),
+  ).trim()
+  const ok = await copyText(`${item?.id || 'err'}-error`, text)
+  if (!ok) message.error('复制失败')
+}
+
+function onAiBubbleContextMenu(e, item) {
+  const status = itemStatus(item)
+  if (status === 'loading' || status === 'pending_resume') return
+
+  const options = []
+  if (status === 'error' || isVideoBroken(item)) {
+    options.push({label: '复制错误信息', key: 'copy-error'})
+    options.push({label: '重试', key: 'retry', disabled: generating.value})
+  } else if (item?.videoUrl) {
+    options.push({label: '下载', key: 'download'})
+  }
+  if (!options.length) return
+
+  openCtxMenu(e, options, (key) => {
+    if (key === 'copy-error') copyErrorText(item)
+    else if (key === 'retry') retryItem(item)
+    else if (key === 'download') downloadVideo(item, `video-${item.id}.mp4`)
+  })
 }
 
 function clearItems() {
@@ -499,6 +548,7 @@ const emptyDesc = computed(() => {
             "
             :copied="copiedId === item.id"
             @copy="copyPrompt(item)"
+            @contextmenu="onUserBubbleContextMenu($event, item)"
           />
 
           <div
@@ -506,7 +556,7 @@ const emptyDesc = computed(() => {
           >
             <div class="role">AI</div>
             <div class="msg-body">
-              <div class="bubble ai-bubble">
+              <div class="bubble ai-bubble" @contextmenu="onAiBubbleContextMenu($event, item)">
                 <div
                   v-if="itemStatus(item) === 'loading' || itemStatus(item) === 'pending_resume'"
                   class="ai-loading"
@@ -823,6 +873,18 @@ const emptyDesc = computed(() => {
       </div>
     </GenerateParamsDrawer>
   </SessionWorkspaceShell>
+
+  <n-dropdown
+    placement="bottom-start"
+    trigger="manual"
+    :x="ctxX"
+    :y="ctxY"
+    :options="ctxOptions"
+    :show="ctxShow"
+    :on-clickoutside="onCtxClickOutside"
+    @select="onCtxSelect"
+    @update:show="onCtxUpdateShow"
+  />
 </template>
 
 <style lang="scss" scoped src="./VideoView.scss"></style>

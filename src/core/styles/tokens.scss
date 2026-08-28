@@ -27,7 +27,9 @@
   --text-3: rgba(255, 255, 255, 0.55); /* PALETTE.dark.text3 */
   --text-4: rgba(255, 255, 255, 0.5);
 
-  --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --scrollbar-size: 4px;
+  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 68%, transparent);
   --glow-primary: rgba(124, 156, 255, 0.16);
   --glow-accent: rgba(120, 80, 200, 0.12);
 
@@ -133,7 +135,9 @@
   --text-3: rgba(15, 23, 42, 0.58); /* PALETTE.light.text3 */
   --text-4: rgba(15, 23, 42, 0.5);
 
-  --scrollbar-thumb: rgba(15, 23, 42, 0.22);
+  --scrollbar-size: 4px;
+  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 38%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 62%, transparent);
   --glow-primary: rgba(91, 124, 250, 0.12);
   --glow-accent: rgba(124, 92, 191, 0.08);
 

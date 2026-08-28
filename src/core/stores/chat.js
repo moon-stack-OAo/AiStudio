@@ -112,5 +112,31 @@ export const useChatStore = defineStore('chat', {
       session.updatedAt = Date.now()
       if (persist) this.persist()
     },
+    /**
+     * 撤回用户消息；若紧随其后是 assistant 回复，一并删除。
+     * @returns {{ removedIds: string[], abortedStreaming: boolean } | null}
+     */
+    recallUserMessage(sessionId, messageId) {
+      const session = this.sessions.find((s) => s.id === sessionId)
+      if (!session) return null
+      const idx = session.messages.findIndex((m) => m.id === messageId)
+      if (idx < 0) return null
+      const msg = session.messages[idx]
+      if (msg.role !== 'user') return null
+
+      const removedIds = [msg.id]
+      let abortedStreaming = Boolean(msg.streaming)
+      let deleteCount = 1
+      const next = session.messages[idx + 1]
+      if (next?.role === 'assistant') {
+        removedIds.push(next.id)
+        abortedStreaming = abortedStreaming || Boolean(next.streaming)
+        deleteCount = 2
+      }
+      session.messages.splice(idx, deleteCount)
+      session.updatedAt = Date.now()
+      this.persist()
+      return {removedIds, abortedStreaming}
+    },
   },
 })

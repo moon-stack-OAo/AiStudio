@@ -23,7 +23,8 @@
 .message-list {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 18px calc(16px + var(--safe-right)) 24px calc(16px + var(--safe-left));
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;

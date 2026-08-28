@@ -139,11 +139,11 @@
 }
 
 .form-card {
-  max-width: 760px;
-  /* 高度随内容，由 .form-panel 承担滚动 */
-  height: auto;
-  flex-shrink: 0;
-  min-height: 0;
+  width: 100%;
+  max-width: none;
+  /* 短内容时撑满右侧；超高时由 .form-panel 滚动 */
+  flex: 1 0 auto;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -173,6 +173,9 @@
 
 /* 分区折叠：紧凑、与原 group 分隔感接近 */
 .form-collapse {
+  flex: 1 1 auto;
+  min-height: 0;
+
   :deep(.n-collapse-item) {
     margin: 0;
   }
@@ -256,14 +259,14 @@
 }
 
 .danger {
-  margin-top: var(--space-2);
+  margin-top: auto;
   padding-top: var(--space-2);
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 
 .tip-builtin {
-  margin-top: var(--space-2);
+  margin-top: auto;
 }
 
 @media (max-width: 1023.98px) {

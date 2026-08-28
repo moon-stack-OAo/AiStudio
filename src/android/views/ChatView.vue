@@ -1,9 +1,10 @@
 <script setup>
 defineOptions({name: 'ChatView'})
 
-import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
-import {AddOutline, EllipsisHorizontalOutline, SendOutline,} from '@vicons/ionicons5'
+import {AddOutline, ArrowUndoOutline, EllipsisHorizontalOutline, SendOutline,} from '@vicons/ionicons5'
+import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import SessionHistoryButton from '@/components/SessionHistoryButton.vue'
 import MarkdownRenderer from '@core/components/MarkdownRenderer.vue'
@@ -23,6 +24,7 @@ const settings = useSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
 const {copiedId, copyText} = useCopyFeedback()
+const {tooltipTrigger} = useTooltipTrigger()
 
 const input = ref('')
 const loading = ref(false)
@@ -104,6 +106,7 @@ watch(
   () => session.value?.id,
   () => {
     contextHintShown.value = false
+    scheduleScrollToBottom()
   },
 )
 
@@ -121,10 +124,10 @@ function ensureProvider() {
 
 watch(
   () => session.value?.messages?.length,
-  async () => {
-    await nextTick()
-    scrollToBottom()
+  () => {
+    scheduleScrollToBottom()
   },
+  {immediate: true},
 )
 
 function scrollToBottom() {
@@ -135,11 +138,19 @@ function scrollToBottom() {
 function scheduleScrollToBottom() {
   nextTick(() => {
     scrollToBottom()
+    requestAnimationFrame(() => {
+      scrollToBottom()
+      requestAnimationFrame(scrollToBottom)
+    })
     // 软键盘弹起有动画，延迟再滚一次保证输入区可见
     window.setTimeout(scrollToBottom, 180)
     window.setTimeout(scrollToBottom, 360)
   })
 }
+
+onMounted(() => {
+  scheduleScrollToBottom()
+})
 
 async function send() {
   const text = input.value.trim()
@@ -266,6 +277,23 @@ async function copyMessage(msg) {
   if (!ok) message.error('复制失败')
 }
 
+function recallMessage(msg) {
+  if (!session.value || msg?.role !== 'user' || msg?.streaming) return
+  dialog.warning({
+    title: '撤回消息',
+    content: '将删除此条用户消息，若下一条是对应 AI 回复也会一并删除。确定撤回？',
+    positiveText: '撤回',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      const sessionId = session.value.id
+      if (loading.value && streamingSessionId.value === sessionId) {
+        abortRef.value?.abort()
+      }
+      chatStore.recallUserMessage(sessionId, msg.id)
+    },
+  })
+}
+
 function onComposerFocus() {
   scheduleScrollToBottom()
 }
@@ -358,13 +386,35 @@ onBeforeUnmount(() => {
             {{ msg.errorMessage || '请求失败' }}
           </div>
           <div
-            v-if="!msg.streaming && msg.content"
+            v-if="!msg.streaming && (msg.content || msg.role === 'user')"
             class="msg-actions"
           >
             <CopyIconButton
+              v-if="msg.content"
               :active="copiedId === msg.id"
               @click="copyMessage(msg)"
             />
+            <n-tooltip
+              v-if="msg.role === 'user'"
+              :trigger="tooltipTrigger"
+              placement="bottom"
+            >
+              <template #trigger>
+                <n-button
+                  aria-label="撤回此条消息"
+                  circle
+                  class="touch-target"
+                  quaternary
+                  size="tiny"
+                  @click="recallMessage(msg)"
+                >
+                  <template #icon>
+                    <n-icon :component="ArrowUndoOutline" :size="14"/>
+                  </template>
+                </n-button>
+              </template>
+              撤回此条消息
+            </n-tooltip>
           </div>
         </div>
       </div>

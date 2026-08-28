@@ -19,7 +19,14 @@ import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@/components/ComposerSendStop.vue'
 import {useImageStore} from '@core/stores/image'
 import {useSettingsStore} from '@core/stores/settings'
-import {editImage, fileToPreview, generateImage} from '@core/api/client'
+import {
+  editImage,
+  fileToPreview,
+  generateImage,
+  isAgnesProvider,
+  supportsImageQuality,
+  toErrorMessage,
+} from '@core/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@core/utils/imageCache'
 import {appFetch} from '@core/utils/http'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
@@ -38,7 +45,7 @@ const mode = ref('txt2img')
 const prompt = ref('')
 const loading = ref(false)
 const n = ref(1)
-const size = ref('1920x1080')
+const size = ref('1024x1024')
 const aspectRatio = ref('1:1')
 const quality = ref('medium')
 const imageFile = ref(null)
@@ -81,8 +88,10 @@ useBackCloseLayer(cardActionShow)
 const session = computed(() => imageStore.activeSession)
 const provider = computed(() => settings.activeProvider)
 const isXai = computed(() => provider.value?.provider === 'xai')
+const isAgnes = computed(() => isAgnesProvider(provider.value))
+const supportsQuality = computed(() => supportsImageQuality(provider.value))
 const isGeneratingCurrent = computed(
-  () => loading.value && generatingSessionId.value === session.value?.id,
+    () => loading.value && generatingSessionId.value === session.value?.id,
 )
 
 const canGenerate = computed(() => {
@@ -96,13 +105,19 @@ const timelineItems = computed(() => {
   return [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
 })
 
-const sizeOptionsDesktop = [
+const sizeOptionsDefault = [
   {label: '1920×1080', value: '1920x1080'},
   {label: '1080×1920', value: '1080x1920'},
   {label: '2560×1440', value: '2560x1440'},
   {label: '1440×2560', value: '1440x2560'},
   {label: '3840×2160', value: '3840x2160'},
   {label: '2160×3840', value: '2160x3840'},
+]
+
+const sizeOptionsAgnes = [
+  {label: '1024×1024', value: '1024x1024'},
+  {label: '1024×768', value: '1024x768'},
+  {label: '768×1024', value: '768x1024'},
 ]
 
 const aspectOptions = [
@@ -120,7 +135,9 @@ const qualityOptionsDesktop = [
   {label: '高质量', value: 'high'},
 ]
 
-const sizeOptions = computed(() => sizeOptionsDesktop)
+const sizeOptions = computed(() =>
+  isAgnes.value ? sizeOptionsAgnes : sizeOptionsDefault,
+)
 const qualityOptions = computed(() => qualityOptionsDesktop)
 
 const modeLabel = computed(() => (mode.value === 'img2img' ? '图生图' : '文生图'))
@@ -129,7 +146,7 @@ const sizeLabel = computed(() => {
   if (isXai.value) {
     return aspectOptions.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
   }
-  return sizeOptionsDesktop.find((o) => o.value === size.value)?.label || size.value
+  return sizeOptions.value.find((o) => o.value === size.value)?.label || size.value
 })
 
 const qualityLabel = computed(() => {
@@ -137,7 +154,8 @@ const qualityLabel = computed(() => {
 })
 
 const paramsSummary = computed(() => {
-  const parts = [modeLabel.value, `${n.value}张`, sizeLabel.value, qualityLabel.value]
+  const parts = [modeLabel.value, `${n.value}张`, sizeLabel.value]
+  if (supportsQuality.value) parts.push(qualityLabel.value)
   if (mode.value === 'img2img') {
     parts.push(previewUrl.value ? '已选参考图' : '未选参考图')
   }
@@ -287,7 +305,8 @@ async function resolveSessionImages(items = [], sessionId = null) {
   }
 
   if (token !== resolveToken || imageStore.activeId !== targetSessionId) return
-  ;[...createdObjectUrls].forEach((url) => {
+      ;
+  [...createdObjectUrls].forEach((url) => {
     if (!used.has(url)) {
       try {
         URL.revokeObjectURL(url)
@@ -321,17 +340,28 @@ watch(
 
 watch(
     () => timelineItems.value.length,
-    async () => {
-      await nextTick()
-      scrollToBottom()
+    () => {
+      scheduleScrollToBottom()
     },
+    {immediate: true},
 )
 
 watch(
     () => session.value?.id,
     () => {
       refThumbMap.value = {}
+      scheduleScrollToBottom()
     },
+)
+
+watch(
+  sizeOptions,
+  (opts) => {
+    if (!opts.some((o) => o.value === size.value)) {
+      size.value = opts[0]?.value || '1024x1024'
+    }
+  },
+  { immediate: true },
 )
 
 function scrollToBottom() {
@@ -342,6 +372,10 @@ function scrollToBottom() {
 function scheduleScrollToBottom() {
   nextTick(() => {
     scrollToBottom()
+    requestAnimationFrame(() => {
+      scrollToBottom()
+      requestAnimationFrame(scrollToBottom)
+    })
     window.setTimeout(scrollToBottom, 180)
     window.setTimeout(scrollToBottom, 360)
   })
@@ -349,6 +383,7 @@ function scheduleScrollToBottom() {
 
 onMounted(() => {
   window.addEventListener('paste', onPaste)
+  scheduleScrollToBottom()
 })
 
 onBeforeUnmount(() => {
@@ -393,7 +428,7 @@ async function generate() {
     n: n.value,
     size: isXai.value ? undefined : size.value,
     aspectRatio: isXai.value ? aspectRatio.value : undefined,
-    quality: quality.value,
+    quality: supportsQuality.value ? quality.value : undefined,
     status: 'loading',
     errorMessage: '',
   })
@@ -423,7 +458,7 @@ async function generate() {
               n: n.value,
               size: size.value,
               aspectRatio: aspectRatio.value,
-              quality: quality.value,
+              quality: supportsQuality.value ? quality.value : undefined,
               signal: controller.signal,
             })
             : await editImage(provider.value, {
@@ -432,7 +467,7 @@ async function generate() {
               n: n.value,
               size: size.value,
               aspectRatio: aspectRatio.value,
-              quality: quality.value,
+              quality: supportsQuality.value ? quality.value : undefined,
               signal: controller.signal,
             })
 
@@ -470,7 +505,7 @@ async function generate() {
       return
     }
     if (!mounted.value) return
-    const errText = err.message || '生成失败'
+    const errText = toErrorMessage(err, '生成失败')
     imageStore.updateItem(sessionId, pending.id, {
       status: 'error',
       errorMessage: errText,
@@ -617,9 +652,9 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
     const file = new File([blob], name, {type: mime})
 
     if (
-      mobileLike &&
-      typeof navigator.canShare === 'function' &&
-      typeof navigator.share === 'function'
+        mobileLike &&
+        typeof navigator.canShare === 'function' &&
+        typeof navigator.share === 'function'
     ) {
       try {
         if (navigator.canShare({files: [file]})) {
@@ -738,35 +773,35 @@ function clearItems() {
 const sessionTitle = computed(() => session.value?.title || '生图')
 
 const sendTooltip = computed(() =>
-  mode.value === 'img2img' && !imageFile.value ? '请先上传参考图' : '生成',
+    mode.value === 'img2img' && !imageFile.value ? '请先上传参考图' : '生成',
 )
 </script>
 
 <template>
   <SessionWorkspaceShell
-    :active-id="imageStore.activeId"
-    :history-title="'生图历史'"
-    :sessions="imageStore.sortedSessions"
-    @create="createSession"
-    @remove="removeSession"
-    @rename="(id, title) => imageStore.renameSession(id, title)"
-    @select="selectSession"
+      :active-id="imageStore.activeId"
+      :history-title="'生图历史'"
+      :sessions="imageStore.sortedSessions"
+      @create="createSession"
+      @remove="removeSession"
+      @rename="(id, title) => imageStore.renameSession(id, title)"
+      @select="selectSession"
   >
     <template #toolbar="{ openHistory }">
       <div class="image-toolbar">
         <SessionHistoryButton
-          :count="imageStore.sessions.length"
-          @click="openHistory"
+            :count="imageStore.sessions.length"
+            @click="openHistory"
         />
 
         <div class="image-title">{{ sessionTitle }}</div>
 
         <n-button
-          aria-label="新建会话"
-          circle
-          class="touch-target"
-          quaternary
-          @click="createSession"
+            aria-label="新建会话"
+            circle
+            class="touch-target"
+            quaternary
+            @click="createSession"
         >
           <template #icon>
             <n-icon :component="AddOutline"/>
@@ -774,11 +809,11 @@ const sendTooltip = computed(() =>
         </n-button>
 
         <n-button
-          aria-label="更多"
-          circle
-          class="touch-target"
-          quaternary
-          @click="moreShow = true"
+            aria-label="更多"
+            circle
+            class="touch-target"
+            quaternary
+            @click="moreShow = true"
         >
           <template #icon>
             <n-icon :component="EllipsisHorizontalOutline"/>
@@ -803,39 +838,39 @@ const sendTooltip = computed(() =>
                   {{ item.mode === 'txt2img' ? '文生图' : '图生图' }}
                 </n-tag>
                 <n-tag
-                  v-if="paramSummary(item)"
-                  :bordered="false"
-                  size="tiny"
-                  type="info"
+                    v-if="paramSummary(item)"
+                    :bordered="false"
+                    size="tiny"
+                    type="info"
                 >
                   {{ paramSummary(item) }}
                 </n-tag>
               </div>
               <div
-                v-if="item.mode === 'img2img' && (refThumbMap[item.id] || item.refPreview)"
-                class="ref-thumb"
+                  v-if="item.mode === 'img2img' && (refThumbMap[item.id] || item.refPreview)"
+                  class="ref-thumb"
               >
                 <img
-                  :src="refThumbMap[item.id] || item.refPreview"
-                  alt="reference"
-                  title="点击预览"
-                  @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
+                    :src="refThumbMap[item.id] || item.refPreview"
+                    alt="reference"
+                    title="点击预览"
+                    @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
                 />
               </div>
               <div class="prompt-text">{{ item.prompt }}</div>
             </div>
             <div v-if="item.prompt" class="msg-actions">
               <CopyIconButton
-                :active="copiedId === item.id"
-                tooltip="复制提示词"
-                @click="copyPrompt(item)"
+                  :active="copiedId === item.id"
+                  tooltip="复制提示词"
+                  @click="copyPrompt(item)"
               />
             </div>
           </div>
         </div>
 
         <div
-          :class="['msg', 'assistant', { error: itemStatus(item) === 'error' }]"
+            :class="['msg', 'assistant', { error: itemStatus(item) === 'error' }]"
         >
           <div class="role">AI</div>
           <div class="msg-body">
@@ -850,18 +885,18 @@ const sendTooltip = computed(() =>
               <div v-else-if="!item.images?.length" class="ai-error">暂无图片</div>
               <div v-else class="imgs">
                 <div
-                  v-for="(img, idx) in item.images"
-                  :key="img.id || idx"
-                  class="img-wrap"
+                    v-for="(img, idx) in item.images"
+                    :key="img.id || idx"
+                    class="img-wrap"
                 >
                   <div class="img-actions">
                     <n-button
-                      aria-label="更多操作"
-                      circle
-                      class="touch-target"
-                      quaternary
-                      size="tiny"
-                      @click.stop="openCardActions(item, idx, img)"
+                        aria-label="更多操作"
+                        circle
+                        class="touch-target"
+                        quaternary
+                        size="tiny"
+                        @click.stop="openCardActions(item, idx, img)"
                     >
                       <template #icon>
                         <n-icon :component="EllipsisHorizontalOutline" :size="16"/>
@@ -869,9 +904,9 @@ const sendTooltip = computed(() =>
                     </n-button>
                   </div>
                   <img
-                    :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
-                    alt="generated"
-                    @click="openLightbox(item, idx, img)"
+                      :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
+                      alt="generated"
+                      @click="openLightbox(item, idx, img)"
                   />
                   <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
                     临时链接，可能过期
@@ -887,16 +922,16 @@ const sendTooltip = computed(() =>
     <template #composer>
       <div class="composer">
         <div
-          v-if="isGeneratingCurrent"
-          class="composer-hint is-critical"
+            v-if="isGeneratingCurrent"
+            class="composer-hint is-critical"
         >
           生成中可点击停止
         </div>
         <div class="composer-card">
           <button
-            class="params-summary"
-            type="button"
-            @click="paramsDrawerShow = true"
+              class="params-summary"
+              type="button"
+              @click="paramsDrawerShow = true"
           >
             <n-icon :component="OptionsOutline" :size="16" class="params-summary-icon"/>
             <span class="params-summary-text">{{ paramsSummary }}</span>
@@ -904,10 +939,10 @@ const sendTooltip = computed(() =>
           </button>
 
           <button
-            v-if="mode === 'img2img' && previewUrl"
-            class="ref-chip ref-chip-mobile"
-            type="button"
-            @click="paramsDrawerShow = true"
+              v-if="mode === 'img2img' && previewUrl"
+              class="ref-chip ref-chip-mobile"
+              type="button"
+              @click="paramsDrawerShow = true"
           >
             <img :src="previewUrl" alt="reference"/>
             <span class="ref-name">参考图已选，点击可更换</span>
@@ -915,22 +950,22 @@ const sendTooltip = computed(() =>
 
           <div class="composer-input">
             <n-input
-              v-model:value="prompt"
-              :autosize="{ minRows: 1, maxRows: 4 }"
-              :disabled="isGeneratingCurrent"
-              class="composer-field"
-              placeholder="描述画面…"
-              type="textarea"
-              @focus="onComposerFocus"
+                v-model:value="prompt"
+                :autosize="{ minRows: 1, maxRows: 4 }"
+                :disabled="isGeneratingCurrent"
+                class="composer-field"
+                placeholder="描述画面…"
+                type="textarea"
+                @focus="onComposerFocus"
             />
             <div class="composer-actions">
               <ComposerSendStop
-                :disabled="!canGenerate"
-                :loading="isGeneratingCurrent"
-                :send-icon="SparklesOutline"
-                :send-tooltip="sendTooltip"
-                @send="generate"
-                @stop="stopGenerate"
+                  :disabled="!canGenerate"
+                  :loading="isGeneratingCurrent"
+                  :send-icon="SparklesOutline"
+                  :send-tooltip="sendTooltip"
+                  @send="generate"
+                  @stop="stopGenerate"
               />
             </div>
           </div>
@@ -940,10 +975,10 @@ const sendTooltip = computed(() =>
   </SessionWorkspaceShell>
 
   <n-drawer
-    v-model:show="paramsDrawerShow"
-    :height="drawerHeight"
-    display-directive="show"
-    placement="bottom"
+      v-model:show="paramsDrawerShow"
+      :height="drawerHeight"
+      display-directive="show"
+      placement="bottom"
   >
     <n-drawer-content closable title="生成参数">
       <div class="params-drawer">
@@ -951,18 +986,18 @@ const sendTooltip = computed(() =>
           <div class="params-label">模式</div>
           <div class="mode-switch mode-switch-full">
             <button
-              :class="{ active: mode === 'txt2img' }"
-              class="mode-item"
-              type="button"
-              @click="mode = 'txt2img'"
+                :class="{ active: mode === 'txt2img' }"
+                class="mode-item"
+                type="button"
+                @click="mode = 'txt2img'"
             >
               文生图
             </button>
             <button
-              :class="{ active: mode === 'img2img' }"
-              class="mode-item"
-              type="button"
-              @click="mode = 'img2img'"
+                :class="{ active: mode === 'img2img' }"
+                class="mode-item"
+                type="button"
+                @click="mode = 'img2img'"
             >
               图生图
             </button>
@@ -973,10 +1008,10 @@ const sendTooltip = computed(() =>
           <div class="params-label">参考图</div>
           <div class="params-upload">
             <n-upload
-              v-if="!previewUrl"
-              :custom-request="onUpload"
-              :show-file-list="false"
-              accept="image/*"
+                v-if="!previewUrl"
+                :custom-request="onUpload"
+                :show-file-list="false"
+                accept="image/*"
             >
               <n-button block class="params-upload-btn" dashed>
                 <template #icon>
@@ -992,11 +1027,11 @@ const sendTooltip = computed(() =>
                 <span class="ref-hint">可清除后重新选择</span>
               </div>
               <n-button
-                aria-label="清除参考图"
-                class="touch-target"
-                quaternary
-                size="small"
-                @click="clearUpload"
+                  aria-label="清除参考图"
+                  class="touch-target"
+                  quaternary
+                  size="small"
+                  @click="clearUpload"
               >
                 <template #icon>
                   <n-icon :component="TrashOutline"/>
@@ -1012,43 +1047,43 @@ const sendTooltip = computed(() =>
             <n-input-number v-model:value="n" :max="4" :min="1" class="params-control" size="medium"/>
           </div>
 
-          <div class="params-section">
+          <div v-if="supportsQuality" class="params-section">
             <div class="params-label">质量</div>
             <n-select
-              v-model:value="quality"
-              :options="qualityOptions"
-              :render-label="renderSelectLabel"
-              class="params-control"
-              size="medium"
+                v-model:value="quality"
+                :options="qualityOptions"
+                :render-label="renderSelectLabel"
+                class="params-control"
+                size="medium"
             />
           </div>
 
           <div class="params-section params-section-full">
             <div class="params-label">{{ isXai ? '比例' : '尺寸' }}</div>
             <n-select
-              v-if="!isXai"
-              v-model:value="size"
-              :options="sizeOptions"
-              :render-label="renderSelectLabel"
-              class="params-control"
-              size="medium"
+                v-if="!isXai"
+                v-model:value="size"
+                :options="sizeOptions"
+                :render-label="renderSelectLabel"
+                class="params-control"
+                size="medium"
             />
             <n-select
-              v-else
-              v-model:value="aspectRatio"
-              :options="aspectOptions"
-              :render-label="renderSelectLabel"
-              class="params-control"
-              size="medium"
+                v-else
+                v-model:value="aspectRatio"
+                :options="aspectOptions"
+                :render-label="renderSelectLabel"
+                class="params-control"
+                size="medium"
             />
           </div>
         </div>
 
         <n-button
-          block
-          class="params-done"
-          type="primary"
-          @click="paramsDrawerShow = false"
+            block
+            class="params-done"
+            type="primary"
+            @click="paramsDrawerShow = false"
         >
           完成
         </n-button>
@@ -1057,14 +1092,14 @@ const sendTooltip = computed(() =>
   </n-drawer>
 
   <n-modal
-    v-model:show="lightboxShow"
-    :bordered="false"
-    :mask-closable="true"
-    :title="lightboxTitle"
-    preset="card"
-    size="huge"
-    style="width: min(920px, 94vw)"
-    @after-leave="closeLightbox"
+      v-model:show="lightboxShow"
+      :bordered="false"
+      :mask-closable="true"
+      :title="lightboxTitle"
+      preset="card"
+      size="huge"
+      style="width: min(920px, 94vw)"
+      @after-leave="closeLightbox"
   >
     <div class="lightbox-body" title="点击关闭预览" @click="lightboxShow = false">
       <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview"/>
@@ -1072,18 +1107,18 @@ const sendTooltip = computed(() =>
     <template v-if="lightboxPayload" #footer>
       <div class="lightbox-footer">
         <n-button
-          class="lightbox-action"
-          secondary
-          size="small"
-          @click="useLightboxAsReference"
+            class="lightbox-action"
+            secondary
+            size="small"
+            @click="useLightboxAsReference"
         >
           设为参考图
         </n-button>
         <n-button
-          class="lightbox-action"
-          secondary
-          size="small"
-          @click="downloadImage(
+            class="lightbox-action"
+            secondary
+            size="small"
+            @click="downloadImage(
             lightboxPayload.itemId,
             lightboxPayload.idx,
             lightboxPayload.img,
@@ -1097,22 +1132,22 @@ const sendTooltip = computed(() =>
   </n-modal>
 
   <n-drawer
-    v-model:show="moreShow"
-    class="more-drawer"
-    display-directive="show"
-    height="auto"
-    placement="bottom"
+      v-model:show="moreShow"
+      class="more-drawer"
+      display-directive="show"
+      height="auto"
+      placement="bottom"
   >
     <n-drawer-content closable title="生图设置">
       <div class="more-sheet">
         <div class="more-field">
           <div class="more-label">提供商</div>
           <n-select
-            :options="settings.providerOptions"
-            :render-label="renderSelectLabel"
-            :value="settings.activeProviderId"
-            size="medium"
-            @update:value="settings.setActiveProvider"
+              :options="settings.providerOptions"
+              :render-label="renderSelectLabel"
+              :value="settings.activeProviderId"
+              size="medium"
+              @update:value="settings.setActiveProvider"
           />
         </div>
         <div class="more-field">
@@ -1120,11 +1155,11 @@ const sendTooltip = computed(() =>
           <ModelSelect kind="image" sheet size="medium"/>
         </div>
         <n-button
-          :disabled="!session?.items?.length"
-          block
-          secondary
-          type="warning"
-          @click="clearItems"
+            :disabled="!session?.items?.length"
+            block
+            secondary
+            type="warning"
+            @click="clearItems"
         >
           清空当前会话
         </n-button>
@@ -1134,11 +1169,11 @@ const sendTooltip = computed(() =>
   </n-drawer>
 
   <n-drawer
-    v-model:show="cardActionShow"
-    class="more-drawer"
-    display-directive="show"
-    height="auto"
-    placement="bottom"
+      v-model:show="cardActionShow"
+      class="more-drawer"
+      display-directive="show"
+      height="auto"
+      placement="bottom"
   >
     <n-drawer-content closable title="图片操作">
       <div class="more-sheet">

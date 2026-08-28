@@ -1,7 +1,8 @@
 <script setup>
-import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
-import {SendOutline} from '@vicons/ionicons5'
+import {ArrowUndoOutline, SendOutline} from '@vicons/ionicons5'
+import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import MarkdownRenderer from '@core/components/MarkdownRenderer.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
@@ -13,6 +14,7 @@ import {streamChatCompletions, toErrorMessage} from '@core/api/client'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
 import {useScrollToBottom} from '@core/composables/useScrollToBottom'
+import {useManualDropdown} from '@/composables/useManualDropdown'
 import {countChatTurns, trimChatMessages} from '@core/utils/chatContext'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
@@ -21,7 +23,18 @@ const settings = useSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
 const {isMobile, isCompact} = useBreakpoints()
+const {tooltipTrigger} = useTooltipTrigger()
 const {copiedId, copyText} = useCopyFeedback()
+const {
+  show: ctxShow,
+  x: ctxX,
+  y: ctxY,
+  options: ctxOptions,
+  open: openCtxMenu,
+  handleSelect: onCtxSelect,
+  handleUpdateShow: onCtxUpdateShow,
+  handleClickOutside: onCtxClickOutside,
+} = useManualDropdown()
 
 const input = ref('')
 const loading = ref(false)
@@ -100,6 +113,7 @@ watch(
     () => session.value?.id,
     () => {
       contextHintShown.value = false
+      scheduleScrollToBottom()
     },
 )
 
@@ -117,11 +131,15 @@ function ensureProvider() {
 
 watch(
     () => session.value?.messages?.length,
-    async () => {
-      await nextTick()
-      scrollToBottom()
+    () => {
+      scheduleScrollToBottom()
     },
+    {immediate: true},
 )
+
+onMounted(() => {
+  scheduleScrollToBottom()
+})
 
 async function send() {
   const text = input.value.trim()
@@ -247,6 +265,52 @@ async function copyMessage(msg) {
   if (!ok) message.error('复制失败')
 }
 
+async function copyErrorMessage(msg) {
+  const text = String(msg?.errorMessage || '请求失败').trim()
+  const ok = await copyText(`${msg?.id || 'err'}-error`, text)
+  if (!ok) message.error('复制失败')
+}
+
+function recallMessage(msg) {
+  if (!session.value || msg?.role !== 'user' || msg?.streaming) return
+  dialog.warning({
+    title: '撤回消息',
+    content: '将删除此条用户消息，若下一条是对应 AI 回复也会一并删除。确定撤回？',
+    positiveText: '撤回',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      const sessionId = session.value.id
+      if (
+        loading.value &&
+        streamingSessionId.value === sessionId
+      ) {
+        abortRef.value?.abort()
+      }
+      chatStore.recallUserMessage(sessionId, msg.id)
+    },
+  })
+}
+
+function onMsgContextMenu(e, msg) {
+  if (msg?.streaming) return
+  const options = []
+  if (String(msg?.content || '').trim()) {
+    options.push({label: '复制', key: 'copy'})
+  }
+  if (msg?.error) {
+    options.push({label: '复制错误信息', key: 'copy-error'})
+  }
+  if (msg?.role === 'user') {
+    options.push({label: '撤回此条消息', key: 'recall'})
+  }
+  if (!options.length) return
+  openCtxMenu(e, options, (key) => {
+    if (key === 'copy') copyMessage(msg)
+    else if (key === 'copy-error') copyErrorMessage(msg)
+    else if (key === 'recall') recallMessage(msg)
+  })
+}
+
 function onKeydown(e) {
   if (isMobile.value) return
   if (e.isComposing) return
@@ -328,7 +392,7 @@ onBeforeUnmount(() => {
       >
         <div class="role">{{ msg.role === 'user' ? '你' : 'AI' }}</div>
         <div class="msg-body">
-          <div class="bubble">
+          <div class="bubble" @contextmenu="onMsgContextMenu($event, msg)">
             <MarkdownRenderer
               :content="msg.content"
               :placeholder="msg.streaming ? '思考中…' : ''"
@@ -339,13 +403,35 @@ onBeforeUnmount(() => {
             {{ msg.errorMessage || '请求失败' }}
           </div>
           <div
-            v-if="!msg.streaming && msg.content"
+            v-if="!msg.streaming && (msg.content || msg.role === 'user')"
             class="msg-actions"
           >
             <CopyIconButton
+              v-if="msg.content"
               :active="copiedId === msg.id"
               @click="copyMessage(msg)"
             />
+            <n-tooltip
+              v-if="msg.role === 'user'"
+              :trigger="tooltipTrigger"
+              placement="bottom"
+            >
+              <template #trigger>
+                <n-button
+                  aria-label="撤回此条消息"
+                  circle
+                  class="touch-target"
+                  quaternary
+                  size="tiny"
+                  @click="recallMessage(msg)"
+                >
+                  <template #icon>
+                    <n-icon :component="ArrowUndoOutline" :size="14"/>
+                  </template>
+                </n-button>
+              </template>
+              撤回此条消息
+            </n-tooltip>
           </div>
         </div>
       </div>
@@ -392,6 +478,18 @@ onBeforeUnmount(() => {
       </div>
     </template>
   </SessionWorkspaceShell>
+
+  <n-dropdown
+    placement="bottom-start"
+    trigger="manual"
+    :x="ctxX"
+    :y="ctxY"
+    :options="ctxOptions"
+    :show="ctxShow"
+    :on-clickoutside="onCtxClickOutside"
+    @select="onCtxSelect"
+    @update:show="onCtxUpdateShow"
+  />
 </template>
 
 <style lang="scss" scoped src="./ChatView.scss"></style>

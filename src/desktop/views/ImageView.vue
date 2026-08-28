@@ -9,7 +9,14 @@ import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue
 import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'
 import {useImageStore} from '@core/stores/image'
 import {useSettingsStore} from '@core/stores/settings'
-import {editImage, fileToPreview, generateImage} from '@core/api/client'
+import {
+  editImage,
+  fileToPreview,
+  generateImage,
+  isAgnesProvider,
+  supportsImageQuality,
+  toErrorMessage,
+} from '@core/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@core/utils/imageCache'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
@@ -17,6 +24,7 @@ import {useCopyFeedback} from '@core/composables/useCopyFeedback'
 import {useScrollToBottom} from '@core/composables/useScrollToBottom'
 import {useClipboardImage} from '@core/composables/useClipboardImage'
 import {downloadMediaBlob, srcToBlob} from '@core/composables/useMediaDownload'
+import {useManualDropdown} from '@/composables/useManualDropdown'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
 const imageStore = useImageStore()
@@ -26,12 +34,22 @@ const dialog = useDialog()
 const {isMobile, isCompact} = useBreakpoints()
 const {tooltipTrigger} = useTooltipTrigger()
 const {copiedId, copyText} = useCopyFeedback()
+const {
+  show: ctxShow,
+  x: ctxX,
+  y: ctxY,
+  options: ctxOptions,
+  open: openCtxMenu,
+  handleSelect: onCtxSelect,
+  handleUpdateShow: onCtxUpdateShow,
+  handleClickOutside: onCtxClickOutside,
+} = useManualDropdown()
 
 const mode = ref('txt2img')
 const prompt = ref('')
 const loading = ref(false)
 const n = ref(1)
-const size = ref('1920x1080')
+const size = ref('1024x1024')
 const aspectRatio = ref('1:1')
 const quality = ref('medium')
 const imageFile = ref(null)
@@ -64,6 +82,8 @@ const paramsDrawerShow = ref(false)
 const session = computed(() => imageStore.activeSession)
 const provider = computed(() => settings.activeProvider)
 const isXai = computed(() => provider.value?.provider === 'xai')
+const isAgnes = computed(() => isAgnesProvider(provider.value))
+const supportsQuality = computed(() => supportsImageQuality(provider.value))
 const isGeneratingCurrent = computed(
   () => loading.value && generatingSessionId.value === session.value?.id,
 )
@@ -79,7 +99,7 @@ const timelineItems = computed(() => {
   return [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
 })
 
-const sizeOptionsDesktop = [
+const sizeOptionsDefault = [
   {label: '1920×1080', value: '1920x1080'},
   {label: '1080×1920', value: '1080x1920'},
   {label: '2560×1440', value: '2560x1440'},
@@ -87,6 +107,16 @@ const sizeOptionsDesktop = [
   {label: '3840×2160', value: '3840x2160'},
   {label: '2160×3840', value: '2160x3840'},
 ]
+
+const sizeOptionsAgnes = [
+  {label: '1024×1024', value: '1024x1024'},
+  {label: '1024×768', value: '1024x768'},
+  {label: '768×1024', value: '768x1024'},
+]
+
+const sizeOptionsDesktop = computed(() =>
+  isAgnes.value ? sizeOptionsAgnes : sizeOptionsDefault,
+)
 
 const aspectOptions = [
   {label: '1:1', value: '1:1'},
@@ -109,7 +139,7 @@ const sizeLabel = computed(() => {
   if (isXai.value) {
     return aspectOptions.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
   }
-  return sizeOptionsDesktop.find((o) => o.value === size.value)?.label || size.value
+  return sizeOptionsDesktop.value.find((o) => o.value === size.value)?.label || size.value
 })
 
 const qualityLabel = computed(() => {
@@ -117,7 +147,8 @@ const qualityLabel = computed(() => {
 })
 
 const paramsSummary = computed(() => {
-  const parts = [modeLabel.value, `${n.value}张`, sizeLabel.value, qualityLabel.value]
+  const parts = [modeLabel.value, `${n.value}张`, sizeLabel.value]
+  if (supportsQuality.value) parts.push(qualityLabel.value)
   if (mode.value === 'img2img') {
     parts.push(previewUrl.value ? '已选参考图' : '未选参考图')
   }
@@ -273,21 +304,33 @@ watch(
 
 watch(
     () => timelineItems.value.length,
-    async () => {
-      await nextTick()
-      scrollToBottom()
+    () => {
+      scheduleScrollToBottom()
     },
+    {immediate: true},
 )
 
 watch(
     () => session.value?.id,
     () => {
       refThumbMap.value = {}
+      scheduleScrollToBottom()
     },
+)
+
+watch(
+  sizeOptionsDesktop,
+  (opts) => {
+    if (!opts.some((o) => o.value === size.value)) {
+      size.value = opts[0]?.value || '1024x1024'
+    }
+  },
+  { immediate: true },
 )
 
 onMounted(() => {
   window.addEventListener('paste', onPaste)
+  scheduleScrollToBottom()
 })
 
 onBeforeUnmount(() => {
@@ -341,7 +384,7 @@ async function generate() {
     n: n.value,
     size: isXai.value ? undefined : size.value,
     aspectRatio: isXai.value ? aspectRatio.value : undefined,
-    quality: quality.value,
+    quality: supportsQuality.value ? quality.value : undefined,
     status: 'loading',
     errorMessage: '',
   })
@@ -370,7 +413,7 @@ async function generate() {
               n: n.value,
               size: size.value,
               aspectRatio: aspectRatio.value,
-              quality: quality.value,
+              quality: supportsQuality.value ? quality.value : undefined,
               signal: controller.signal,
             })
             : await editImage(provider.value, {
@@ -379,7 +422,7 @@ async function generate() {
               n: n.value,
               size: size.value,
               aspectRatio: aspectRatio.value,
-              quality: quality.value,
+              quality: supportsQuality.value ? quality.value : undefined,
               signal: controller.signal,
             })
 
@@ -417,7 +460,7 @@ async function generate() {
       return
     }
     if (!mounted.value) return
-    const errText = err.message || '生成失败'
+    const errText = toErrorMessage(err, '生成失败')
     imageStore.updateItem(sessionId, pending.id, {
       status: 'error',
       errorMessage: errText,
@@ -567,6 +610,48 @@ async function copyPrompt(item) {
   if (!ok) message.error('复制失败')
 }
 
+function onUserBubbleContextMenu(e, item) {
+  if (!String(item?.prompt || '').trim()) return
+  openCtxMenu(e, [{label: '复制提示词', key: 'copy'}], (key) => {
+    if (key === 'copy') copyPrompt(item)
+  })
+}
+
+async function copyErrorText(item) {
+  const text = String(item?.errorMessage || '生成失败').trim()
+  const ok = await copyText(`${item?.id || 'err'}-error`, text)
+  if (!ok) message.error('复制失败')
+}
+
+function onAiBubbleContextMenu(e, item) {
+  const status = itemStatus(item)
+  if (status === 'loading') return
+
+  if (status === 'error' || !item?.images?.length) {
+    openCtxMenu(e, [{label: '复制错误信息', key: 'copy-error'}], (key) => {
+      if (key === 'copy-error') copyErrorText(item)
+    })
+    return
+  }
+
+  openCtxMenu(
+    e,
+    [
+      {label: '下载全部', key: 'download-all'},
+      {label: '设为首图为参考图', key: 'ref-first'},
+    ],
+    (key) => {
+      if (key === 'download-all') {
+        item.images.forEach((img, idx) => {
+          downloadImage(item.id, idx, img, `gen-${item.id}-${idx}.png`)
+        })
+      } else if (key === 'ref-first') {
+        useAsReference(item, 0, item.images[0])
+      }
+    },
+  )
+}
+
 function clearItems() {
   if (!session.value?.items?.length) return
   dialog.warning({
@@ -639,6 +724,7 @@ const sendTooltip = computed(() =>
             :copied="copiedId === item.id"
             @copy="copyPrompt(item)"
             @preview-ref="openRefLightbox"
+            @contextmenu="onUserBubbleContextMenu($event, item)"
           />
 
           <div
@@ -646,7 +732,7 @@ const sendTooltip = computed(() =>
           >
             <div class="role">AI</div>
             <div class="msg-body">
-              <div class="bubble ai-bubble">
+              <div class="bubble ai-bubble" @contextmenu="onAiBubbleContextMenu($event, item)">
                 <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
                   <n-spin size="small"/>
                   <span>生成中…</span>
@@ -771,7 +857,7 @@ const sendTooltip = computed(() =>
                 size="small"
               />
             </label>
-            <label class="opt-item opt-quality" title="质量">
+            <label v-if="supportsQuality" class="opt-item opt-quality" title="质量">
               <span class="opt-label">质量</span>
               <n-select
                 v-model:value="quality"
@@ -909,7 +995,7 @@ const sendTooltip = computed(() =>
           <n-input-number v-model:value="n" :max="4" :min="1" class="params-control" size="medium"/>
         </div>
 
-        <div class="params-section">
+        <div v-if="supportsQuality" class="params-section">
           <div class="params-label">质量</div>
           <n-select
             v-model:value="quality"
@@ -982,6 +1068,18 @@ const sendTooltip = computed(() =>
       </template>
     </n-modal>
   </SessionWorkspaceShell>
+
+  <n-dropdown
+    placement="bottom-start"
+    trigger="manual"
+    :x="ctxX"
+    :y="ctxY"
+    :options="ctxOptions"
+    :show="ctxShow"
+    :on-clickoutside="onCtxClickOutside"
+    @select="onCtxSelect"
+    @update:show="onCtxUpdateShow"
+  />
 </template>
 
 <style lang="scss" scoped src="./ImageView.scss"></style>

@@ -219,10 +219,10 @@ async function onPaste(e) {
 
 watch(
   () => timelineItems.value.length,
-  async () => {
-    await nextTick()
-    scrollToBottom()
+  () => {
+    scheduleScrollToBottom()
   },
+  {immediate: true},
 )
 
 watch(
@@ -230,6 +230,7 @@ watch(
   () => {
     refThumbMap.value = {}
     videoErrorIds.value = {}
+    scheduleScrollToBottom()
   },
 )
 
@@ -249,6 +250,10 @@ function scrollToBottom() {
 function scheduleScrollToBottom() {
   nextTick(() => {
     scrollToBottom()
+    requestAnimationFrame(() => {
+      scrollToBottom()
+      requestAnimationFrame(scrollToBottom)
+    })
     window.setTimeout(scrollToBottom, 180)
     window.setTimeout(scrollToBottom, 360)
   })
@@ -281,10 +286,12 @@ function startResumeIfNeeded() {
 
 onMounted(() => {
   window.addEventListener('paste', onPaste)
+  scheduleScrollToBottom()
   startResumeIfNeeded()
 })
 
 onActivated(() => {
+  scheduleScrollToBottom()
   startResumeIfNeeded()
 })
 
