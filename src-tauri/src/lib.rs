@@ -6,6 +6,9 @@ mod tray;
 #[cfg(target_os = "android")]
 mod android_updater;
 
+#[cfg(target_os = "android")]
+mod android_media;
+
 #[cfg(desktop)]
 use tauri::{Manager, WindowEvent};
 #[cfg(desktop)]
@@ -68,11 +71,15 @@ fn run_mobile() {
     {
         builder = builder
             .plugin(android_updater::init_plugin())
+            .plugin(android_media::init_plugin())
             .invoke_handler(tauri::generate_handler![
                 android_updater::android_download_apk,
                 android_updater::android_install_apk,
                 android_updater::android_can_install_packages,
-                android_updater::android_request_install_permission
+                android_updater::android_request_install_permission,
+                android_media::android_write_media_to_cache,
+                android_media::android_download_media_to_cache,
+                android_media::android_save_media_to_gallery
             ]);
     }
 

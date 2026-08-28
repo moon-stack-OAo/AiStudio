@@ -28,6 +28,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'common.ps1')
 
 function Write-Step([string]$Message) {
   Write-Host ""
@@ -71,6 +72,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $Root 'package.json'))) {
   throw "未找到 package.json，请在仓库根目录相关路径运行本脚本。"
 }
 Set-Location -LiteralPath $Root
+
+$totalSw = [System.Diagnostics.Stopwatch]::StartNew()
 
 Write-Step "工作目录: $Root"
 
@@ -195,7 +198,9 @@ if (-not $SkipIcon) {
 }
 
 Write-Step "构建 debug APK (aarch64)"
+$buildSw = [System.Diagnostics.Stopwatch]::StartNew()
 Invoke-Npm @('run', 'tauri:build:android:debug')
+$buildSw.Stop()
 
 Write-Step "查找 APK"
 $apks = @(Get-ChildItem -LiteralPath $androidDir -Recurse -Filter '*.apk' -ErrorAction SilentlyContinue |
@@ -214,11 +219,15 @@ if ($null -eq $chosen) {
   throw "构建似乎成功，但未找到 .apk。请检查 src-tauri/gen/android 下 outputs。"
 }
 
+$totalSw.Stop()
+
 Write-Host ""
 Write-Host "构建成功" -ForegroundColor Green
 Write-Host "APK: $($chosen.FullName)"
 Write-Host ("大小: {0:N2} MB" -f ($chosen.Length / 1MB))
 Write-Host "时间: $($chosen.LastWriteTime)"
+Write-Elapsed '构建步骤耗时' $buildSw.Elapsed
+Write-Elapsed '总耗时' $totalSw.Elapsed
 
 if ($OpenDir) {
   Start-Process explorer.exe -ArgumentList "/select,`"$($chosen.FullName)`""

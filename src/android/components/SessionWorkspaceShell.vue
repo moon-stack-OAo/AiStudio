@@ -1,6 +1,7 @@
 <script setup>
 import {ref, watch} from 'vue'
 import SessionList from '@/components/SessionList.vue'
+import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
 
 const props = defineProps({
   sessions: {type: Array, default: () => []},
@@ -11,6 +12,7 @@ const props = defineProps({
 const emit = defineEmits(['create', 'select', 'rename', 'remove'])
 
 const historyShow = ref(false)
+useBackCloseLayer(historyShow)
 
 watch(
   () => props.activeId,
@@ -40,6 +42,7 @@ defineExpose({openHistory})
   <div class="page">
     <n-drawer
       v-model:show="historyShow"
+      class="history-drawer"
       placement="left"
       width="86%"
     >
@@ -92,5 +95,12 @@ defineExpose({openHistory})
   padding: var(--safe-top) calc(10px + var(--safe-right)) 0 calc(10px + var(--safe-left));
   border-bottom: 1px solid var(--border-subtle);
   background: var(--color-titlebar);
+}
+</style>
+
+<style lang="scss">
+.history-drawer.n-drawer .n-drawer-content {
+  padding-top: var(--safe-top);
+  padding-left: var(--safe-left);
 }
 </style>

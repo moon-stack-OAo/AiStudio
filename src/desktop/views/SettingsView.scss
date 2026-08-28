@@ -90,7 +90,7 @@
       min-height: 0;
       height: 100%;
       max-height: 100%;
-      /* 桌面：pane 本身不滚动，避免与内部列表/表单一起滚 */
+      /* 桌面：pane 本身不滚动；列表/表单各自 overflow-y:auto */
       overflow: hidden;
       padding: 14px calc(18px + var(--safe-right)) calc(20px + var(--safe-bottom))
         calc(18px + var(--safe-left));

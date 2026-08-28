@@ -95,13 +95,13 @@ npm run tauri:build:check
 
 ```bash
 npm run tauri:android:init          # 生成 src-tauri/gen/android（--ci）
-node .github/scripts/sync-android-updater-sources.mjs  # 同步 UpdaterPlugin / 安装权限（init 后必跑）
+node .github/scripts/sync-android-updater-sources.mjs  # 同步 MainActivity / UpdaterPlugin / MediaSaverPlugin / file_paths / 安装权限（init 后必跑）
 npm run tauri:build:android:debug   # debug 签名 APK（本地调试）
 npm run tauri:build:android         # release APK（需 keystore.properties）
 ```
 
-> 本地若无 SDK，`android init` 可能失败； **不影响发版**：CI 会在每次 Release 时按需 `tauri android init --ci`，再同步更新源码并正式签名。
-> `UpdaterPlugin.kt` 持久源在 `src-tauri/android/`；`gen/android` 被 init 覆盖后需重新同步。
+> 本地若无 SDK，`android init` 可能失败； **不影响发版**：CI 会在每次 Release 时按需 `tauri android init --ci`，再同步自定义源码并正式签名。
+> 持久源在 `src-tauri/android/`（`MainActivity.kt`、`UpdaterPlugin.kt`、`MediaSaverPlugin.kt`、`file_paths.xml`）；`gen/android` 被 init 覆盖后需重新同步，否则安全区 / 系统栏 Bridge、侧载更新与相册保存会丢失。
 
 ### 配置摘要
 

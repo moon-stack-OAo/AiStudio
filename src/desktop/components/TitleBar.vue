@@ -1,20 +1,12 @@
 <script setup>
-import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {onMounted, onUnmounted, ref} from 'vue'
 import {getCurrentWindow} from '@tauri-apps/api/window'
-import {CloseOutline, CopyOutline, MoonOutline, RemoveOutline, SquareOutline, SunnyOutline,} from '@vicons/ionicons5'
-import {useSettingsStore} from '@core/stores/settings'
+import {CloseOutline, CopyOutline, RemoveOutline, SquareOutline} from '@vicons/ionicons5'
+import ThemeToggleButton from '@/components/ThemeToggleButton.vue'
 
-const settings = useSettingsStore()
 const appWindow = getCurrentWindow()
 const maximized = ref(false)
 let unlistenResize = null
-
-const themeToggleIcon = computed(() =>
-  settings.theme === 'light' ? MoonOutline : SunnyOutline,
-)
-const themeToggleTip = computed(() =>
-  settings.theme === 'light' ? '切换为深色' : '切换为浅色',
-)
 
 async function refreshMaximized() {
   try {
@@ -65,19 +57,7 @@ onUnmounted(() => {
     </div>
 
     <div class="controls">
-      <n-tooltip placement="bottom" trigger="hover">
-        <template #trigger>
-          <button
-            :aria-label="themeToggleTip"
-            class="ctrl"
-            type="button"
-            @click="settings.toggleTheme()"
-          >
-            <n-icon :component="themeToggleIcon" :size="14" />
-          </button>
-        </template>
-        {{ themeToggleTip }}
-      </n-tooltip>
+      <ThemeToggleButton variant="titlebar" />
       <button aria-label="最小化" class="ctrl" type="button" @click="minimize">
         <n-icon :component="RemoveOutline" :size="14" />
       </button>
@@ -166,14 +146,23 @@ onUnmounted(() => {
     background: var(--surface-pressed);
   }
 
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
+    outline-offset: -2px;
+  }
+
   &.close:hover {
     background: var(--color-danger);
     color: var(--on-primary);
   }
 
   &.close:active {
-    background: #c50f1f;
+    background: var(--titlebar-close-pressed);
     background: color-mix(in srgb, var(--color-danger) 85%, #000);
+  }
+
+  &.close:focus-visible {
+    outline-color: color-mix(in srgb, var(--color-danger) 80%, transparent);
   }
 }
 </style>

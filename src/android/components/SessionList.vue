@@ -7,7 +7,7 @@ const props = defineProps({
   title: {type: String, default: '会话'},
   sessions: {type: Array, default: () => []},
   activeId: {type: String, default: ''},
-  /** 嵌入抽屉时铺满宽度 */
+  /** 嵌入抽屉时铺满宽度并隐藏自有标题 */
   embedded: {type: Boolean, default: false},
 })
 
@@ -74,7 +74,7 @@ function onRemove() {
 <template>
   <div :class="{ embedded }" class="session-panel">
     <div class="session-header">
-      <div class="session-title">{{ title }}</div>
+      <div v-if="!embedded" class="session-title">{{ title }}</div>
       <div class="actions">
         <n-button
           aria-label="新建会话"
@@ -142,6 +142,10 @@ function onRemove() {
   justify-content: space-between;
   padding: 12px 10px 8px;
   flex-shrink: 0;
+}
+
+.session-panel.embedded .session-header {
+  justify-content: flex-end;
 }
 
 .session-title {

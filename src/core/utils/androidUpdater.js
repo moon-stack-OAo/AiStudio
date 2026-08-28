@@ -35,6 +35,25 @@ function pickAndroidPlatform(manifest) {
   )
 }
 
+function normalizeSha256(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+}
+
+function isValidSha256(value) {
+  const hex = normalizeSha256(value)
+  return hex.length === 64 && /^[0-9a-f]+$/.test(hex)
+}
+
+function requireValidSha256(value) {
+  const hex = normalizeSha256(value)
+  if (!isValidSha256(hex)) {
+    throw new Error('更新清单缺少完整性校验信息')
+  }
+  return hex
+}
+
 /**
  * 检查 Android 是否有新版本
  * @returns {Promise<{
@@ -45,7 +64,7 @@ function pickAndroidPlatform(manifest) {
  *     date?: string,
  *     body?: string,
  *     url: string,
- *     sha256?: string,
+ *     sha256: string,
  *     size?: number
  *   }
  * }>}
@@ -83,6 +102,8 @@ export async function checkAndroidUpdate() {
     }
   }
 
+  const sha256 = requireValidSha256(platform.sha256)
+
   return {
     currentVersion,
     hasUpdate: true,
@@ -91,7 +112,7 @@ export async function checkAndroidUpdate() {
       date: manifest?.pub_date || '',
       body: manifest?.notes || '',
       url: String(platform.url),
-      sha256: platform.sha256 ? String(platform.sha256) : '',
+      sha256,
       size: typeof platform.size === 'number' ? platform.size : undefined,
     },
   }
@@ -99,7 +120,7 @@ export async function checkAndroidUpdate() {
 
 /**
  * 下载 APK 并调起系统安装器
- * @param {{ version: string, url: string, sha256?: string, size?: number }} latest
+ * @param {{ version: string, url: string, sha256: string, size?: number }} latest
  * @param {(info: { downloaded: number, total?: number, phase: string }) => void} [onProgress]
  */
 export async function downloadAndInstallAndroidUpdate(latest, onProgress) {
@@ -107,6 +128,7 @@ export async function downloadAndInstallAndroidUpdate(latest, onProgress) {
     throw new Error('应用内更新仅支持 Android 客户端')
   }
   if (!latest?.url) throw new Error('没有可安装的更新')
+  const sha256 = requireValidSha256(latest.sha256)
 
   const report = (phase, downloaded = 0, total) => {
     if (typeof onProgress === 'function') {
@@ -146,7 +168,7 @@ export async function downloadAndInstallAndroidUpdate(latest, onProgress) {
 
   const path = await invoke('android_download_apk', {
     url: latest.url,
-    sha256: latest.sha256 || null,
+    sha256,
     onProgress: channel,
   })
 

@@ -1,11 +1,13 @@
+/* 与 Naive 相关的实色（--color-bg / primary / elevated / border-muted / text-* / radius-md）
+ * 须与 src/core/utils/theme.js 中 PALETTE 保持一致；改色请两边同步，可跑 npm run check:theme */
 :root,
 [data-theme='dark'] {
-  --color-bg: #0f1115;
-  --color-bg-elevated: rgba(16, 18, 24, 0.72);
+  --color-bg: #0f1115; /* PALETTE.dark.bg */
+  --color-bg-elevated: rgba(16, 18, 24, 0.72); /* PALETTE.dark.card */
   --color-text: #e8eaed;
-  --color-primary: #7c9cff;
-  --color-primary-hover: #9bb2ff;
-  --color-primary-pressed: #5f7fe6;
+  --color-primary: #7c9cff; /* PALETTE.dark.primary */
+  --color-primary-hover: #9bb2ff; /* PALETTE.dark.primaryHover */
+  --color-primary-pressed: #5f7fe6; /* PALETTE.dark.primaryPressed */
   --color-accent: #8b5cf6;
   --color-success: #34d399;
   --color-danger: #f87171;
@@ -13,16 +15,16 @@
   --color-titlebar: rgba(14, 16, 22, 0.92);
 
   --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-muted: rgba(255, 255, 255, 0.08);
+  --border-muted: rgba(255, 255, 255, 0.08); /* PALETTE.dark.border */
   --surface-1: rgba(255, 255, 255, 0.03);
   --surface-2: rgba(255, 255, 255, 0.04);
   --surface-3: rgba(255, 255, 255, 0.05);
   --surface-pressed: rgba(255, 255, 255, 0.12);
   --primary-soft: rgba(124, 156, 255, 0.14);
 
-  --text-1: rgba(255, 255, 255, 0.92);
-  --text-2: rgba(255, 255, 255, 0.72);
-  --text-3: rgba(255, 255, 255, 0.55);
+  --text-1: rgba(255, 255, 255, 0.92); /* PALETTE.dark.text1 */
+  --text-2: rgba(255, 255, 255, 0.72); /* PALETTE.dark.text2 */
+  --text-3: rgba(255, 255, 255, 0.55); /* PALETTE.dark.text3 */
   --text-4: rgba(255, 255, 255, 0.5);
 
   --scrollbar-thumb: rgba(255, 255, 255, 0.18);
@@ -60,7 +62,7 @@
 
   --radius-xs: 5px;
   --radius-sm: 8px;
-  --radius-md: 10px;
+  --radius-md: 10px; /* PALETTE.*.radius */
   --radius-lg: 12px;
   --radius-xl: 14px;
   --radius-2xl: 18px;
@@ -70,12 +72,31 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* 字号语义（示范用，未全库替换） */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-md: 15px;
 
   /* 移动端最小可点热区（约 44–48dp） */
   --touch-min: 44px;
 
   --sidebar-width: 220px;
+  --sidebar-width-compact: 196px;
   --sidebar-collapsed-width: 64px;
+  --session-list-width: 220px;
+  --session-list-width-compact: 180px;
+
+  /* 层级：顶栏 / 媒体卡片浮层操作 */
+  --z-toolbar: 10;
+  --z-overlay: 2;
+
+  /* 视频播放器底色（与主题无关） */
+  --video-surface: #000;
+  /* 标题栏关闭键按下态（Win 风格红） */
+  --titlebar-close-pressed: #c50f1f;
 
   /* Android WebView 上 env(safe-area-inset-*) 常为 0，优先用原生注入的 --safe-area-inset-*
    * 约定：顶栏消费 --safe-top；桌面 composer / 弹层消费 --safe-bottom；安卓底栏已含 safe-bottom，composer 勿再叠一层 */
@@ -87,12 +108,12 @@
 }
 
 [data-theme='light'] {
-  --color-bg: #f4f6fb;
-  --color-bg-elevated: rgba(255, 255, 255, 0.86);
+  --color-bg: #f4f6fb; /* PALETTE.light.bg */
+  --color-bg-elevated: rgba(255, 255, 255, 0.86); /* PALETTE.light.card */
   --color-text: #1a1d26;
-  --color-primary: #5b7cfa;
-  --color-primary-hover: #7c9cff;
-  --color-primary-pressed: #4a68e0;
+  --color-primary: #5b7cfa; /* PALETTE.light.primary */
+  --color-primary-hover: #7c9cff; /* PALETTE.light.primaryHover */
+  --color-primary-pressed: #4a68e0; /* PALETTE.light.primaryPressed */
   --color-accent: #7c5cbf;
   --color-success: #10b981;
   --color-danger: #ef4444;
@@ -100,16 +121,16 @@
   --color-titlebar: rgba(255, 255, 255, 0.92);
 
   --border-subtle: rgba(15, 23, 42, 0.06);
-  --border-muted: rgba(15, 23, 42, 0.1);
+  --border-muted: rgba(15, 23, 42, 0.1); /* PALETTE.light.border */
   --surface-1: rgba(15, 23, 42, 0.03);
   --surface-2: rgba(15, 23, 42, 0.045);
   --surface-3: rgba(15, 23, 42, 0.06);
   --surface-pressed: rgba(15, 23, 42, 0.1);
   --primary-soft: rgba(91, 124, 250, 0.12);
 
-  --text-1: rgba(15, 23, 42, 0.92);
-  --text-2: rgba(15, 23, 42, 0.72);
-  --text-3: rgba(15, 23, 42, 0.58);
+  --text-1: rgba(15, 23, 42, 0.92); /* PALETTE.light.text1 */
+  --text-2: rgba(15, 23, 42, 0.72); /* PALETTE.light.text2 */
+  --text-3: rgba(15, 23, 42, 0.58); /* PALETTE.light.text3 */
   --text-4: rgba(15, 23, 42, 0.5);
 
   --scrollbar-thumb: rgba(15, 23, 42, 0.22);

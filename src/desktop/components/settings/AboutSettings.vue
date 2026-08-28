@@ -6,22 +6,26 @@ import {clearAppStorage} from '@core/utils/storage'
 import {clearImageCache} from '@core/utils/imageCache'
 import {isDesktopTauri} from '@core/utils/request'
 import {getAppVersion} from '@core/utils/version'
-import {checkForUpdate, installUpdateAndRelaunch} from '@core/utils/updater'
 import {CHAT_CONTEXT_MAX_TURNS_OPTIONS} from '@core/utils/constants'
 import {renderSelectLabel} from '@core/utils/selectRender'
+import {useAppUpdater} from '@/composables/useAppUpdater'
 
 const settings = useSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
 const inTauri = isDesktopTauri()
 
+const {
+  checking: checkingUpdate,
+  installing: installingUpdate,
+  updateProgress,
+  updateResult,
+  checkUpdate,
+  installUpdate,
+} = useAppUpdater()
+
 const appVersion = ref('…')
-const checkingUpdate = ref(false)
-const installingUpdate = ref(false)
 const clearing = ref(false)
-const updateProgress = ref('')
-const updateResult = ref(null)
-const pendingUpdate = ref(null)
 const closePref = ref('ask')
 const savingClosePref = ref(false)
 
@@ -66,54 +70,14 @@ async function onClosePrefChange(value) {
 }
 
 async function onCheckUpdate() {
-  if (!inTauri) {
-    message.info('应用内更新仅支持桌面客户端')
-    return
-  }
-  if (checkingUpdate.value || installingUpdate.value) return
-  checkingUpdate.value = true
-  updateResult.value = null
-  pendingUpdate.value = null
-  updateProgress.value = ''
-  try {
-    const result = await checkForUpdate()
-    updateResult.value = result
-    pendingUpdate.value = result.update
-    if (result.hasUpdate) {
-      settings.clearSkippedUpdateVersion()
-      settings.setAvailableUpdate(result.latest.version)
-      message.success(`发现新版本 ${result.latest.version}`)
-    } else {
-      settings.clearAvailableUpdate()
-      message.info('当前已是最新版本')
-    }
-  } catch (e) {
-    message.error(e?.message || '检查更新失败')
-  } finally {
-    checkingUpdate.value = false
+  const result = await checkUpdate({silent: false})
+  if (result?.hasUpdate) {
+    message.success(`发现新版本 ${result.latest.version}`)
   }
 }
 
-async function onInstallUpdate() {
-  if (!pendingUpdate.value || installingUpdate.value) return
-  installingUpdate.value = true
-  updateProgress.value = '准备下载…'
-  try {
-    await installUpdateAndRelaunch(pendingUpdate.value, (event) => {
-      if (event?.event === 'Started') {
-        const total = event.data?.contentLength
-        updateProgress.value = total ? `开始下载（${Math.round(total / 1024 / 1024)} MB）…` : '开始下载…'
-      } else if (event?.event === 'Progress') {
-        updateProgress.value = '正在下载更新…'
-      } else if (event?.event === 'Finished') {
-        updateProgress.value = '下载完成，准备重启…'
-      }
-    })
-  } catch (e) {
-    message.error(e?.message || '安装更新失败')
-    installingUpdate.value = false
-    updateProgress.value = ''
-  }
+function onInstallUpdate() {
+  return installUpdate()
 }
 
 function onClearLocalData() {

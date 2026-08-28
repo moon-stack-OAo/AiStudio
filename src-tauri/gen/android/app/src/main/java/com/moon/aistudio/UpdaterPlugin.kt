@@ -19,7 +19,7 @@ import java.io.File
 
 /**
  * Android 侧载更新：FileProvider + 系统安装器。
- * 源文件位于 src-tauri/android/；CI / 本地需同步到 gen/android（见 patch 脚本）。
+ * 源文件位于 src-tauri/android/；CI / 本地需同步到 gen/android（见 sync-android-updater-sources.mjs）。
  * 若执行 `tauri android init` 可能被覆盖，需重新合入。
  */
 @TauriPlugin

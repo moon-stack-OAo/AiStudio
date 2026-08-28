@@ -1,13 +1,16 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "identifier": "android",
-  "description": "Android 侧载更新命令",
+  "description": "Android 侧载更新与媒体保存到相册",
   "platforms": ["android"],
   "windows": ["main"],
   "permissions": [
     "allow-android-download-apk",
     "allow-android-install-apk",
     "allow-android-can-install-packages",
-    "allow-android-request-install-permission"
+    "allow-android-request-install-permission",
+    "allow-android-write-media-to-cache",
+    "allow-android-download-media-to-cache",
+    "allow-android-save-media-to-gallery"
   ]
 }

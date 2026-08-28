@@ -5,6 +5,7 @@ import {FlashOutline, RefreshOutline, TrashOutline} from '@vicons/ionicons5'
 import {isBuiltinProvider, useSettingsStore} from '@core/stores/settings'
 import {testProviderConnection} from '@core/api/client'
 import {useProviderModels} from '@core/composables/useProviderModels'
+import {filterModelsByKind, toSelectOptions} from '@core/utils/models'
 import {isTauri} from '@core/utils/request'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
@@ -39,29 +40,32 @@ const providerOptions = computed(() =>
 
 const {
   loading: modelsLoading,
-  options: chatModelOptions,
-  refresh: refreshChatModels,
-} = useProviderModels(() => current.value, { kind: 'chat' })
+  models: providerModels,
+  refresh: refreshModels,
+} = useProviderModels(() => current.value, { kind: 'all' })
 
-const {
-  loading: imageModelsLoading,
-  options: imageModelOptions,
-  refresh: refreshImageModels,
-} = useProviderModels(() => current.value, { kind: 'image' })
+function modelOptionsByKind(kind, currentModel) {
+  let filtered = filterModelsByKind(providerModels.value, kind)
+  // 中转站命名不规范时筛选可能为空，回退全量便于手动挑
+  if (!filtered.length && providerModels.value.length) {
+    filtered = providerModels.value
+  }
+  return toSelectOptions(filtered, { current: currentModel })
+}
 
-const {
-  loading: videoModelsLoading,
-  options: videoModelOptions,
-  refresh: refreshVideoModels,
-} = useProviderModels(() => current.value, { kind: 'video' })
+const chatModelOptions = computed(() =>
+  modelOptionsByKind('chat', current.value?.chatModel),
+)
+const imageModelOptions = computed(() =>
+  modelOptionsByKind('image', current.value?.imageModel),
+)
+const videoModelOptions = computed(() =>
+  modelOptionsByKind('video', current.value?.videoModel),
+)
 
 async function refreshModelLists() {
   try {
-    await Promise.all([
-      refreshChatModels({ force: true }),
-      refreshImageModels({ force: true }),
-      refreshVideoModels({ force: true }),
-    ])
+    await refreshModels({ force: true })
     message.success('模型列表已刷新')
   } catch (e) {
     message.error(e?.message || '刷新模型失败')
@@ -262,7 +266,7 @@ defineExpose({ addCustom, reset })
         <div class="group-title">
           <span>模型</span>
           <n-button
-            :loading="modelsLoading || imageModelsLoading || videoModelsLoading"
+            :loading="modelsLoading"
             quaternary
             size="small"
             @click="refreshModelLists"
@@ -289,7 +293,7 @@ defineExpose({ addCustom, reset })
         <div class="field">
           <div class="field-label">生图模型</div>
           <n-select
-            :loading="imageModelsLoading"
+            :loading="modelsLoading"
             :options="imageModelOptions"
             :render-label="renderSelectLabel"
             :value="current.imageModel || null"
@@ -302,7 +306,7 @@ defineExpose({ addCustom, reset })
         <div class="field">
           <div class="field-label">视频模型</div>
           <n-select
-            :loading="videoModelsLoading"
+            :loading="modelsLoading"
             :options="videoModelOptions"
             :render-label="renderSelectLabel"
             :value="current.videoModel || null"

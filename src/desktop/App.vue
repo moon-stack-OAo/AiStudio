@@ -2,22 +2,14 @@
 import {computed, h, onMounted, provide, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
-import {
-  ChatbubblesOutline,
-  ImageOutline,
-  MenuOutline,
-  MoonOutline,
-  SettingsOutline,
-  SunnyOutline,
-  VideocamOutline,
-} from '@vicons/ionicons5'
+import {ChatbubblesOutline, ImageOutline, MenuOutline, SettingsOutline, VideocamOutline,} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useVisualViewport} from '@core/composables/useVisualViewport'
-import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {isDesktopTauri} from '@core/utils/request'
 import {applyDocumentTheme, THEME_OVERRIDES} from '@core/utils/theme'
 import TitleBar from '@/components/TitleBar.vue'
+import ThemeToggleButton from '@/components/ThemeToggleButton.vue'
 import UpdateChecker from '@/components/UpdateChecker.vue'
 import CloseConfirm from '@/components/CloseConfirm.vue'
 import TrayActionListener from '@/components/TrayActionListener.vue'
@@ -26,9 +18,8 @@ const route = useRoute()
 const router = useRouter()
 const settings = useSettingsStore()
 const { isMobile, isCompact } = useBreakpoints()
-const {tooltipTrigger} = useTooltipTrigger()
-useVisualViewport()
 const desktopFrame = isDesktopTauri()
+if (!desktopFrame) useVisualViewport()
 
 const mobileNavShow = ref(false)
 const isWorkspaceRoute = computed(() => {
@@ -45,12 +36,6 @@ provide('openMobileNav', openMobileNav)
 
 const naiveTheme = computed(() => (settings.theme === 'dark' ? darkTheme : null))
 const themeOverrides = computed(() => THEME_OVERRIDES[settings.theme] || THEME_OVERRIDES.dark)
-const themeToggleIcon = computed(() =>
-  settings.theme === 'light' ? MoonOutline : SunnyOutline,
-)
-const themeToggleTip = computed(() =>
-  settings.theme === 'light' ? '切换为深色' : '切换为浅色',
-)
 
 function renderIcon(icon) {
   return () => h(NIcon, null, { default: () => h(icon) })
@@ -142,23 +127,7 @@ function onMenuUpdate(key) {
                   </template>
                 </n-button>
                 <div class="mobile-title">AI Studio</div>
-                <n-tooltip :trigger="tooltipTrigger" placement="bottom">
-                  <template #trigger>
-                    <n-button
-                        :aria-label="themeToggleTip"
-                        circle
-                        class="touch-target"
-                        quaternary
-                        size="small"
-                        @click="settings.toggleTheme()"
-                    >
-                      <template #icon>
-                        <n-icon :component="themeToggleIcon" />
-                      </template>
-                    </n-button>
-                  </template>
-                  {{ themeToggleTip }}
-                </n-tooltip>
+                <ThemeToggleButton variant="toolbar" />
               </header>
 
               <aside v-if="!isMobile" :class="{ collapsed }" class="sidebar">
@@ -204,17 +173,7 @@ function onMenuUpdate(key) {
                       <span class="dot" />
                       <span class="name">{{ settings.activeProvider.name }}</span>
                     </div>
-                    <n-button
-                      :aria-label="themeToggleTip"
-                      class="drawer-theme-btn touch-target"
-                      quaternary
-                      @click="settings.toggleTheme()"
-                    >
-                      <template #icon>
-                        <n-icon :component="themeToggleIcon" />
-                      </template>
-                      {{ themeToggleTip }}
-                    </n-button>
+                    <ThemeToggleButton variant="drawer" />
                     <div class="hint">密钥仅保存在本机</div>
                   </div>
                 </n-drawer-content>
@@ -260,7 +219,7 @@ function onMenuUpdate(key) {
 
 .mobile-topbar {
   position: relative;
-  z-index: 10;
+  z-index: var(--z-toolbar);
   flex-shrink: 0;
   min-height: calc(44px + var(--safe-top));
   height: calc(44px + var(--safe-top));
@@ -391,16 +350,9 @@ function onMenuUpdate(key) {
   height: calc(100% - 44px - var(--safe-top));
 }
 
-.drawer-theme-btn {
-  width: 100%;
-  justify-content: flex-start;
-  margin: 8px 0;
-  min-height: var(--touch-min);
-}
-
 @media (max-width: 1279.98px) and (min-width: 768px) {
   .sidebar:not(.collapsed) {
-    width: 196px;
+    width: var(--sidebar-width-compact);
   }
 }
 </style>
@@ -443,7 +395,7 @@ function onMenuUpdate(key) {
   height: 7px;
   border-radius: 50%;
   background: var(--color-primary);
-  box-shadow: 0 0 0 1.5px var(--color-bg-elevated, #1a1a1a);
+  box-shadow: 0 0 0 1.5px var(--color-bg-elevated, transparent);
   pointer-events: none;
 }
 

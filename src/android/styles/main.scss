@@ -14,4 +14,73 @@
 .touch-target.n-button {
   width: var(--touch-min);
   height: var(--touch-min);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 触摸设备：避免点击后 :hover/:focus 残留高亮（需再点别处才消失） */
+@media (hover: none) {
+  .n-button:not(:disabled):hover {
+    color: var(--n-text-color) !important;
+    background-color: var(--n-color) !important;
+  }
+
+  .n-button:not(:disabled):focus {
+    color: var(--n-text-color) !important;
+    background-color: var(--n-color) !important;
+  }
+
+  .n-button:not(:disabled):active,
+  .n-button:not(:disabled).n-button--active {
+    color: var(--n-text-color-pressed) !important;
+    background-color: var(--n-color-pressed) !important;
+  }
+
+  .n-menu-item-content:hover::before {
+    background-color: transparent !important;
+  }
+}
+
+/* 「⋯」底部抽屉：配合 height="auto"，用更高特异性覆盖 Naive 默认 height:100% / flex 撑满 */
+.more-drawer.n-drawer {
+  max-height: none;
+  overflow: visible;
+}
+
+.more-drawer.n-drawer .n-drawer-content {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.more-drawer.n-drawer .n-drawer-content .n-drawer-body,
+.more-drawer.n-drawer .n-drawer-content .n-drawer-body-content-wrapper {
+  flex: none;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.more-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: max(12px, var(--safe-bottom));
+}
+
+.more-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.more-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.more-hint {
+  font-size: 12px;
+  color: var(--text-4);
+  text-align: center;
 }

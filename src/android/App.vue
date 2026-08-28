@@ -7,6 +7,7 @@ import {useSettingsStore} from '@core/stores/settings'
 import {KEYBOARD_OPEN_DELTA_PX, useVisualViewport} from '@core/composables/useVisualViewport'
 import {applyDocumentTheme, THEME_OVERRIDES} from '@core/utils/theme'
 import UpdateChecker from '@/components/UpdateChecker.vue'
+import {dismissAllBackLayers} from '@/composables/useBackCloseLayer'
 
 const route = useRoute()
 const router = useRouter()
@@ -65,8 +66,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', syncKeyboard)
 })
 
-function goTab(tab) {
-  if (route.path !== tab.path) router.push(tab.path)
+async function goTab(tab) {
+  if (route.path === tab.path) return
+  await dismissAllBackLayers()
+  router.push(tab.path)
 }
 </script>
 
@@ -84,7 +87,11 @@ function goTab(tab) {
           <div :class="{ 'keyboard-open': keyboardOpen }" class="app-shell mobile">
             <div class="app-body">
               <main class="main">
-                <router-view/>
+                <router-view v-slot="{ Component }">
+                  <keep-alive :include="['ChatView', 'ImageView', 'VideoView', 'SettingsView']">
+                    <component :is="Component"/>
+                  </keep-alive>
+                </router-view>
               </main>
 
               <nav aria-label="主导航" class="tab-bar">
@@ -201,7 +208,7 @@ function goTab(tab) {
   height: 8px;
   border-radius: 50%;
   background: var(--color-primary);
-  box-shadow: 0 0 0 1.5px var(--color-titlebar, #1a1a1a);
+  box-shadow: 0 0 0 1.5px var(--color-titlebar, transparent);
   pointer-events: none;
 }
 

@@ -60,14 +60,12 @@
   }
 
   &.active {
-    border-color: rgba(124, 156, 255, 0.35);
     border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
     background: var(--primary-soft);
     box-shadow: inset 3px 0 0 0 var(--color-primary);
   }
 
   &:focus-visible {
-    outline: 2px solid rgba(124, 156, 255, 0.65);
     outline: 2px solid color-mix(in srgb, var(--color-primary) 65%, transparent);
     outline-offset: 1px;
   }
@@ -132,21 +130,25 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  /* 桌面：右侧不滚动，靠压缩密度 + 默认窗口高度适配一屏 */
-  overflow: hidden;
+  /* 桌面：右侧表单可垂直滚动，矮窗口/高 DPI 下不裁切底部 */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
 }
 
 .form-card {
   max-width: 760px;
-  height: 100%;
+  /* 高度随内容，由 .form-panel 承担滚动 */
+  height: auto;
+  flex-shrink: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
   padding: 10px 12px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .form-card .section-head {
@@ -154,7 +156,7 @@
 }
 
 .form-card .section-desc {
-  display: none;
+  display: block;
 }
 
 .form-card .group + .group {

@@ -127,7 +127,7 @@ function onRemove() {
 
 <style lang="scss" scoped>
 .session-panel {
-  width: var(--sidebar-width);
+  width: var(--session-list-width);
   flex-shrink: 0;
   border-right: 1px solid var(--border-subtle);
   background: var(--surface-1);
@@ -175,7 +175,7 @@ function onRemove() {
 
 @media (max-width: 1279.98px) {
   .session-panel:not(.embedded) {
-    width: 180px;
+    width: var(--session-list-width-compact);
   }
 }
 

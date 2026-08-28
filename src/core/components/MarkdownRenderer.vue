@@ -170,7 +170,6 @@ const html = computed(() => {
   :deep(blockquote) {
     margin: 0.75em 0;
     padding: 0.4em 0.9em;
-    border-left: 3px solid rgba(124, 156, 255, 0.55);
     border-left: 3px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
     background: var(--primary-soft);
     color: var(--text-2);

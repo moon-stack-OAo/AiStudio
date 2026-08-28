@@ -1,80 +1,4 @@
-@use '@/styles/session-workspace.scss';
-
-.video-toolbar {
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.video-title {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-  font-size: 15px;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.content {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.gallery {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 18px calc(16px + var(--safe-right)) 24px calc(16px + var(--safe-left));
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-}
-
-.msg-body {
-  align-items: flex-start;
-}
-
-.user-bubble {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.bubble-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.prompt-text {
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--text-1);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.ref-thumb {
-  img {
-    width: 72px;
-    height: 72px;
-    object-fit: cover;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-muted);
-  }
-}
-
-.ai-bubble {
-  min-width: 0;
-  padding: 6px;
-}
+@use '@/styles/generate-workspace.scss';
 
 .ai-loading {
   display: flex;
@@ -104,13 +28,6 @@
   color: var(--text-4);
 }
 
-.ai-error {
-  padding: 8px 2px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--color-danger);
-}
-
 .ai-error-block {
   display: flex;
   flex-direction: column;
@@ -134,21 +51,20 @@
 
   .video-actions {
     position: absolute;
-    top: 6px;
-    right: 6px;
-    z-index: 2;
+    top: 4px;
+    right: 4px;
+    z-index: var(--z-overlay);
     display: flex;
-    gap: 4px;
-    opacity: 1;
-    background: var(--overlay-scrim);
-    border-radius: var(--radius-pill);
-    padding: 2px;
+    pointer-events: none;
 
     :deep(.touch-target.n-button) {
+      pointer-events: auto;
       width: var(--touch-min);
       height: var(--touch-min);
       min-width: var(--touch-min);
       min-height: var(--touch-min);
+      color: var(--on-primary);
+      background: var(--overlay-scrim);
     }
   }
 }
@@ -157,193 +73,8 @@
   display: block;
   width: 100%;
   max-height: 280px;
-  background: #000;
+  background: var(--video-surface);
   vertical-align: middle;
-}
-
-.composer {
-  flex-shrink: 0;
-}
-
-.composer-card {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  padding: 6px;
-}
-
-.mode-switch {
-  display: inline-flex;
-  padding: 3px;
-  border-radius: var(--radius-md);
-  background: var(--surface-3);
-  border: 1px solid var(--border-muted);
-}
-
-.mode-item {
-  border: none;
-  background: transparent;
-  color: var(--text-3);
-  font-size: 13px;
-  line-height: 1;
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  &.active {
-    color: var(--color-primary);
-    background: var(--primary-soft);
-    box-shadow: inset 0 0 0 1px rgba(124, 156, 255, 0.35);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 35%, transparent);
-  }
-}
-
-.ref-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 6px 2px 2px;
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  border: 1px solid var(--border-muted);
-
-  img {
-    width: 28px;
-    height: 28px;
-    object-fit: cover;
-    border-radius: var(--radius-sm);
-  }
-}
-
-.ref-name {
-  font-size: 11px;
-  color: var(--text-2);
-}
-
-.composer-input {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.composer-field {
-  flex: 1;
-  min-width: 0;
-
-  :deep(.n-input) {
-    --n-font-size: 13px;
-    --n-padding-vertical: 4px;
-  }
-}
-
-.composer-actions {
-  flex-shrink: 0;
-  padding-bottom: 0;
-}
-
-.params-summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: var(--touch-min);
-  padding: 6px 10px;
-  border: 1px solid var(--border-muted);
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  color: var(--text-2);
-  cursor: pointer;
-  text-align: left;
-}
-
-.params-summary-icon {
-  flex-shrink: 0;
-  color: var(--text-3);
-}
-
-.params-summary-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.params-summary-action {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.params-drawer {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 4px 2px max(12px, var(--safe-bottom));
-}
-
-.params-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.params-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.params-control {
-  width: 100%;
-}
-
-.params-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px 12px;
-}
-
-.params-section-full {
-  grid-column: 1 / -1;
-}
-
-.params-upload {
-  width: 100%;
-}
-
-.params-upload-btn {
-  min-height: 48px;
-}
-
-.ref-chip-drawer {
-  width: 100%;
-  min-height: 56px;
-  padding: 8px 10px 8px 8px;
-  box-sizing: border-box;
-
-  img {
-    width: 48px;
-    height: 48px;
-  }
-}
-
-.ref-chip-meta {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.ref-hint {
-  font-size: 11px;
-  color: var(--text-4);
 }
 
 .ref-compress-hint {
@@ -351,58 +82,4 @@
   font-size: 11px;
   line-height: 1.4;
   color: var(--text-4);
-}
-
-.ref-chip-mobile {
-  width: 100%;
-  border: 1px solid var(--border-muted);
-  background: var(--surface-2);
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.mode-switch-full {
-  width: 100%;
-  display: flex;
-  padding: 4px;
-
-  .mode-item {
-    flex: 1;
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-  }
-}
-
-.params-done {
-  margin-top: 8px;
-  min-height: var(--touch-min);
-}
-
-.more-sheet {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-bottom: max(12px, var(--safe-bottom));
-}
-
-.more-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.more-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.more-hint {
-  font-size: 12px;
-  color: var(--text-4);
-  text-align: center;
 }

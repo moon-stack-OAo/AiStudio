@@ -36,6 +36,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'common.ps1')
 
 function Write-Step([string]$Message) {
   Write-Host ""
@@ -79,6 +80,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $Root 'package.json'))) {
   throw '未找到 package.json，请在仓库根目录相关路径运行本脚本。'
 }
 Set-Location -LiteralPath $Root
+
+$totalSw = [System.Diagnostics.Stopwatch]::StartNew()
 
 Write-Step "工作目录: $Root"
 Write-Step '检查构建环境'
@@ -131,7 +134,9 @@ if (-not $SkipSign) {
 }
 
 Write-Step '构建 Windows 安装包 (NSIS + MSI)'
+$buildSw = [System.Diagnostics.Stopwatch]::StartNew()
 Invoke-Npm @('run', 'tauri:build:win')
+$buildSw.Stop()
 
 $bundleRoot = Join-Path $Root 'src-tauri\target\release\bundle'
 if (-not $SkipCheck) {
@@ -157,6 +162,8 @@ if ($artifacts.Count -eq 0) {
   throw "构建似乎成功，但未在 $bundleRoot 找到 .exe / .msi。"
 }
 
+$totalSw.Stop()
+
 Write-Host ''
 Write-Host '构建成功' -ForegroundColor Green
 Write-Host "目录: $bundleRoot"
@@ -165,6 +172,8 @@ if ($signingEnabled) {
 } else {
   Write-WarnLine '未启用签名：仅适合本地安装测试，勿用于发版 updater。'
 }
+Write-Elapsed '构建步骤耗时' $buildSw.Elapsed
+Write-Elapsed '总耗时' $totalSw.Elapsed
 
 if ($OpenDir) {
   if (Test-Path -LiteralPath $bundleRoot) {

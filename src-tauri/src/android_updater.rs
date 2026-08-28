@@ -1,4 +1,4 @@
-//! Android 侧载更新：下载 APK（host 白名单 + 可选 sha256）并调起系统安装器
+//! Android 侧载更新：下载 APK（host 白名单 + 强制 sha256）并调起系统安装器
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -68,15 +68,15 @@ pub async fn android_download_apk<R: Runtime>(
     on_progress: Channel<DownloadProgress>,
 ) -> Result<String, String> {
     let parsed = assert_allowed_url(&url)?;
-    let expected = sha256
-        .as_ref()
-        .map(|s| normalize_hex(s))
-        .filter(|s| !s.is_empty());
-    if let Some(ref e) = expected {
-        if e.len() != 64 || !e.chars().all(|c| c.is_ascii_hexdigit()) {
-            return Err("sha256 格式无效".into());
+    let expected = match sha256.as_ref().map(|s| normalize_hex(s)) {
+        Some(e) if !e.is_empty() => {
+            if e.len() != 64 || !e.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Err("sha256 格式无效".into());
+            }
+            e
         }
-    }
+        _ => return Err("更新清单缺少完整性校验信息".into()),
+    };
 
     let cache_dir = app
         .path()
@@ -131,13 +131,11 @@ pub async fn android_download_apk<R: Runtime>(
     drop(file);
 
     let digest = format!("{:x}", hasher.finalize());
-    if let Some(ref expected) = expected {
-        if digest != *expected {
-            let _ = std::fs::remove_file(&tmp);
-            return Err(format!(
-                "APK 校验失败：期望 sha256={expected}，实际={digest}"
-            ));
-        }
+    if digest != expected {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(format!(
+            "APK 校验失败：期望 sha256={expected}，实际={digest}"
+        ));
     }
 
     if dest.exists() {

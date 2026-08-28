@@ -81,15 +81,12 @@
 }
 
 .status-ok {
-  background: rgba(52, 211, 153, 0.12);
   background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  border: 1px solid rgba(52, 211, 153, 0.28);
   border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
 }
 
 .status-updatable {
   background: var(--primary-soft);
-  border: 1px solid rgba(124, 156, 255, 0.28);
   border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
 }
 

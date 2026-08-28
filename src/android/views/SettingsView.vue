@@ -1,4 +1,6 @@
 <script setup>
+defineOptions({name: 'SettingsView'})
+
 import {ref} from 'vue'
 import {AddOutline, MoonOutline, RefreshOutline, SunnyOutline} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'

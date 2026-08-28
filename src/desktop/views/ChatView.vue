@@ -12,6 +12,7 @@ import {useSettingsStore} from '@core/stores/settings'
 import {streamChatCompletions, toErrorMessage} from '@core/api/client'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
+import {useScrollToBottom} from '@core/composables/useScrollToBottom'
 import {countChatTurns, trimChatMessages} from '@core/utils/chatContext'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
@@ -25,6 +26,7 @@ const {copiedId, copyText} = useCopyFeedback()
 const input = ref('')
 const loading = ref(false)
 const listRef = ref(null)
+const {scrollToBottom, scheduleScrollToBottom} = useScrollToBottom(listRef)
 const abortRef = ref(null)
 /** 正在流式生成的会话 id；切换/删除时用于 abort */
 const streamingSessionId = ref(null)
@@ -120,20 +122,6 @@ watch(
       scrollToBottom()
     },
 )
-
-function scrollToBottom() {
-  const el = listRef.value
-  if (el) el.scrollTop = el.scrollHeight
-}
-
-function scheduleScrollToBottom() {
-  nextTick(() => {
-    scrollToBottom()
-    // 软键盘弹起有动画，延迟再滚一次保证输入区可见
-    window.setTimeout(scrollToBottom, 180)
-    window.setTimeout(scrollToBottom, 360)
-  })
-}
 
 async function send() {
   const text = input.value.trim()

@@ -20,10 +20,13 @@
     "win:build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1",
     "tauri:android:init": "tauri android init --ci",
     "tauri:build:android": "tauri android build --apk --ci --target aarch64",
-    "tauri:build:android:debug": "tauri android build --apk --ci --target aarch64 --debug",
+    "tauri:build:android:debug": "node ./scripts/run-timed.mjs tauri android build --apk --ci --target aarch64 --debug",
     "android:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-android-debug.ps1",
     "android:studio": "tauri android dev --open",
-    "android:studio:host": "tauri android dev --open --host"
+    "android:studio:host": "tauri android dev --open --host",
+    "clean": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1",
+    "clean:dry": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1 -DryRun",
+    "clean:all": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1 -IncludeNodeModules"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

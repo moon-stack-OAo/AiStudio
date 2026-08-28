@@ -48,6 +48,10 @@
 }
 
 .group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
   & + & {
     margin-top: 12px;
     padding-top: 12px;
@@ -63,7 +67,7 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--text-2);
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .field-grid {
@@ -99,6 +103,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
+  min-height: var(--touch-min);
 
   :deep(.n-button) {
     min-height: var(--touch-min);

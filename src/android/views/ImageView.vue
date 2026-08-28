@@ -1,4 +1,6 @@
 <script setup>
+defineOptions({name: 'ImageView'})
+
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {
@@ -6,12 +8,12 @@ import {
   DownloadOutline,
   EllipsisHorizontalOutline,
   ImageOutline,
-  ListOutline,
   OptionsOutline,
   SparklesOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
+import SessionHistoryButton from '@/components/SessionHistoryButton.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@/components/ComposerSendStop.vue'
@@ -21,8 +23,10 @@ import {editImage, fileToPreview, generateImage} from '@core/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@core/utils/imageCache'
 import {appFetch} from '@core/utils/http'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
-import {isDesktopTauri} from '@core/utils/request'
+import {isAndroidTauri, isDesktopTauri} from '@core/utils/request'
+import {trySaveToAndroidGallery} from '@core/utils/androidMediaSave'
 import {renderSelectLabel} from '@core/utils/selectRender'
+import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
 
 const imageStore = useImageStore()
 const settings = useSettingsStore()
@@ -66,6 +70,13 @@ const lightboxPayload = ref(null)
 const paramsDrawerShow = ref(false)
 /** 更多（模型 / 清空） */
 const moreShow = ref(false)
+/** 单图卡片操作 sheet */
+const cardActionShow = ref(false)
+const cardActionTarget = ref(null)
+useBackCloseLayer(lightboxShow)
+useBackCloseLayer(paramsDrawerShow)
+useBackCloseLayer(moreShow)
+useBackCloseLayer(cardActionShow)
 
 const session = computed(() => imageStore.activeSession)
 const provider = computed(() => settings.activeProvider)
@@ -489,6 +500,7 @@ function selectSession(id) {
 function createSession() {
   abortIfLeavingGenerate(null)
   imageStore.createSession()
+  message.success('已新建会话')
 }
 
 function removeSession(id) {
@@ -586,7 +598,23 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
 
   try {
     const blob = await srcToBlob(src)
-    const file = new File([blob], name, {type: blob.type || 'image/png'})
+    const mime = blob.type || 'image/png'
+
+    if (isAndroidTauri()) {
+      const saved = await trySaveToAndroidGallery({
+        src,
+        blob,
+        displayName: name,
+        mimeType: mime,
+        preferRemote: false,
+      })
+      if (saved.ok) {
+        message.success('已保存到相册')
+        return
+      }
+    }
+
+    const file = new File([blob], name, {type: mime})
 
     if (
       mobileLike &&
@@ -615,6 +643,18 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
     }
   } catch {
+    if (isAndroidTauri()) {
+      const saved = await trySaveToAndroidGallery({
+        src,
+        displayName: name,
+        mimeType: 'image/png',
+        preferRemote: true,
+      })
+      if (saved.ok) {
+        message.success('已保存到相册')
+        return
+      }
+    }
     try {
       triggerAnchorDownload(src, name)
       if (mobileLike) message.success('已开始下载')
@@ -632,9 +672,7 @@ async function useAsReference(item, idx, img) {
     return
   }
   try {
-    const res = await appFetch(src)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const blob = await res.blob()
+    const blob = await srcToBlob(src)
     const file = new File([blob], `ref-${item.id}-${idx}.png`, {
       type: blob.type || 'image/png',
     })
@@ -654,6 +692,25 @@ async function useLightboxAsReference() {
   }
   await useAsReference(item, idx, img)
   lightboxShow.value = false
+}
+
+function openCardActions(item, idx, img) {
+  cardActionTarget.value = {item, idx, img}
+  cardActionShow.value = true
+}
+
+async function onCardDownload() {
+  const t = cardActionTarget.value
+  cardActionShow.value = false
+  if (!t) return
+  await downloadImage(t.item.id, t.idx, t.img, `gen-${t.item.id}-${t.idx}.png`)
+}
+
+async function onCardUseAsReference() {
+  const t = cardActionTarget.value
+  cardActionShow.value = false
+  if (!t) return
+  await useAsReference(t.item, t.idx, t.img)
 }
 
 function stopGenerate() {
@@ -697,17 +754,10 @@ const sendTooltip = computed(() =>
   >
     <template #toolbar="{ openHistory }">
       <div class="image-toolbar">
-        <n-button
-          aria-label="打开会话列表"
-          circle
-          class="touch-target"
-          quaternary
+        <SessionHistoryButton
+          :count="imageStore.sessions.length"
           @click="openHistory"
-        >
-          <template #icon>
-            <n-icon :component="ListOutline"/>
-          </template>
-        </n-button>
+        />
 
         <div class="image-title">{{ sessionTitle }}</div>
 
@@ -737,116 +787,104 @@ const sendTooltip = computed(() =>
       </div>
     </template>
 
-    <div class="content">
-      <div ref="listRef" class="gallery">
-        <div v-if="!timelineItems.length" class="empty">
-          <div class="empty-title">开始创作</div>
-          <div class="empty-desc">输入提示词即可生成</div>
-        </div>
+    <div ref="listRef" class="gallery">
+      <div v-if="!timelineItems.length" class="empty">
+        <div class="empty-title">开始创作</div>
+        <div class="empty-desc">输入提示词即可生成</div>
+      </div>
 
-        <template v-for="item in timelineItems" :key="item.id">
-          <div class="msg user">
-            <div class="role">你</div>
-            <div class="msg-body">
-              <div class="bubble user-bubble">
-                <div class="bubble-tags">
-                  <n-tag :bordered="false" size="tiny">
-                    {{ item.mode === 'txt2img' ? '文生图' : '图生图' }}
-                  </n-tag>
-                  <n-tag
-                    v-if="paramSummary(item)"
-                    :bordered="false"
-                    size="tiny"
-                    type="info"
-                  >
-                    {{ paramSummary(item) }}
-                  </n-tag>
-                </div>
-                <div
-                  v-if="item.mode === 'img2img' && (refThumbMap[item.id] || item.refPreview)"
-                  class="ref-thumb"
+      <template v-for="item in timelineItems" :key="item.id">
+        <div class="msg user">
+          <div class="role">你</div>
+          <div class="msg-body">
+            <div class="bubble user-bubble">
+              <div class="bubble-tags">
+                <n-tag :bordered="false" size="tiny">
+                  {{ item.mode === 'txt2img' ? '文生图' : '图生图' }}
+                </n-tag>
+                <n-tag
+                  v-if="paramSummary(item)"
+                  :bordered="false"
+                  size="tiny"
+                  type="info"
                 >
-                  <img
-                    :src="refThumbMap[item.id] || item.refPreview"
-                    alt="reference"
-                    title="点击预览"
-                    @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
-                  />
-                </div>
-                <div class="prompt-text">{{ item.prompt }}</div>
+                  {{ paramSummary(item) }}
+                </n-tag>
               </div>
-              <div v-if="item.prompt" class="msg-actions">
-                <CopyIconButton
-                  :active="copiedId === item.id"
-                  tooltip="复制提示词"
-                  @click="copyPrompt(item)"
+              <div
+                v-if="item.mode === 'img2img' && (refThumbMap[item.id] || item.refPreview)"
+                class="ref-thumb"
+              >
+                <img
+                  :src="refThumbMap[item.id] || item.refPreview"
+                  alt="reference"
+                  title="点击预览"
+                  @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
                 />
               </div>
+              <div class="prompt-text">{{ item.prompt }}</div>
+            </div>
+            <div v-if="item.prompt" class="msg-actions">
+              <CopyIconButton
+                :active="copiedId === item.id"
+                tooltip="复制提示词"
+                @click="copyPrompt(item)"
+              />
             </div>
           </div>
+        </div>
 
-          <div
-            :class="['msg', 'assistant', { error: itemStatus(item) === 'error' }]"
-          >
-            <div class="role">AI</div>
-            <div class="msg-body">
-              <div class="bubble ai-bubble">
-                <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
-                  <n-spin size="small"/>
-                  <span>生成中…</span>
-                </div>
-                <div v-else-if="itemStatus(item) === 'error'" class="ai-error">
-                  {{ item.errorMessage || '生成失败' }}
-                </div>
-                <div v-else-if="!item.images?.length" class="ai-error">暂无图片</div>
-                <div v-else class="imgs">
-                  <div
-                    v-for="(img, idx) in item.images"
-                    :key="img.id || idx"
-                    class="img-wrap"
-                  >
-                    <div class="img-actions">
-                      <n-button
-                        aria-label="下载图片"
-                        circle
-                        class="touch-target"
-                        quaternary
-                        size="tiny"
-                        @click.stop="downloadImage(item.id, idx, img, `gen-${item.id}-${idx}.png`)"
-                      >
-                        <template #icon>
-                          <n-icon :component="DownloadOutline" :size="14"/>
-                        </template>
-                      </n-button>
-                      <n-button
-                        aria-label="设为参考图"
-                        circle
-                        class="touch-target"
-                        quaternary
-                        size="tiny"
-                        @click.stop="useAsReference(item, idx, img)"
-                      >
-                        <template #icon>
-                          <n-icon :component="ImageOutline" :size="14"/>
-                        </template>
-                      </n-button>
-                    </div>
-                    <img
-                      :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
-                      alt="generated"
-                      @click="openLightbox(item, idx, img)"
-                    />
-                    <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
-                      临时链接，可能过期
-                    </div>
+        <div
+          :class="['msg', 'assistant', { error: itemStatus(item) === 'error' }]"
+        >
+          <div class="role">AI</div>
+          <div class="msg-body">
+            <div class="bubble ai-bubble">
+              <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
+                <n-spin size="small"/>
+                <span>生成中…</span>
+              </div>
+              <div v-else-if="itemStatus(item) === 'error'" class="ai-error">
+                {{ item.errorMessage || '生成失败' }}
+              </div>
+              <div v-else-if="!item.images?.length" class="ai-error">暂无图片</div>
+              <div v-else class="imgs">
+                <div
+                  v-for="(img, idx) in item.images"
+                  :key="img.id || idx"
+                  class="img-wrap"
+                >
+                  <div class="img-actions">
+                    <n-button
+                      aria-label="更多操作"
+                      circle
+                      class="touch-target"
+                      quaternary
+                      size="tiny"
+                      @click.stop="openCardActions(item, idx, img)"
+                    >
+                      <template #icon>
+                        <n-icon :component="EllipsisHorizontalOutline" :size="16"/>
+                      </template>
+                    </n-button>
+                  </div>
+                  <img
+                    :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
+                    alt="generated"
+                    @click="openLightbox(item, idx, img)"
+                  />
+                  <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
+                    临时链接，可能过期
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </template>
-      </div>
+        </div>
+      </template>
+    </div>
 
+    <template #composer>
       <div class="composer">
         <div
           v-if="isGeneratingCurrent"
@@ -898,168 +936,170 @@ const sendTooltip = computed(() =>
           </div>
         </div>
       </div>
-    </div>
-
-    <n-drawer
-      v-model:show="paramsDrawerShow"
-      :height="drawerHeight"
-      display-directive="show"
-      placement="bottom"
-    >
-      <n-drawer-content closable title="生成参数">
-        <div class="params-drawer">
-          <div class="params-section">
-            <div class="params-label">模式</div>
-            <div class="mode-switch mode-switch-full">
-              <button
-                :class="{ active: mode === 'txt2img' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'txt2img'"
-              >
-                文生图
-              </button>
-              <button
-                :class="{ active: mode === 'img2img' }"
-                class="mode-item"
-                type="button"
-                @click="mode = 'img2img'"
-              >
-                图生图
-              </button>
-            </div>
-          </div>
-
-          <div v-if="mode === 'img2img'" class="params-section">
-            <div class="params-label">参考图</div>
-            <div class="params-upload">
-              <n-upload
-                v-if="!previewUrl"
-                :custom-request="onUpload"
-                :show-file-list="false"
-                accept="image/*"
-              >
-                <n-button block class="params-upload-btn" dashed>
-                  <template #icon>
-                    <n-icon :component="ImageOutline"/>
-                  </template>
-                  从相册选择参考图
-                </n-button>
-              </n-upload>
-              <div v-else class="ref-chip ref-chip-drawer">
-                <img :src="previewUrl" alt="reference"/>
-                <div class="ref-chip-meta">
-                  <span class="ref-name">参考图已选</span>
-                  <span class="ref-hint">可清除后重新选择</span>
-                </div>
-                <n-button
-                  aria-label="清除参考图"
-                  class="touch-target"
-                  quaternary
-                  size="small"
-                  @click="clearUpload"
-                >
-                  <template #icon>
-                    <n-icon :component="TrashOutline"/>
-                  </template>
-                </n-button>
-              </div>
-            </div>
-          </div>
-
-          <div class="params-grid">
-            <div class="params-section">
-              <div class="params-label">数量</div>
-              <n-input-number v-model:value="n" :max="4" :min="1" class="params-control" size="medium"/>
-            </div>
-
-            <div class="params-section">
-              <div class="params-label">质量</div>
-              <n-select
-                v-model:value="quality"
-                :options="qualityOptions"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-            </div>
-
-            <div class="params-section params-section-full">
-              <div class="params-label">{{ isXai ? '比例' : '尺寸' }}</div>
-              <n-select
-                v-if="!isXai"
-                v-model:value="size"
-                :options="sizeOptions"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-              <n-select
-                v-else
-                v-model:value="aspectRatio"
-                :options="aspectOptions"
-                :render-label="renderSelectLabel"
-                class="params-control"
-                size="medium"
-              />
-            </div>
-          </div>
-
-          <n-button
-            block
-            class="params-done"
-            type="primary"
-            @click="paramsDrawerShow = false"
-          >
-            完成
-          </n-button>
-        </div>
-      </n-drawer-content>
-    </n-drawer>
-
-    <n-modal
-      v-model:show="lightboxShow"
-      :bordered="false"
-      :mask-closable="true"
-      :title="lightboxTitle"
-      preset="card"
-      size="huge"
-      style="width: min(920px, 94vw)"
-      @after-leave="closeLightbox"
-    >
-      <div class="lightbox-body" title="点击关闭预览" @click="lightboxShow = false">
-        <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview"/>
-      </div>
-      <template v-if="lightboxPayload" #footer>
-        <div class="lightbox-footer">
-          <n-button
-            class="lightbox-action"
-            secondary
-            size="small"
-            @click="useLightboxAsReference"
-          >
-            设为参考图
-          </n-button>
-          <n-button
-            class="lightbox-action"
-            secondary
-            size="small"
-            @click="downloadImage(
-              lightboxPayload.itemId,
-              lightboxPayload.idx,
-              lightboxPayload.img,
-              lightboxPayload.name,
-            )"
-          >
-            下载原图
-          </n-button>
-        </div>
-      </template>
-    </n-modal>
+    </template>
   </SessionWorkspaceShell>
 
   <n-drawer
+    v-model:show="paramsDrawerShow"
+    :height="drawerHeight"
+    display-directive="show"
+    placement="bottom"
+  >
+    <n-drawer-content closable title="生成参数">
+      <div class="params-drawer">
+        <div class="params-section">
+          <div class="params-label">模式</div>
+          <div class="mode-switch mode-switch-full">
+            <button
+              :class="{ active: mode === 'txt2img' }"
+              class="mode-item"
+              type="button"
+              @click="mode = 'txt2img'"
+            >
+              文生图
+            </button>
+            <button
+              :class="{ active: mode === 'img2img' }"
+              class="mode-item"
+              type="button"
+              @click="mode = 'img2img'"
+            >
+              图生图
+            </button>
+          </div>
+        </div>
+
+        <div v-if="mode === 'img2img'" class="params-section">
+          <div class="params-label">参考图</div>
+          <div class="params-upload">
+            <n-upload
+              v-if="!previewUrl"
+              :custom-request="onUpload"
+              :show-file-list="false"
+              accept="image/*"
+            >
+              <n-button block class="params-upload-btn" dashed>
+                <template #icon>
+                  <n-icon :component="ImageOutline"/>
+                </template>
+                从相册选择参考图
+              </n-button>
+            </n-upload>
+            <div v-else class="ref-chip ref-chip-drawer">
+              <img :src="previewUrl" alt="reference"/>
+              <div class="ref-chip-meta">
+                <span class="ref-name">参考图已选</span>
+                <span class="ref-hint">可清除后重新选择</span>
+              </div>
+              <n-button
+                aria-label="清除参考图"
+                class="touch-target"
+                quaternary
+                size="small"
+                @click="clearUpload"
+              >
+                <template #icon>
+                  <n-icon :component="TrashOutline"/>
+                </template>
+              </n-button>
+            </div>
+          </div>
+        </div>
+
+        <div class="params-grid">
+          <div class="params-section">
+            <div class="params-label">数量</div>
+            <n-input-number v-model:value="n" :max="4" :min="1" class="params-control" size="medium"/>
+          </div>
+
+          <div class="params-section">
+            <div class="params-label">质量</div>
+            <n-select
+              v-model:value="quality"
+              :options="qualityOptions"
+              :render-label="renderSelectLabel"
+              class="params-control"
+              size="medium"
+            />
+          </div>
+
+          <div class="params-section params-section-full">
+            <div class="params-label">{{ isXai ? '比例' : '尺寸' }}</div>
+            <n-select
+              v-if="!isXai"
+              v-model:value="size"
+              :options="sizeOptions"
+              :render-label="renderSelectLabel"
+              class="params-control"
+              size="medium"
+            />
+            <n-select
+              v-else
+              v-model:value="aspectRatio"
+              :options="aspectOptions"
+              :render-label="renderSelectLabel"
+              class="params-control"
+              size="medium"
+            />
+          </div>
+        </div>
+
+        <n-button
+          block
+          class="params-done"
+          type="primary"
+          @click="paramsDrawerShow = false"
+        >
+          完成
+        </n-button>
+      </div>
+    </n-drawer-content>
+  </n-drawer>
+
+  <n-modal
+    v-model:show="lightboxShow"
+    :bordered="false"
+    :mask-closable="true"
+    :title="lightboxTitle"
+    preset="card"
+    size="huge"
+    style="width: min(920px, 94vw)"
+    @after-leave="closeLightbox"
+  >
+    <div class="lightbox-body" title="点击关闭预览" @click="lightboxShow = false">
+      <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview"/>
+    </div>
+    <template v-if="lightboxPayload" #footer>
+      <div class="lightbox-footer">
+        <n-button
+          class="lightbox-action"
+          secondary
+          size="small"
+          @click="useLightboxAsReference"
+        >
+          设为参考图
+        </n-button>
+        <n-button
+          class="lightbox-action"
+          secondary
+          size="small"
+          @click="downloadImage(
+            lightboxPayload.itemId,
+            lightboxPayload.idx,
+            lightboxPayload.img,
+            lightboxPayload.name,
+          )"
+        >
+          下载原图
+        </n-button>
+      </div>
+    </template>
+  </n-modal>
+
+  <n-drawer
     v-model:show="moreShow"
+    class="more-drawer"
+    display-directive="show"
     height="auto"
     placement="bottom"
   >
@@ -1089,6 +1129,31 @@ const sendTooltip = computed(() =>
           清空当前会话
         </n-button>
         <div class="more-hint">接口密钥请到「设置」页管理</div>
+      </div>
+    </n-drawer-content>
+  </n-drawer>
+
+  <n-drawer
+    v-model:show="cardActionShow"
+    class="more-drawer"
+    display-directive="show"
+    height="auto"
+    placement="bottom"
+  >
+    <n-drawer-content closable title="图片操作">
+      <div class="more-sheet">
+        <n-button block secondary @click="onCardDownload">
+          <template #icon>
+            <n-icon :component="DownloadOutline"/>
+          </template>
+          下载
+        </n-button>
+        <n-button block secondary @click="onCardUseAsReference">
+          <template #icon>
+            <n-icon :component="ImageOutline"/>
+          </template>
+          设为参考图
+        </n-button>
       </div>
     </n-drawer-content>
   </n-drawer>

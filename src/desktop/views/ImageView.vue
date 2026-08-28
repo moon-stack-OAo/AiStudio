@@ -10,11 +10,12 @@ import {useImageStore} from '@core/stores/image'
 import {useSettingsStore} from '@core/stores/settings'
 import {editImage, fileToPreview, generateImage} from '@core/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@core/utils/imageCache'
-import {appFetch} from '@core/utils/http'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
-import {isDesktopTauri} from '@core/utils/request'
+import {useScrollToBottom} from '@core/composables/useScrollToBottom'
+import {useClipboardImage} from '@core/composables/useClipboardImage'
+import {downloadMediaBlob, srcToBlob} from '@core/composables/useMediaDownload'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
 const imageStore = useImageStore()
@@ -36,9 +37,8 @@ const imageFile = ref(null)
 const previewUrl = ref('')
 
 const listRef = ref(null)
+const {scrollToBottom, scheduleScrollToBottom} = useScrollToBottom(listRef)
 const abortRef = ref(null)
-/** 当前进行中的生成条目 id，停止时用于回写状态 */
-const pendingItemId = ref('')
 /** 正在生成的会话 id；切换/删除时 abort */
 const generatingSessionId = ref(null)
 const mounted = ref(true)
@@ -101,9 +101,6 @@ const qualityOptionsDesktop = [
   {label: '标准', value: 'medium'},
   {label: '高质量', value: 'high'},
 ]
-
-const sizeOptions = computed(() => sizeOptionsDesktop)
-const qualityOptions = computed(() => qualityOptionsDesktop)
 
 const modeLabel = computed(() => (mode.value === 'img2img' ? '图生图' : '文生图'))
 
@@ -178,38 +175,10 @@ function clearUpload() {
   previewUrl.value = ''
 }
 
-function getClipboardImageFile(clipboardData) {
-  if (!clipboardData) return null
-  const items = clipboardData.items
-  if (items) {
-    for (let i = 0; i < items.length; i += 1) {
-      const item = items[i]
-      if (item.kind === 'file' && String(item.type || '').startsWith('image/')) {
-        const file = item.getAsFile()
-        if (file) return file
-      }
-    }
-  }
-  const files = clipboardData.files
-  if (files?.length) {
-    for (let i = 0; i < files.length; i += 1) {
-      const file = files[i]
-      if (file && String(file.type || '').startsWith('image/')) return file
-    }
-  }
-  return null
-}
-
-async function onPaste(e) {
-  const file = getClipboardImageFile(e.clipboardData)
-  if (!file) return
-  e.preventDefault()
-  try {
-    await setReferenceFromFile(file)
-  } catch {
-    message.error('粘贴参考图失败')
-  }
-}
+const {onPaste} = useClipboardImage(
+  (file) => setReferenceFromFile(file),
+  {onError: () => message.error('粘贴参考图失败')},
+)
 
 function revokeAllObjectUrls() {
   createdObjectUrls.forEach((url) => {
@@ -316,19 +285,6 @@ watch(
     },
 )
 
-function scrollToBottom() {
-  const el = listRef.value
-  if (el) el.scrollTop = el.scrollHeight
-}
-
-function scheduleScrollToBottom() {
-  nextTick(() => {
-    scrollToBottom()
-    window.setTimeout(scrollToBottom, 180)
-    window.setTimeout(scrollToBottom, 360)
-  })
-}
-
 onMounted(() => {
   window.addEventListener('paste', onPaste)
 })
@@ -395,7 +351,6 @@ async function generate() {
     return
   }
 
-  pendingItemId.value = pending.id
   generatingSessionId.value = sessionId
 
   if (mode.value === 'img2img' && previewUrl.value) {
@@ -469,7 +424,6 @@ async function generate() {
     message.error(errText)
   } finally {
     if (abortRef.value === controller) abortRef.value = null
-    if (pendingItemId.value === pending.id) pendingItemId.value = ''
     if (generatingSessionId.value === sessionId) {
       generatingSessionId.value = null
       loading.value = false
@@ -554,77 +508,23 @@ function closeLightbox() {
   lightboxPayload.value = null
 }
 
-async function srcToBlob(src) {
-  if (src.startsWith('blob:')) {
-    const res = await fetch(src)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.blob()
-  }
-  if (src.startsWith('data:')) {
-    const res = await fetch(src)
-    return res.blob()
-  }
-  const res = await appFetch(src)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.blob()
-}
-
-function triggerAnchorDownload(href, name) {
-  const a = document.createElement('a')
-  a.href = href
-  a.download = name
-  a.rel = 'noopener'
-  a.click()
-}
-
 async function downloadImage(itemId, idx, img, name = 'image.png') {
   const src = await resolveImageSrc(itemId, idx, img)
   if (!src) {
     message.warning('图片不可用')
     return
   }
-
-  const mobileLike = !isDesktopTauri()
-
-  try {
-    const blob = await srcToBlob(src)
-    const file = new File([blob], name, {type: blob.type || 'image/png'})
-
-    if (
-      mobileLike &&
-      typeof navigator.canShare === 'function' &&
-      typeof navigator.share === 'function'
-    ) {
-      try {
-        if (navigator.canShare({files: [file]})) {
-          await navigator.share({files: [file], title: name})
-          message.success('已分享图片')
-          return
-        }
-      } catch (err) {
-        if (err?.name === 'AbortError') return
-      }
-    }
-
-    const objectUrl = URL.createObjectURL(blob)
-    try {
-      triggerAnchorDownload(objectUrl, name)
-      if (mobileLike) message.success('已开始下载')
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1500)
-    } catch {
-      window.open(objectUrl, '_blank', 'noopener')
-      message.warning(mobileLike ? '请长按图片保存到相册' : '下载失败，已尝试在新窗口打开')
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
-    }
-  } catch {
-    try {
-      triggerAnchorDownload(src, name)
-      if (mobileLike) message.success('已开始下载')
-    } catch {
-      window.open(src, '_blank', 'noopener')
-      message.warning(mobileLike ? '请长按图片保存到相册' : '下载失败，已尝试在新窗口打开')
-    }
-  }
+  await downloadMediaBlob({
+    src,
+    fileName: name,
+    message,
+    opts: {
+      enableShare: true,
+      shareTitle: name,
+      defaultMime: 'image/png',
+      mobileOpenHint: '请长按图片保存到相册',
+    },
+  })
 }
 
 async function useAsReference(item, idx, img) {
@@ -634,9 +534,7 @@ async function useAsReference(item, idx, img) {
     return
   }
   try {
-    const res = await appFetch(src)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const blob = await res.blob()
+    const blob = await srcToBlob(src)
     const file = new File([blob], `ref-${item.id}-${idx}.png`, {
       type: blob.type || 'image/png',
     })
@@ -882,7 +780,7 @@ const sendTooltip = computed(() =>
                 <span class="opt-label">尺寸</span>
                 <n-select
                   v-model:value="size"
-                  :options="sizeOptions"
+                  :options="sizeOptionsDesktop"
                   :render-label="renderSelectLabel"
                   size="small"
                 />
@@ -900,7 +798,7 @@ const sendTooltip = computed(() =>
                 <span class="opt-label">质量</span>
                 <n-select
                   v-model:value="quality"
-                  :options="qualityOptions"
+                  :options="qualityOptionsDesktop"
                   :render-label="renderSelectLabel"
                   size="small"
                 />
@@ -1065,7 +963,7 @@ const sendTooltip = computed(() =>
               <div class="params-label">质量</div>
               <n-select
                 v-model:value="quality"
-                :options="qualityOptions"
+                :options="qualityOptionsDesktop"
                 :render-label="renderSelectLabel"
                 class="params-control"
                 size="medium"
@@ -1077,7 +975,7 @@ const sendTooltip = computed(() =>
               <n-select
                 v-if="!isXai"
                 v-model:value="size"
-                :options="sizeOptions"
+                :options="sizeOptionsDesktop"
                 :render-label="renderSelectLabel"
                 class="params-control"
                 size="medium"

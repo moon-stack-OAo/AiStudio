@@ -1,8 +1,11 @@
 <script setup>
+defineOptions({name: 'ChatView'})
+
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
-import {AddOutline, EllipsisHorizontalOutline, ListOutline, SendOutline,} from '@vicons/ionicons5'
+import {AddOutline, EllipsisHorizontalOutline, SendOutline,} from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
+import SessionHistoryButton from '@/components/SessionHistoryButton.vue'
 import MarkdownRenderer from '@core/components/MarkdownRenderer.vue'
 import ModelSelect from '@/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
@@ -13,6 +16,7 @@ import {streamChatCompletions, toErrorMessage} from '@core/api/client'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
 import {trimChatMessages} from '@core/utils/chatContext'
 import {renderSelectLabel} from '@core/utils/selectRender'
+import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
 
 const chatStore = useChatStore()
 const settings = useSettingsStore()
@@ -28,6 +32,7 @@ const abortRef = ref(null)
 const streamingSessionId = ref(null)
 const contextHintShown = ref(false)
 const moreShow = ref(false)
+useBackCloseLayer(moreShow)
 
 /** 流式 UI 更新：合并同帧内的 delta 写入与滚动，停止/结束时 flush */
 let streamRaf = 0
@@ -245,6 +250,7 @@ function selectSession(id) {
 function createSession() {
   abortIfLeavingStream(null)
   chatStore.createSession()
+  message.success('已新建会话')
 }
 
 function removeSession(id) {
@@ -294,17 +300,10 @@ onBeforeUnmount(() => {
   >
     <template #toolbar="{ openHistory }">
       <div class="chat-toolbar">
-        <n-button
-          aria-label="打开会话列表"
-          circle
-          class="touch-target"
-          quaternary
+        <SessionHistoryButton
+          :count="chatStore.sessions.length"
           @click="openHistory"
-        >
-          <template #icon>
-            <n-icon :component="ListOutline"/>
-          </template>
-        </n-button>
+        />
 
         <div class="chat-title">{{ sessionTitle }}</div>
 
@@ -406,6 +405,8 @@ onBeforeUnmount(() => {
 
   <n-drawer
     v-model:show="moreShow"
+    class="more-drawer"
+    display-directive="show"
     height="auto"
     placement="bottom"
   >

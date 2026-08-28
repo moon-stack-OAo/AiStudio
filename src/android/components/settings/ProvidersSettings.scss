@@ -1,3 +1,5 @@
+@use './settings-shared.scss';
+
 .providers-page {
   display: flex;
   flex-direction: column;
@@ -12,15 +14,10 @@
   border: 1px solid var(--border-subtle);
 }
 
-.picker-label,
-.field-label,
-.group-title {
+.picker-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-2);
-}
-
-.picker-label {
   margin-bottom: 8px;
 }
 
@@ -50,56 +47,12 @@
   white-space: nowrap;
 }
 
-.group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-
-  & + & {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border-subtle);
-  }
-}
-
-.group-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 2px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.field :deep(.n-input),
-.field :deep(.n-base-selection),
 .picker-card :deep(.n-base-selection) {
   --n-height: var(--touch-min) !important;
 }
 
-.field :deep(.n-input .n-input__input-el),
-.field :deep(.n-base-selection-label),
 .picker-card :deep(.n-base-selection-label) {
   min-height: var(--touch-min);
-}
-
-.inline-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: var(--touch-min);
-}
-
-.hint {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-3);
 }
 
 .action-btn {

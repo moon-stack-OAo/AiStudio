@@ -17,11 +17,12 @@ import {useVideoStore} from '@core/stores/video'
 import {useSettingsStore} from '@core/stores/settings'
 import {fileToPreview} from '@core/api/client'
 import {useVideoGeneration} from '@core/composables/useVideoGeneration'
-import {appFetch} from '@core/utils/http'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
-import {isDesktopTauri} from '@core/utils/request'
+import {useScrollToBottom} from '@core/composables/useScrollToBottom'
+import {useClipboardImage} from '@core/composables/useClipboardImage'
+import {downloadMediaBlob} from '@core/composables/useMediaDownload'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
 const videoStore = useVideoStore()
@@ -42,8 +43,8 @@ const imageFile = ref(null)
 const previewUrl = ref('')
 
 const listRef = ref(null)
+const {scrollToBottom, scheduleScrollToBottom} = useScrollToBottom(listRef)
 const abortRef = ref(null)
-const pendingItemId = ref('')
 const generatingSessionId = ref(null)
 const mounted = ref(true)
 const resumeAbortRef = ref(null)
@@ -172,38 +173,10 @@ function clearUpload() {
   previewUrl.value = ''
 }
 
-function getClipboardImageFile(clipboardData) {
-  if (!clipboardData) return null
-  const items = clipboardData.items
-  if (items) {
-    for (let i = 0; i < items.length; i += 1) {
-      const item = items[i]
-      if (item.kind === 'file' && String(item.type || '').startsWith('image/')) {
-        const file = item.getAsFile()
-        if (file) return file
-      }
-    }
-  }
-  const files = clipboardData.files
-  if (files?.length) {
-    for (let i = 0; i < files.length; i += 1) {
-      const file = files[i]
-      if (file && String(file.type || '').startsWith('image/')) return file
-    }
-  }
-  return null
-}
-
-async function onPaste(e) {
-  const file = getClipboardImageFile(e.clipboardData)
-  if (!file) return
-  e.preventDefault()
-  try {
-    await setReferenceFromFile(file)
-  } catch {
-    message.error('粘贴参考图失败')
-  }
-}
+const {onPaste} = useClipboardImage(
+  (file) => setReferenceFromFile(file),
+  {onError: () => message.error('粘贴参考图失败')},
+)
 
 watch(
   () => timelineItems.value.length,
@@ -228,19 +201,6 @@ watch(isXai, (xai) => {
     seconds.value = 8
   }
 })
-
-function scrollToBottom() {
-  const el = listRef.value
-  if (el) el.scrollTop = el.scrollHeight
-}
-
-function scheduleScrollToBottom() {
-  nextTick(() => {
-    scrollToBottom()
-    window.setTimeout(scrollToBottom, 180)
-    window.setTimeout(scrollToBottom, 360)
-  })
-}
 
 function getProviderById(id) {
   if (!id) return null
@@ -350,7 +310,6 @@ async function generate() {
     if (generatingSessionId.value === sessionId) {
       generatingSessionId.value = null
     }
-    pendingItemId.value = ''
   }
 }
 
@@ -406,55 +365,21 @@ function isVideoBroken(item) {
   return Boolean(videoErrorIds.value[item?.id]) || !item?.videoUrl
 }
 
-function triggerAnchorDownload(href, name) {
-  const a = document.createElement('a')
-  a.href = href
-  a.download = name
-  a.rel = 'noopener'
-  a.click()
-}
-
-async function srcToBlob(src) {
-  if (src.startsWith('blob:') || src.startsWith('data:')) {
-    const res = await fetch(src)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.blob()
-  }
-  const res = await appFetch(src)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.blob()
-}
-
 async function downloadVideo(item, name) {
   const src = item?.videoUrl
   if (!src) {
     message.warning('视频不可用，请重新生成')
     return
   }
-  const fileName = name || `video-${item.id}.mp4`
-  const mobileLike = !isDesktopTauri()
-
-  try {
-    const blob = await srcToBlob(src)
-    const objectUrl = URL.createObjectURL(blob)
-    try {
-      triggerAnchorDownload(objectUrl, fileName)
-      if (mobileLike) message.success('已开始下载')
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1500)
-    } catch {
-      window.open(objectUrl, '_blank', 'noopener')
-      message.warning('下载失败，已尝试在新窗口打开')
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
-    }
-  } catch {
-    try {
-      triggerAnchorDownload(src, fileName)
-      if (mobileLike) message.success('已开始下载')
-    } catch {
-      window.open(src, '_blank', 'noopener')
-      message.warning('下载失败，已尝试在新窗口打开')
-    }
-  }
+  await downloadMediaBlob({
+    src,
+    fileName: name || `video-${item.id}.mp4`,
+    message,
+    opts: {
+      defaultMime: 'video/mp4',
+      mobileOpenHint: '下载失败，已尝试在新窗口打开',
+    },
+  })
 }
 
 async function retryItem(item) {

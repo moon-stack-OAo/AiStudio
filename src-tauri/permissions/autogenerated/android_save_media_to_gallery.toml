@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-save-media-to-gallery"
+description = "Enables the android_save_media_to_gallery command without any pre-configured scope."
+commands.allow = ["android_save_media_to_gallery"]
+
+[[permission]]
+identifier = "deny-android-save-media-to-gallery"
+description = "Denies the android_save_media_to_gallery command without any pre-configured scope."
+commands.deny = ["android_save_media_to_gallery"]
