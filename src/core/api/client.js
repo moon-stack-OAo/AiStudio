@@ -417,8 +417,61 @@ export function supportsImageQuality(provider) {
 /** Agnes APIHub：特殊请求体（禁止顶层 response_format） */
 export function isAgnesProvider(provider) {
   const base = String(provider?.baseUrl || '').toLowerCase()
-  const model = String(provider?.imageModel || '').toLowerCase()
-  return base.includes('agnes-ai.com') || model.includes('agnes-image')
+  const imageModel = String(provider?.imageModel || '').toLowerCase()
+  const videoModel = String(provider?.videoModel || '').toLowerCase()
+  return (
+    base.includes('agnes-ai.com') ||
+    imageModel.includes('agnes-image') ||
+    videoModel.includes('agnes-video') ||
+    videoModel.includes('agnes-')
+  )
+}
+
+/** Agnes Video 2.5：size 档位 */
+const AGNES_VIDEO_SIZES = ['720P', '960P', '2K']
+
+/** Flash 仅支持 720P */
+export function isAgnesVideoFlash(provider) {
+  return String(provider?.videoModel || '')
+    .toLowerCase()
+    .includes('flash')
+}
+
+export function normalizeAgnesVideoSize(size, provider) {
+  if (isAgnesVideoFlash(provider)) return '720P'
+  const raw = String(size || '').trim()
+  if (!raw) return '720P'
+  const upper = raw.toUpperCase()
+  if (AGNES_VIDEO_SIZES.includes(upper)) return upper
+  if (upper === '720' || upper === '720P') return '720P'
+  if (upper === '960' || upper === '960P') return '960P'
+  if (upper === '2K' || upper === '1080P' || upper === '1080') return '2K'
+  // WxH：Agnes 档位按短边/档名，1280x720 对应 720P（勿误判为 960P）
+  const m = raw.toLowerCase().match(/^(\d+)\s*x\s*(\d+)$/)
+  if (m) {
+    const w = Number(m[1])
+    const h = Number(m[2])
+    const long = Math.max(w, h)
+    if (long >= 1800) return '2K'
+    if (long > 1280) return '960P'
+    return '720P'
+  }
+  return '720P'
+}
+
+function clampAgnesVideoSeconds(seconds, duration) {
+  const n = Number(seconds ?? duration)
+  if (!Number.isFinite(n)) return '5'
+  const clamped = Math.min(12, Math.max(4, Math.round(n)))
+  return String(clamped)
+}
+
+/** Agnes 查询接口在网关根路径 /agnesapi，不在 /v1 下 */
+function resolveAgnesApiHubRoot(baseUrl, useCorsProxy) {
+  const resolved = resolveBaseUrl(baseUrl, useCorsProxy)
+  return String(resolved || '')
+    .replace(/\/+$/, '')
+    .replace(/\/v1$/i, '')
 }
 
 const AGNES_SIZES = ['1024x1024', '1024x768', '768x1024']
@@ -635,6 +688,7 @@ function extractVideoUrl(data) {
     data.url ||
     data.video_url ||
     data.videoUrl ||
+    data.metadata?.url ||
     data.video?.url ||
     data.output?.url ||
     data.result?.url ||
@@ -644,12 +698,17 @@ function extractVideoUrl(data) {
 
 function extractVideoJobId(data) {
   if (!data || typeof data !== 'object') return ''
+  // Agnes 2.5：轮询应优先使用 video_id，而非 task id
   return String(
-    data.id ||
+    data.video_id ||
+      data.videoId ||
+      data.id ||
       data.job_id ||
       data.jobId ||
       data.request_id ||
       data.requestId ||
+      data.task_id ||
+      data.taskId ||
       '',
   )
 }
@@ -719,6 +778,52 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
     throw new Error('视频内容为空')
   }
   return URL.createObjectURL(blob)
+}
+
+async function createAgnesVideoJob(provider, options) {
+  const {
+    prompt,
+    mode = 'txt2video',
+    imageFile,
+    seconds,
+    duration,
+    size,
+    aspectRatio,
+    signal,
+  } = options
+  const model = String(provider.videoModel || '').trim()
+  if (!model) throw new Error('请先设置视频模型')
+  if (!prompt?.trim() && mode !== 'img2video') {
+    throw new Error('请输入提示词')
+  }
+  if (mode === 'img2video' && !imageFile) {
+    throw new Error('图生视频需要上传参考图')
+  }
+
+  const client = createApiClient(provider)
+  const body = {
+    model,
+    prompt: prompt || '',
+    seconds: clampAgnesVideoSeconds(seconds, duration),
+    size: normalizeAgnesVideoSize(size, provider),
+    n: 1,
+  }
+  if (aspectRatio) body.aspect_ratio = aspectRatio
+
+  if (mode === 'img2video' && imageFile) {
+    // Agnes 2.5：首帧控制用 keyframe + first_frame（需可访问 URL / dataURL）
+    const compressed = await compressImageFile(imageFile)
+    const dataUrl = await fileToDataUrl(compressed)
+    body.mode = 'keyframe'
+    body.first_frame = dataUrl
+  } else {
+    body.mode = 'text'
+  }
+
+  const { data } = await client.post('/videos', body, { signal })
+  const job = buildNormalizedVideoJob(data)
+  if (!job.jobId) throw new Error('未返回 video_id')
+  return job
 }
 
 async function createOpenAiVideoJob(provider, options) {
@@ -851,7 +956,50 @@ export async function createVideoJob(provider, options = {}) {
   if (provider.provider === 'xai') {
     return createXaiVideoJob(provider, options)
   }
+  if (isAgnesProvider(provider)) {
+    return createAgnesVideoJob(provider, options)
+  }
   return createOpenAiVideoJob(provider, options)
+}
+
+async function getAgnesVideoJob(provider, jobId, options = {}) {
+  const id = String(jobId || '').trim()
+  const { signal } = options
+  const useCorsProxy = Boolean(provider.useCorsProxy)
+  const root = resolveAgnesApiHubRoot(provider.baseUrl, useCorsProxy)
+  const model = String(provider.videoModel || '').trim()
+  const qs = new URLSearchParams({ video_id: id })
+  if (model) qs.set('model_name', model)
+  const url = `${root}/agnesapi?${qs.toString()}`
+
+  let res
+  try {
+    res = await appFetch(url, {
+      method: 'GET',
+      headers: proxyHeaders(
+        provider.baseUrl,
+        useCorsProxy,
+        authHeaders(provider.apiKey),
+      ),
+      signal,
+      connectTimeout: API_TIMEOUT_MS,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError' || signal?.aborted) throw error
+    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+  }
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try {
+      const err = await res.json()
+      message = extractApiErrorMessage(err) || message
+    } catch {
+      // ignore
+    }
+    throw new Error(httpStatusErrorMessage(res.status, message) || message)
+  }
+  const data = await res.json()
+  return buildNormalizedVideoJob(data, id)
 }
 
 /**
@@ -863,6 +1011,11 @@ export async function getVideoJob(provider, jobId, options = {}) {
   if (!provider?.baseUrl) throw new Error('请先填写 Base URL')
 
   const { signal, fetchContent = true } = options
+
+  if (isAgnesProvider(provider)) {
+    return getAgnesVideoJob(provider, id, { signal })
+  }
+
   const client = createApiClient(provider)
   const { data } = await client.get(`/videos/${encodeURIComponent(id)}`, { signal })
   const job = buildNormalizedVideoJob(data, id)
@@ -923,7 +1076,8 @@ export async function generateVideo(provider, options = {}) {
     if (
       created.status === 'completed' &&
       !created.videoUrl &&
-      provider.provider !== 'xai'
+      provider.provider !== 'xai' &&
+      !isAgnesProvider(provider)
     ) {
       return waitVideoJob(provider, created.jobId, { signal, onProgress, intervalMs })
     }

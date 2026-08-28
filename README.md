@@ -1,28 +1,31 @@
 # AI Studio
 
-本地 AI 客户端：多轮对话、文生图 / 图生图、生视频。支持 OpenAI / xAI Grok / 任意 OpenAI 兼容接口。
+本地多模态 AI 客户端：多轮对话、文生图 / 图生图、文生视频 / 图生视频。支持 OpenAI、xAI Grok 与任意 OpenAI 兼容接口。
 
-可在浏览器中以 Web 方式开发，也可通过 Tauri 2 打包为桌面应用（自定义标题栏、系统托盘、应用内自动更新），并可通过 CI 产出可侧载的 Android APK（arm64）。
+可用浏览器进行 Web 开发，也可通过 Tauri 2 打包为 Windows 桌面应用，并由 CI 产出可侧载的 Android APK（arm64）。
 
-当前版本： **0.1.1**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
+当前版本：**1.0.0**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
 
 ## 功能概览
 
-- **对话**：流式 SSE、停止生成、Markdown / 代码高亮、消息复制；会话新建 / 重命名 / 删除 / 清空；可选上下文自动裁剪（最近 N 轮）
-- **生图**：文生图 / 图生图，数量、尺寸或比例、质量；气泡时间线（提示词可复制）、灯箱预览与下载、用作参考图、生成中可停止
-- **生视频**：文生视频 / 图生视频，进度与停止、会话恢复未完成任务、播放与下载
-- **多提供商**：OpenAI、xAI、兼容中转；测试连接、远程拉取模型列表、自定义提供商；密钥仅存本机
-- **持久化**：配置与会话元数据 → `localStorage`；生图二进制 → IndexedDB
-- **设置**：提供商 / 关于与更新；关于页含版本、自动检查更新、跳过版本、清数据、关闭行为、对话上下文
-- **桌面端**：无边框自定义标题栏（含最小化 / 最大化 / 关闭按钮）；系统托盘（显示 / 打开对话 / 设置 / 检查更新 / 退出）；关闭时可退出或最小化到托盘（可记住）
-- **自动更新**：桌面端用 Tauri Updater（检查 → 下载安装 → 重启）；Android 用侧载清单 `android-latest.json`（检查 → 下载 APK → 系统安装器）
+| 模块          | 能力                                                                              |
+|-------------|---------------------------------------------------------------------------------|
+| **对话**      | 流式 SSE、停止生成、Markdown / 代码高亮、复制；撤回用户消息及其后回复；会话新建 / 重命名 / 删除 / 清空；可选上下文裁剪（最近 N 轮） |
+| **生图**      | 文生图 / 图生图；数量、尺寸或比例、质量；气泡时间线、灯箱、下载、用作参考图、粘贴剪贴板图片；生成中可停止                          |
+| **生视频**     | 文生 / 图生；进度与停止、恢复未完成任务、播放与下载（桌面 + Android）                                       |
+| **提供商**     | OpenAI / xAI / 自定义兼容中转；测试连接、拉取模型列表、密钥仅存本机                                       |
+| **设置**      | 提供商 / 关于与更新；主题、清数据、上下文裁剪；桌面关闭行为；双端检查更新                                          |
+| **桌面**      | 无边框标题栏、可缩放窗口、系统托盘、Tauri Updater                                                 |
+| **Android** | 底栏 Tab、安全区、返回键分层关闭、侧载更新、媒体保存到相册                                                 |
+| **持久化**     | 配置与会话 → `localStorage`；生图二进制 → IndexedDB                                        |
 
 ## 技术栈
 
-- Vue 3 + Vite + Naive UI
-- Pinia + Vue Router
-- `localStorage` / IndexedDB 持久化
-- Tauri 2（可选桌面 / Android 打包）
+- **前端**：Vue 3 · Vite · Naive UI · Pinia · Vue Router
+- **桌面 / 移动**：Tauri 2（Windows + Android）
+- **持久化**：`localStorage` / IndexedDB
+
+源码按端拆分：`src/core`（共享业务）· `src/desktop` · `src/android` · `src-tauri`（Rust / 原生插件）。
 
 ## 快速开始（Web）
 
@@ -37,6 +40,8 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+> 访问无 CORS 的中转站时，请在「设置 → 提供商」开启「开发代理」。`tauri:dev` / 打包版无需该开关。
 
 ## 桌面端（Tauri 2）
 
@@ -59,8 +64,8 @@ node -v && npm -v && rustc --version && cargo --version
 npm install
 npm run tauri:dev         # Vite + 原生窗口
 npm run tauri:build       # 默认打包
-npm run tauri:build:win   # Windows：NSIS + MSI（本地完整打包测试）
-npm run tauri:build:check # 检查安装包 / 签名产物是否生成
+npm run tauri:build:win   # Windows：NSIS + MSI
+npm run tauri:build:check # 检查安装包 / 签名产物
 ```
 
 本地完整打包（需签名密钥，与 CI 相同）：
@@ -74,10 +79,9 @@ npm run tauri:build:check
 
 产物目录：`src-tauri/target/release/bundle/`（`nsis/`、`msi/`，以及对应 `.sig`）。
 
-- `tauri:dev` 会先跑桌面前端开发服务，再加载 `http://localhost:5173`
-- `tauri:build` 会先跑 `npm run build:desktop`，再打包 `dist-desktop`
-- Android 前端产物目录为 `dist-android`（`npm run build:android`）
-- 纯 Web 开发仍可用 `npm run dev` / `npm run build`
+- 桌面前端产物：`dist-desktop`（`npm run build:desktop`）
+- Android 前端产物：`dist-android`（`npm run build:android`）
+- 默认窗口约 1280×840，最小约 1024×720，可拖边缩放；无系统边框（自定义标题栏）
 
 ## Android（Tauri 2 Mobile）
 
@@ -94,39 +98,36 @@ npm run tauri:build:check
 | 正式签名        | 配置 `src-tauri/gen/android/keystore.properties`（见 [签名文档](https://v2.tauri.app/distribute/sign/android/)） |
 
 ```bash
-npm run tauri:android:init          # 生成 src-tauri/gen/android（--ci）
-node .github/scripts/sync-android-updater-sources.mjs  # 同步 MainActivity / UpdaterPlugin / MediaSaverPlugin / file_paths / 安装权限（init 后必跑）
-npm run tauri:build:android:debug   # debug 签名 APK（本地调试）
-npm run tauri:build:android         # release APK（需 keystore.properties）
+npm run tauri:android:init
+node .github/scripts/sync-android-updater-sources.mjs   # init 后必跑
+npm run tauri:build:android:debug   # debug APK
+npm run tauri:build:android         # release APK（需 keystore）
 ```
 
-> 本地若无 SDK，`android init` 可能失败； **不影响发版**：CI 会在每次 Release 时按需 `tauri android init --ci`，再同步自定义源码并正式签名。
-> 持久源在 `src-tauri/android/`（`MainActivity.kt`、`UpdaterPlugin.kt`、`MediaSaverPlugin.kt`、`file_paths.xml`）；`gen/android` 被 init 覆盖后需重新同步，否则安全区 / 系统栏 Bridge、侧载更新与相册保存会丢失。
+> 本地若无 SDK，`android init` 可能失败，**不影响发版**（CI 每次 Release 会按需 init）。
+>
+> 持久原生源在 `src-tauri/android/`（`MainActivity.kt`、`UpdaterPlugin.kt`、`MediaSaverPlugin.kt`、`file_paths.xml`）。`gen/android` 被 init 覆盖后必须重新同步，否则安全区 Bridge、侧载更新与相册保存会丢失。
 
 ### 配置摘要
 
 - 应用名：`AI Studio` · Bundle ID：`com.moon.aistudio`
-- 默认窗口：1280×840（固定尺寸，`resizable: false`，最小尺寸等于初始尺寸），无系统边框（自定义标题栏）
-- 桌面 Updater 端点：GitHub Releases `latest.json`
+- 桌面 Updater：GitHub Releases `latest.json`
 - Android 更新清单：GitHub Releases `android-latest.json`（侧载，非官方 Updater 格式）
-- CSP 已放行 `https:` / `http:` 的 `connect-src`
-- 桌面端 API 请求走 `@tauri-apps/plugin-http`（Rust），不依赖上游 CORS
+- 桌面 API 经 `@tauri-apps/plugin-http` 直连上游（无 WebView CORS）
 
 ## 使用说明
 
-1. 「设置 → 提供商」填写 Base URL、API Key，并选择或拉取对话 / 生图模型（可测试连接）
-2. 「对话」「生图」或「生视频」中切换提供商与模型后使用（Enter 发送 / 生成，Shift+Enter 换行；生图 / 生视频生成中可停止）
-3. 「设置 → 关于与更新」可检查并安装更新、调整对话上下文、清除本地数据（桌面另有关闭行为 / 托盘；Android 为侧载 APK 更新）
-
-> 浏览器 `npm run dev` 访问无 CORS 的中转站时，请开启设置里的「开发代理」。`tauri:dev` / 打包版无需该开关。
+1. 「设置 → 提供商」填写 Base URL、API Key，选择或拉取对话 / 生图 / 生视频模型（可测试连接）
+2. 在「对话」「生图」或「生视频」中切换提供商与模型后使用（Enter 发送 / 生成，Shift+Enter 换行；生成中可停止）
+3. 「设置 → 关于与更新」可检查更新、调整上下文、清除本地数据（桌面另有关闭行为 / 托盘；Android 为侧载 APK）
 
 ### 预设示例
 
-| 提供商      | Base URL                    | 对话模型示例     | 生图模型示例                     |
-|----------|-----------------------------|------------|----------------------------|
-| OpenAI   | `https://api.openai.com/v1` | `gpt-4o`   | `gpt-image-1` / `dall-e-3` |
-| xAI Grok | `https://api.x.ai/v1`       | `grok-4.5` | `grok-imagine-image`       |
-| 兼容中转     | 你的中转地址 `/v1`                | 按中转文档      | 按中转文档                      |
+| 提供商      | Base URL                    | 对话示例       | 生图示例                       | 生视频示例                |
+|----------|-----------------------------|------------|----------------------------|----------------------|
+| OpenAI   | `https://api.openai.com/v1` | `gpt-4o`   | `gpt-image-1` / `dall-e-3` | `sora-2`             |
+| xAI Grok | `https://api.x.ai/v1`       | `grok-4.5` | `grok-imagine-image`       | `grok-imagine-video` |
+| 兼容中转     | 你的中转地址 `/v1`                | 按中转文档      | 按中转文档                      | 按中转文档                |
 
 ## 接口约定
 
@@ -135,6 +136,9 @@ npm run tauri:build:android         # release APK（需 keystore.properties）
 - 图生图：
     - OpenAI / 兼容：`multipart/form-data` → `/images/edits`
     - xAI：`application/json` → `/images/edits`
+- 生视频：
+    - OpenAI 兼容：`/videos`（创建任务 + 轮询）
+    - xAI：`/videos/generations`（创建任务 + 轮询）
 
 ## 发版与自动更新
 
@@ -142,9 +146,9 @@ npm run tauri:build:android         # release APK（需 keystore.properties）
 
 1. 从 `CHANGELOG.md` 截取对应版本说明写入 GitHub Release
 2. 构建 Windows 安装包（NSIS / MSI），签名并上传 Updater 产物（含 `latest.json`）
-3. 再构建 Android APK（arm64，正式签名，可侧载安装），上传 APK 与 `android-latest.json` 到 **同一** Release
+3. 构建 Android APK（arm64，正式签名），上传 APK 与 `android-latest.json` 到 **同一** Release
 
-Release 资产通常包含：Windows NSIS / MSI（及 `.sig`）、`latest.json`、Android `.apk`、`android-latest.json`。
+典型资产：Windows NSIS / MSI（及 `.sig`）、`latest.json`、Android `.apk`、`android-latest.json`。
 
 ### 仓库 Secrets
 
@@ -156,10 +160,9 @@ Release 资产通常包含：Windows NSIS / MSI（及 `.sig`）、`latest.json`�
 | `ANDROID_KEY_PASSWORD`               | **必需**（Android）：密钥密码             |
 | `ANDROID_KEY_BASE64`                 | **必需**（Android）：`.jks` 的 base64  |
 
-> CI 会写入 `keystore.properties` 并注入 Gradle release 签名，产出 **可侧载安装的正式签名 APK**。本地 keystore
-> 请自行备份，勿提交仓库。
+> CI 会写入 `keystore.properties` 并注入 Gradle release 签名。本地 keystore 请自行备份，勿提交仓库。
 
-本地生成密钥（勿提交私钥）：
+本地生成 Updater 密钥（勿提交私钥）：
 
 ```bash
 npm run tauri signer generate -w ~/.tauri/ai-studio.key
@@ -168,12 +171,12 @@ npm run tauri signer generate -w ~/.tauri/ai-studio.key
 ### 发版步骤
 
 1. 更新 `CHANGELOG.md`（`## [x.y.z]`）
-2. 同步版本号：`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`
+2. 同步版本号：`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src/core/utils/version.js`
 3. 提交并推送后打 tag：
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 > Updater 按版本号比较；已发布版本请勿覆盖同名 tag，应升版本再发。
@@ -187,9 +190,12 @@ git push origin v0.1.1
 安装 Visual Studio Build Tools，勾选「使用 C++ 的桌面开发」。
 
 **浏览器 `net::ERR_FAILED` / CORS**  
-开发态开启「开发代理」；或直接用 `npm run tauri:dev`（桌面端直连上游，无浏览器 CORS 限制）。
+开发态开启「开发代理」；或直接用 `npm run tauri:dev`（桌面端直连上游）。
 
 **检查更新失败 / 没有更新**
 
 - 桌面：确认已发带签名产物与 `latest.json` 的 Release，且应用版本低于最新版。
-- Android：确认 Release 含 `android-latest.json` 与对应 APK；首次安装需在系统设置中允许本应用「安装未知应用」。
+- Android：确认 Release 含 `android-latest.json` 与对应 APK；首次安装需允许「安装未知应用」。
+
+**Android init 后更新 / 相册 / 安全区异常**  
+重新执行：`node .github/scripts/sync-android-updater-sources.mjs`。
