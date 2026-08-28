@@ -14,7 +14,7 @@
 - **多提供商**：OpenAI、xAI、兼容中转；测试连接、远程拉取模型列表、自定义提供商；密钥仅存本机
 - **持久化**：配置与会话元数据 → `localStorage`；生图二进制 → IndexedDB
 - **设置**：提供商 / 关于与更新；关于页含版本、自动检查更新、跳过版本、清数据、关闭行为、对话上下文
-- **桌面端**：无边框自定义标题栏（含最小化 / 最大化 / 关闭按钮；当前窗口 `resizable: false`，最大化可能无效或仅状态切换）；系统托盘（显示 / 打开对话 / 设置 / 检查更新 / 退出）；关闭时可退出或最小化到托盘（可记住）
+- **桌面端**：无边框自定义标题栏（含最小化 / 最大化 / 关闭按钮）；系统托盘（显示 / 打开对话 / 设置 / 检查更新 / 退出）；关闭时可退出或最小化到托盘（可记住）
 - **自动更新**：桌面端用 Tauri Updater（检查 → 下载安装 → 重启）；Android 用侧载清单 `android-latest.json`（检查 → 下载 APK → 系统安装器）
 
 ## 技术栈
@@ -42,12 +42,12 @@ npm run preview
 
 ### 环境要求
 
-| 依赖             | 说明                                                 |
-|------------------|------------------------------------------------------|
-| Node.js          | 建议 18+                                             |
-| Rust             | [rustup](https://rustup.rs/)                         |
-| Windows WebView2 | Win10/11 通常已预装                                  |
-| MSVC 构建工具    | Visual Studio Build Tools（「使用 C++ 的桌面开发」） |
+| 依赖               | 说明                                        |
+|------------------|-------------------------------------------|
+| Node.js          | 建议 18+                                    |
+| Rust             | [rustup](https://rustup.rs/)              |
+| Windows WebView2 | Win10/11 通常已预装                            |
+| MSVC 构建工具        | Visual Studio Build Tools（「使用 C++ 的桌面开发」） |
 
 ```bash
 node -v && npm -v && rustc --version && cargo --version
@@ -85,13 +85,13 @@ npm run tauri:build:check
 
 ### 本机环境（可选）
 
-| 依赖        | 说明                                                                                                             |
-|-------------|------------------------------------------------------------------------------------------------------------------|
-| JDK 17+     | Temurin / Oracle 等                                                                                              |
-| Android SDK | `platforms;android-34`、Build-Tools、NDK 27.x                                                                    |
-| 环境变量    | `ANDROID_HOME`、`NDK_HOME`                                                                                       |
-| Rust target | `rustup target add aarch64-linux-android`                                                                        |
-| 正式签名    | 配置 `src-tauri/gen/android/keystore.properties`（见 [签名文档](https://v2.tauri.app/distribute/sign/android/)） |
+| 依赖          | 说明                                                                                                      |
+|-------------|---------------------------------------------------------------------------------------------------------|
+| JDK 17+     | Temurin / Oracle 等                                                                                      |
+| Android SDK | `platforms;android-34`、Build-Tools、NDK 27.x                                                             |
+| 环境变量        | `ANDROID_HOME`、`NDK_HOME`                                                                               |
+| Rust target | `rustup target add aarch64-linux-android`                                                               |
+| 正式签名        | 配置 `src-tauri/gen/android/keystore.properties`（见 [签名文档](https://v2.tauri.app/distribute/sign/android/)） |
 
 ```bash
 npm run tauri:android:init          # 生成 src-tauri/gen/android（--ci）
@@ -122,11 +122,11 @@ npm run tauri:build:android         # release APK（需 keystore.properties）
 
 ### 预设示例
 
-| 提供商   | Base URL                    | 对话模型示例 | 生图模型示例               |
-|----------|-----------------------------|--------------|----------------------------|
-| OpenAI   | `https://api.openai.com/v1` | `gpt-4o`     | `gpt-image-1` / `dall-e-3` |
-| xAI Grok | `https://api.x.ai/v1`       | `grok-4.5`   | `grok-imagine-image`       |
-| 兼容中转 | 你的中转地址 `/v1`          | 按中转文档   | 按中转文档                 |
+| 提供商      | Base URL                    | 对话模型示例     | 生图模型示例                     |
+|----------|-----------------------------|------------|----------------------------|
+| OpenAI   | `https://api.openai.com/v1` | `gpt-4o`   | `gpt-image-1` / `dall-e-3` |
+| xAI Grok | `https://api.x.ai/v1`       | `grok-4.5` | `grok-imagine-image`       |
+| 兼容中转     | 你的中转地址 `/v1`                | 按中转文档      | 按中转文档                      |
 
 ## 接口约定
 
@@ -148,13 +148,13 @@ Release 资产通常包含：Windows NSIS / MSI（及 `.sig`）、`latest.json`�
 
 ### 仓库 Secrets
 
-| Secret                               | 说明                                          |
-|--------------------------------------|-----------------------------------------------|
+| Secret                               | 说明                               |
+|--------------------------------------|----------------------------------|
 | `TAURI_SIGNING_PRIVATE_KEY`          | **必需**（Windows Updater）：更新签名私钥全文 |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **必需**（Windows Updater）：私钥密码         |
-| `ANDROID_KEY_ALIAS`                  | **必需**（Android）：Keystore alias           |
-| `ANDROID_KEY_PASSWORD`               | **必需**（Android）：密钥密码                 |
-| `ANDROID_KEY_BASE64`                 | **必需**（Android）：`.jks` 的 base64         |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **必需**（Windows Updater）：私钥密码     |
+| `ANDROID_KEY_ALIAS`                  | **必需**（Android）：Keystore alias   |
+| `ANDROID_KEY_PASSWORD`               | **必需**（Android）：密钥密码             |
+| `ANDROID_KEY_BASE64`                 | **必需**（Android）：`.jks` 的 base64  |
 
 > CI 会写入 `keystore.properties` 并注入 Gradle release 签名，产出 **可侧载安装的正式签名 APK**。本地 keystore
 > 请自行备份，勿提交仓库。
