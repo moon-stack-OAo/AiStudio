@@ -1,13 +1,22 @@
 @use '@/styles/generate-workspace.scss';
 
+.msg.assistant .ai-bubble {
+  width: 80%;
+  max-width: 80%;
+  padding: 0;
+  overflow: hidden;
+}
+
 .ai-loading {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 4px;
+  padding: 12px;
   color: var(--text-3);
   font-size: 13px;
   min-width: 200px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .loading-meta {
@@ -33,16 +42,18 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
-  padding: 4px 2px;
+  padding: 12px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .video-wrap {
   position: relative;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   overflow: hidden;
   background: var(--color-bg);
-  border: 1px solid var(--border-subtle);
-  width: min(100%, 480px);
+  border: none;
+  width: 100%;
   max-width: 100%;
 
   .video-actions {
@@ -94,16 +105,8 @@
   color: var(--text-4);
 }
 
-@media (max-width: 1279.98px) {
-  .video-wrap {
-    width: min(100%, 420px);
-  }
-}
-
 @media (max-width: 767.98px) {
   .video-wrap {
-    width: 100%;
-
     .video-actions {
       top: 6px;
       right: 6px;
