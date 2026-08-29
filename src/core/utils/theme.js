@@ -76,7 +76,9 @@ function syncAndroidSystemBars(theme) {
 
 export async function syncNativeBackground(theme) {
   const color = theme === 'light' ? THEME_BG.light : THEME_BG.dark
-  document.documentElement.style.backgroundColor = color
+  const root = document.documentElement
+  root.style.backgroundColor = color
+  root.style.colorScheme = theme === 'light' ? 'light' : 'dark'
   if (document.body) document.body.style.backgroundColor = color
   try {
     await getCurrentWindow().setBackgroundColor(color)
