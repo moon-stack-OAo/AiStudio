@@ -50,6 +50,9 @@ const emit = defineEmits(['update:prompt', 'send', 'stop', 'focus', 'keydown'])
       <!-- 参考图 / ref-chip -->
       <slot name="reference" />
 
+      <!-- 提示词辅助（示例 chips / 随机等） -->
+      <slot name="prompt-assist" />
+
       <div class="composer-input">
         <n-input
           :value="prompt"

@@ -1,7 +1,7 @@
 <script setup>
 defineOptions({name: 'VideoView'})
 
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {
   DownloadOutline,
   ImageOutline,
@@ -12,6 +12,9 @@ import {
 } from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
+import PromptAssist from '@core/components/PromptAssist.vue'
+import PromptEnhanceButton from '@core/components/PromptEnhanceButton.vue'
+import PromptBuilderCollapse from '@core/components/PromptBuilderCollapse.vue'
 import GenerateTimelineUserBubble from '@/components/generate/GenerateTimelineUserBubble.vue'
 import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue'
 import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'
@@ -20,6 +23,7 @@ import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {useVideoSession} from '@core/composables/useVideoSession'
 import {downloadMediaBlob} from '@core/composables/useMediaDownload'
 import {useManualDropdown} from '@/composables/useManualDropdown'
+import {getPromptPlaceholder} from '@core/prompts'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
 const {isMobile, isCompact} = useBreakpoints()
@@ -70,6 +74,10 @@ const {
 
 const paramsDrawerShow = ref(false)
 
+const promptPlaceholder = computed(() =>
+  getPromptPlaceholder('video', mode.value, {isMobile: isMobile.value}),
+)
+
 const {
   show: ctxShow,
   x: ctxX,
@@ -80,6 +88,16 @@ const {
   handleUpdateShow: onCtxUpdateShow,
   handleClickOutside: onCtxClickOutside,
 } = useManualDropdown()
+
+function onApplyPrompt(text) {
+  prompt.value = text
+}
+
+function onRefillPrompt(item) {
+  const text = String(item?.prompt || '')
+  if (!text.trim()) return
+  prompt.value = text
+}
 
 function onKeydown(e) {
   if (isMobile.value) return
@@ -92,9 +110,17 @@ function onKeydown(e) {
 
 function onUserBubbleContextMenu(e, item) {
   if (!String(item?.prompt || '').trim()) return
-  openCtxMenu(e, [{label: '复制提示词', key: 'copy'}], (key) => {
-    if (key === 'copy') copyPrompt(item)
-  })
+  openCtxMenu(
+    e,
+    [
+      {label: '复制提示词', key: 'copy'},
+      {label: '填回编辑', key: 'refill'},
+    ],
+    (key) => {
+      if (key === 'copy') copyPrompt(item)
+      else if (key === 'refill') onRefillPrompt(item)
+    },
+  )
 }
 
 async function downloadVideo(item, name) {
@@ -186,7 +212,9 @@ function onAiBubbleContextMenu(e, item) {
               item.mode === 'img2video' ? refThumbMap[item.id] || item.refPreview || null : null
             "
             :copied="copiedId === item.id"
+            show-refill
             @copy="copyPrompt(item)"
+            @refill="onRefillPrompt(item)"
             @contextmenu="onUserBubbleContextMenu($event, item)"
           />
 
@@ -280,9 +308,7 @@ function onAiBubbleContextMenu(e, item) {
         :disabled="!canGenerate"
         :show-hint="!isMobile || isGeneratingCurrent"
         :hint-critical="isMobile && isGeneratingCurrent"
-        :placeholder="
-          isMobile ? '描述画面与运动…' : '描述你想生成的视频，Enter 生成，Shift+Enter 换行'
-        "
+        :placeholder="promptPlaceholder"
         :send-icon="SparklesOutline"
         :send-tooltip="sendTooltip"
         @send="generate"
@@ -290,6 +316,34 @@ function onAiBubbleContextMenu(e, item) {
         @focus="onComposerFocus"
         @keydown="onKeydown"
       >
+        <template #prompt-assist>
+          <div class="prompt-assist-stack">
+            <div class="prompt-assist-row">
+              <PromptAssist
+                domain="video"
+                :mode="mode"
+                :disabled="isGeneratingCurrent"
+                :compact="isMobile"
+                @apply="onApplyPrompt"
+              />
+              <PromptEnhanceButton
+                domain="video"
+                :mode="mode"
+                :text="prompt"
+                :disabled="isGeneratingCurrent"
+                :compact="isMobile"
+                @apply="onApplyPrompt"
+              />
+            </div>
+            <PromptBuilderCollapse
+              domain="video"
+              :mode="mode"
+              :disabled="isGeneratingCurrent"
+              :compact="isMobile"
+              @apply="onApplyPrompt"
+            />
+          </div>
+        </template>
         <template #toolbar>
           <div class="mode-switch">
             <button

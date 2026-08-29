@@ -1,11 +1,13 @@
 <script setup>
 defineOptions({name: 'ImageView'})
 
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {
   AddOutline,
+  CreateOutline,
   DownloadOutline,
   EllipsisHorizontalOutline,
+  GridOutline,
   ImageOutline,
   OptionsOutline,
   SparklesOutline,
@@ -16,7 +18,12 @@ import SessionHistoryButton from '@/components/SessionHistoryButton.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@core/components/ComposerSendStop.vue'
+import PromptAssist from '@core/components/PromptAssist.vue'
+import PromptEnhanceButton from '@core/components/PromptEnhanceButton.vue'
+import PromptBuilderPanel from '@core/components/PromptBuilderPanel.vue'
 import {useImageSession} from '@core/composables/useImageSession'
+import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
+import {getPromptPlaceholder} from '@core/prompts'
 import {appFetch} from '@core/utils/http'
 import {isAndroidTauri, isDesktopTauri} from '@core/utils/request'
 import {trySaveToAndroidGallery} from '@core/utils/androidMediaSave'
@@ -78,14 +85,37 @@ const {
   onComposerFocus,
 } = useImageSession({notifyCreateSession: true})
 
+const {tooltipTrigger} = useTooltipTrigger()
+
 const paramsDrawerShow = ref(false)
+const builderDrawerShow = ref(false)
 const moreShow = ref(false)
 const cardActionShow = ref(false)
 const cardActionTarget = ref(null)
 useBackCloseLayer(lightboxShow)
 useBackCloseLayer(paramsDrawerShow)
+useBackCloseLayer(builderDrawerShow)
 useBackCloseLayer(moreShow)
 useBackCloseLayer(cardActionShow)
+
+const promptPlaceholder = computed(() =>
+  getPromptPlaceholder('image', mode.value, {isMobile: true}),
+)
+
+function onApplyPrompt(text) {
+  prompt.value = text
+}
+
+function onApplyFromBuilder(text) {
+  prompt.value = text
+  builderDrawerShow.value = false
+}
+
+function onRefillPrompt(item) {
+  const text = String(item?.prompt || '')
+  if (!text.trim()) return
+  prompt.value = text
+}
 
 function clearItems() {
   moreShow.value = false
@@ -287,6 +317,23 @@ async function onCardUseAsReference() {
                 tooltip="复制提示词"
                 @click="copyPrompt(item)"
               />
+              <n-tooltip :trigger="tooltipTrigger" placement="bottom">
+                <template #trigger>
+                  <n-button
+                    aria-label="填回编辑"
+                    circle
+                    class="touch-target"
+                    quaternary
+                    size="tiny"
+                    @click="onRefillPrompt(item)"
+                  >
+                    <template #icon>
+                      <n-icon :component="CreateOutline" :size="14" />
+                    </template>
+                  </n-button>
+                </template>
+                填回编辑
+              </n-tooltip>
             </div>
           </div>
         </div>
@@ -355,31 +402,77 @@ async function onCardUseAsReference() {
             <span class="ref-name">参考图已选，点击可更换</span>
           </button>
 
+          <PromptAssist
+            domain="image"
+            :mode="mode"
+            :disabled="isGeneratingCurrent"
+            compact
+            @apply="onApplyPrompt"
+          />
+
           <div class="composer-input">
             <n-input
               v-model:value="prompt"
               :autosize="{minRows: 1, maxRows: 4}"
               :disabled="isGeneratingCurrent"
               class="composer-field"
-              placeholder="描述画面…"
+              :placeholder="promptPlaceholder"
               type="textarea"
               @focus="onComposerFocus"
             />
-            <div class="composer-actions">
-              <ComposerSendStop
-                :disabled="!canGenerate"
-                :loading="isGeneratingCurrent"
-                :send-icon="SparklesOutline"
-                :send-tooltip="sendTooltip"
-                @send="generate"
-                @stop="stopGenerate"
-              />
-            </div>
+          </div>
+
+          <div class="prompt-tools">
+            <PromptEnhanceButton
+              domain="image"
+              :mode="mode"
+              :text="prompt"
+              :disabled="isGeneratingCurrent"
+              compact
+              @apply="onApplyPrompt"
+            />
+            <button
+              class="builder-entry"
+              type="button"
+              :disabled="isGeneratingCurrent"
+              @click="builderDrawerShow = true"
+            >
+              <n-icon :component="GridOutline" :size="14" class="builder-entry-icon" />
+              <span>结构化</span>
+            </button>
+            <div class="prompt-tools-spacer" />
+            <ComposerSendStop
+              :disabled="!canGenerate"
+              :loading="isGeneratingCurrent"
+              :send-icon="SparklesOutline"
+              :send-tooltip="sendTooltip"
+              @send="generate"
+              @stop="stopGenerate"
+            />
           </div>
         </div>
       </div>
     </template>
   </SessionWorkspaceShell>
+
+  <n-drawer
+    v-model:show="builderDrawerShow"
+    :height="drawerHeight"
+    display-directive="show"
+    placement="bottom"
+  >
+    <n-drawer-content closable title="结构化提示">
+      <div class="params-drawer">
+        <PromptBuilderPanel
+          domain="image"
+          :mode="mode"
+          :disabled="isGeneratingCurrent"
+          compact
+          @apply="onApplyFromBuilder"
+        />
+      </div>
+    </n-drawer-content>
+  </n-drawer>
 
   <n-drawer
     v-model:show="paramsDrawerShow"

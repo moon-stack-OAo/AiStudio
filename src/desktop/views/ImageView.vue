@@ -1,7 +1,7 @@
 <script setup>
 defineOptions({name: 'ImageView'})
 
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {
   DownloadOutline,
   ImageOutline,
@@ -11,6 +11,9 @@ import {
 } from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
+import PromptAssist from '@core/components/PromptAssist.vue'
+import PromptEnhanceButton from '@core/components/PromptEnhanceButton.vue'
+import PromptBuilderCollapse from '@core/components/PromptBuilderCollapse.vue'
 import GenerateTimelineUserBubble from '@/components/generate/GenerateTimelineUserBubble.vue'
 import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue'
 import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'
@@ -19,6 +22,7 @@ import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {useImageSession} from '@core/composables/useImageSession'
 import {downloadMediaBlob} from '@core/composables/useMediaDownload'
 import {useManualDropdown} from '@/composables/useManualDropdown'
+import {getPromptPlaceholder} from '@core/prompts'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
 const {isMobile, isCompact} = useBreakpoints()
@@ -80,6 +84,10 @@ const {
 
 const paramsDrawerShow = ref(false)
 
+const promptPlaceholder = computed(() =>
+  getPromptPlaceholder('image', mode.value, {isMobile: isMobile.value}),
+)
+
 const {
   show: ctxShow,
   x: ctxX,
@@ -90,6 +98,16 @@ const {
   handleUpdateShow: onCtxUpdateShow,
   handleClickOutside: onCtxClickOutside,
 } = useManualDropdown()
+
+function onApplyPrompt(text) {
+  prompt.value = text
+}
+
+function onRefillPrompt(item) {
+  const text = String(item?.prompt || '')
+  if (!text.trim()) return
+  prompt.value = text
+}
 
 function onKeydown(e) {
   if (isMobile.value) return
@@ -121,9 +139,17 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
 
 function onUserBubbleContextMenu(e, item) {
   if (!String(item?.prompt || '').trim()) return
-  openCtxMenu(e, [{label: '复制提示词', key: 'copy'}], (key) => {
-    if (key === 'copy') copyPrompt(item)
-  })
+  openCtxMenu(
+    e,
+    [
+      {label: '复制提示词', key: 'copy'},
+      {label: '填回编辑', key: 'refill'},
+    ],
+    (key) => {
+      if (key === 'copy') copyPrompt(item)
+      else if (key === 'refill') onRefillPrompt(item)
+    },
+  )
 }
 
 function onAiBubbleContextMenu(e, item) {
@@ -208,7 +234,9 @@ function onAiBubbleContextMenu(e, item) {
             "
             ref-previewable
             :copied="copiedId === item.id"
+            show-refill
             @copy="copyPrompt(item)"
+            @refill="onRefillPrompt(item)"
             @preview-ref="openRefLightbox"
             @contextmenu="onUserBubbleContextMenu($event, item)"
           />
@@ -288,7 +316,7 @@ function onAiBubbleContextMenu(e, item) {
         :disabled="!canGenerate"
         :show-hint="!isMobile || isGeneratingCurrent"
         :hint-critical="isMobile && isGeneratingCurrent"
-        :placeholder="isMobile ? '描述画面…' : '描述你想生成的画面，Enter 生成，Shift+Enter 换行'"
+        :placeholder="promptPlaceholder"
         :send-icon="SparklesOutline"
         :send-tooltip="sendTooltip"
         @send="generate"
@@ -296,6 +324,34 @@ function onAiBubbleContextMenu(e, item) {
         @focus="onComposerFocus"
         @keydown="onKeydown"
       >
+        <template #prompt-assist>
+          <div class="prompt-assist-stack">
+            <div class="prompt-assist-row">
+              <PromptAssist
+                domain="image"
+                :mode="mode"
+                :disabled="isGeneratingCurrent"
+                :compact="isMobile"
+                @apply="onApplyPrompt"
+              />
+              <PromptEnhanceButton
+                domain="image"
+                :mode="mode"
+                :text="prompt"
+                :disabled="isGeneratingCurrent"
+                :compact="isMobile"
+                @apply="onApplyPrompt"
+              />
+            </div>
+            <PromptBuilderCollapse
+              domain="image"
+              :mode="mode"
+              :disabled="isGeneratingCurrent"
+              :compact="isMobile"
+              @apply="onApplyPrompt"
+            />
+          </div>
+        </template>
         <template #toolbar>
           <div class="mode-switch">
             <button

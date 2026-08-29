@@ -1,5 +1,7 @@
 <script setup>
+import {CreateOutline} from '@vicons/ionicons5'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
+import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 
 defineProps({
   /** 模式标签，如「文生图」「图生视频」 */
@@ -14,9 +16,13 @@ defineProps({
   refPreviewable: {type: Boolean, default: false},
   /** 复制按钮激活态（已复制反馈） */
   copied: {type: Boolean, default: false},
+  /** 是否显示「填回编辑」 */
+  showRefill: {type: Boolean, default: false},
 })
 
-defineEmits(['copy', 'preview-ref', 'contextmenu'])
+defineEmits(['copy', 'preview-ref', 'contextmenu', 'refill'])
+
+const {tooltipTrigger} = useTooltipTrigger()
 </script>
 
 <template>
@@ -45,6 +51,23 @@ defineEmits(['copy', 'preview-ref', 'contextmenu'])
       </div>
       <div v-if="prompt" class="msg-actions">
         <CopyIconButton :active="copied" tooltip="复制提示词" @click="$emit('copy')" />
+        <n-tooltip v-if="showRefill" :trigger="tooltipTrigger" placement="bottom">
+          <template #trigger>
+            <n-button
+              aria-label="填回编辑"
+              circle
+              class="touch-target"
+              quaternary
+              size="tiny"
+              @click="$emit('refill')"
+            >
+              <template #icon>
+                <n-icon :component="CreateOutline" :size="14" />
+              </template>
+            </n-button>
+          </template>
+          填回编辑
+        </n-tooltip>
       </div>
     </div>
   </div>
