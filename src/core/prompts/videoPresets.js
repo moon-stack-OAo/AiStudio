@@ -74,7 +74,8 @@ export const VIDEO_PROMPT_PRESETS = [
     id: 'v-i2v-orbit',
     label: '环绕运镜',
     mode: 'img2video',
-    prompt: '基于参考图，镜头绕主体缓慢环绕半圈，视角平滑切换，主体位置居中稳定，光影随角度轻微变化',
+    prompt:
+      '基于参考图，镜头绕主体缓慢环绕半圈，视角平滑切换，主体位置居中稳定，光影随角度轻微变化',
     tags: ['环绕', '镜头运动'],
   },
   {
@@ -102,7 +103,8 @@ export const VIDEO_PROMPT_PRESETS = [
     id: 'v-i2v-bokeh',
     label: '景深呼吸',
     mode: 'img2video',
-    prompt: '基于参考图，焦点在主体与背景之间缓慢呼吸切换，浅景深虚实交替，画面几乎无位移，柔和电影感',
+    prompt:
+      '基于参考图，焦点在主体与背景之间缓慢呼吸切换，浅景深虚实交替，画面几乎无位移，柔和电影感',
     tags: ['景深', '焦点'],
   },
   {

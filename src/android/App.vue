@@ -49,11 +49,7 @@ const tabs = [
 const activeKey = computed(() => String(route.name || 'chat'))
 const showUpdateBadge = computed(() => settings.hasAvailableUpdate)
 
-watch(
-  resolvedTheme,
-  (theme) => applyDocumentTheme(theme),
-  {immediate: true},
-)
+watch(resolvedTheme, (theme) => applyDocumentTheme(theme), {immediate: true})
 
 watch(
   () => settings.theme,

@@ -26,7 +26,9 @@ function syncFromSession() {
   useCustomSystem.value =
     Object.prototype.hasOwnProperty.call(ov, 'systemPrompt') && ov.systemPrompt != null
   draftTemp.value = useCustomTemp.value ? Number(ov.temperature) : settings.chatTemperature
-  draftSystem.value = useCustomSystem.value ? String(ov.systemPrompt ?? '') : settings.chatSystemPrompt
+  draftSystem.value = useCustomSystem.value
+    ? String(ov.systemPrompt ?? '')
+    : settings.chatSystemPrompt
 }
 
 watch(
@@ -53,7 +55,9 @@ defineExpose({save, syncFromSession})
       <div class="ov-row">
         <n-switch :value="useCustomTemp" size="small" @update:value="(v) => (useCustomTemp = v)" />
         <span class="ov-label">自定义 Temperature</span>
-        <span v-if="!useCustomTemp" class="ov-meta">全局 {{ settings.chatTemperature.toFixed(1) }}</span>
+        <span v-if="!useCustomTemp" class="ov-meta"
+          >全局 {{ settings.chatTemperature.toFixed(1) }}</span
+        >
         <span v-else class="ov-meta">{{ Number(draftTemp).toFixed(1) }}</span>
       </div>
       <n-slider

@@ -96,7 +96,9 @@ function onExport() {
   const data = buildSettingsExport(settings, {includeSecrets: includeSecretsOnExport.value})
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
   downloadJson(`ai-studio-settings-${stamp}.json`, data)
-  message.success(includeSecretsOnExport.value ? '已导出（含 API Key）' : '已导出（API Key 已脱敏）')
+  message.success(
+    includeSecretsOnExport.value ? '已导出（含 API Key）' : '已导出（API Key 已脱敏）',
+  )
 }
 
 function onImportClick() {
@@ -207,7 +209,8 @@ async function onImportFile(e) {
           />
         </div>
         <div class="hint context-extra-hint">
-          开启后，在按轮裁剪后再按粗估字符从最旧轮丢弃（非精确 Token）。建议档：16000 / 32000 / 64000。
+          开启后，在按轮裁剪后再按粗估字符从最旧轮丢弃（非精确 Token）。建议档：16000 / 32000 /
+          64000。
         </div>
       </div>
 
@@ -289,10 +292,7 @@ async function onImportFile(e) {
         </div>
         <div class="data-row">
           <div class="inline-row">
-            <n-switch
-              :value="includeSecretsOnExport"
-              @update:value="setIncludeSecretsOnExport"
-            />
+            <n-switch :value="includeSecretsOnExport" @update:value="setIncludeSecretsOnExport" />
             <span class="field-label tight">导出包含 API Key</span>
           </div>
           <n-button block secondary @click="onExport">导出</n-button>

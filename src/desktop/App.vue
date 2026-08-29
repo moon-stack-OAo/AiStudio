@@ -85,11 +85,7 @@ const menuOptions = computed(() => {
 const activeKey = computed(() => String(route.name || 'chat'))
 const collapsed = computed(() => isCompact.value && !isMobile.value)
 
-watch(
-  resolvedTheme,
-  (theme) => applyDocumentTheme(theme),
-  {immediate: true},
-)
+watch(resolvedTheme, (theme) => applyDocumentTheme(theme), {immediate: true})
 
 watch(
   () => settings.theme,

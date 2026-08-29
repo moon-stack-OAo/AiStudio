@@ -1,47 +1,46 @@
 <!doctype html>
 <html lang="zh-CN" style="background-color: #0f1115">
-<head>
-    <meta charset="UTF-8"/>
-    <link href="/favicon.svg" rel="icon" type="image/svg+xml"/>
-    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
-    <meta name="color-scheme" content="light dark"/>
+  <head>
+    <meta charset="UTF-8" />
+    <link href="/favicon.svg" rel="icon" type="image/svg+xml" />
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
+    <meta name="color-scheme" content="light dark" />
     <title>AI Studio - 对话 / 生图 / 生视频</title>
     <!-- 尽早按本地 theme 设背景，减轻浅色用户冷启动闪深色 -->
     <script>
-        ;(function () {
-            var BG = {dark: '#0f1115', light: '#f4f6fb'}
-            var theme = 'dark'
-            try {
-                var raw = localStorage.getItem('ai_studio_settings')
-                if (raw) {
-                    var parsed = JSON.parse(raw)
-                    if (parsed) {
-                        if (parsed.theme === 'light') theme = 'light'
-                        else if (parsed.theme === 'dark') theme = 'dark'
-                        else if (parsed.theme === 'system') {
-                            theme =
-                                window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-                                    ? 'dark'
-                                    : 'light'
-                        }
-                    }
-                }
-            } catch (e) {
+      ;(function () {
+        var BG = {dark: '#0f1115', light: '#f4f6fb'}
+        var theme = 'dark'
+        try {
+          var raw = localStorage.getItem('ai_studio_settings')
+          if (raw) {
+            var parsed = JSON.parse(raw)
+            if (parsed) {
+              if (parsed.theme === 'light') theme = 'light'
+              else if (parsed.theme === 'dark') theme = 'dark'
+              else if (parsed.theme === 'system') {
+                theme =
+                  window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                    ? 'dark'
+                    : 'light'
+              }
             }
-            var color = BG[theme]
-            var root = document.documentElement
-            root.dataset.theme = theme
-            root.style.backgroundColor = color
-            root.style.colorScheme = theme
-            if (document.body) document.body.style.backgroundColor = color
-            document.addEventListener('DOMContentLoaded', function () {
-                if (document.body) document.body.style.backgroundColor = color
-            })
-        })()
+          }
+        } catch (e) {}
+        var color = BG[theme]
+        var root = document.documentElement
+        root.dataset.theme = theme
+        root.style.backgroundColor = color
+        root.style.colorScheme = theme
+        if (document.body) document.body.style.backgroundColor = color
+        document.addEventListener('DOMContentLoaded', function () {
+          if (document.body) document.body.style.backgroundColor = color
+        })
+      })()
     </script>
-</head>
-<body style="margin: 0">
-<div id="app"></div>
-<script src="/src/desktop/main.js" type="module"></script>
-</body>
+  </head>
+  <body style="margin: 0">
+    <div id="app"></div>
+    <script src="/src/desktop/main.js" type="module"></script>
+  </body>
 </html>

@@ -49,9 +49,7 @@ export function getPromptPlaceholder(domain, mode, {isMobile} = {}) {
         ? '描述如何改动参考图…'
         : '描述要如何改动参考图（风格/背景/光影…），Enter 生成，Shift+Enter 换行'
     }
-    return isMobile
-      ? '描述画面…'
-      : '描述主体、构图、光影与风格，Enter 生成，Shift+Enter 换行'
+    return isMobile ? '描述画面…' : '描述主体、构图、光影与风格，Enter 生成，Shift+Enter 换行'
   }
 
   return isMobile ? '输入提示词…' : '输入提示词，Enter 生成，Shift+Enter 换行'

@@ -136,9 +136,7 @@ describe('formatChatContextHint', () => {
         },
         'full',
       ),
-    ).toBe(
-      '上下文接近上限：轮数与字符预算（12 / 20 轮，28000 / 32000），建议新开会话或提高上限',
-    )
+    ).toBe('上下文接近上限：轮数与字符预算（12 / 20 轮，28000 / 32000），建议新开会话或提高上限')
   })
 
   it('empty when neither truncated nor near*', () => {

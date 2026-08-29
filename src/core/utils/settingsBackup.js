@@ -185,7 +185,8 @@ export function applySettingsImport(store, data, options = {}) {
           imageModel: p.imageModel ?? existing.imageModel,
           videoModel: p.videoModel ?? existing.videoModel,
           provider: p.provider ?? existing.provider,
-          useCorsProxy: p.useCorsProxy !== undefined ? p.useCorsProxy !== false : existing.useCorsProxy,
+          useCorsProxy:
+            p.useCorsProxy !== undefined ? p.useCorsProxy !== false : existing.useCorsProxy,
         }
         if (apiKey !== undefined) patch.apiKey = apiKey
         store.updateProvider(existing.id, patch, {persist: false})

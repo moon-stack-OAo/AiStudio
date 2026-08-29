@@ -71,7 +71,10 @@ export function trimChatMessages(messages = [], options = {}) {
   const enabled = options.enabled !== false
   const maxTurns = Math.max(1, Number(options.maxTurns) || DEFAULT_CHAT_CONTEXT_MAX_TURNS)
   const maxCharsEnabled = Boolean(options.maxCharsEnabled)
-  const maxChars = Math.max(1, Math.floor(Number(options.maxChars) || DEFAULT_CHAT_CONTEXT_MAX_CHARS))
+  const maxChars = Math.max(
+    1,
+    Math.floor(Number(options.maxChars) || DEFAULT_CHAT_CONTEXT_MAX_CHARS),
+  )
 
   const system = []
   const rest = []

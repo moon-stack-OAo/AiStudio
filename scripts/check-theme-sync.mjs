@@ -11,10 +11,7 @@ import {fileURLToPath} from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const themePath = path.join(root, 'src/core/utils/theme.js')
 const tokensPath = path.join(root, 'src/core/styles/tokens.scss')
-const htmlPaths = [
-  path.join(root, 'index.html'),
-  path.join(root, 'index.android.html'),
-]
+const htmlPaths = [path.join(root, 'index.html'), path.join(root, 'index.android.html')]
 
 const themeSrc = fs.readFileSync(themePath, 'utf8')
 const tokensSrc = fs.readFileSync(tokensPath, 'utf8')
@@ -136,10 +133,14 @@ for (const htmlPath of htmlPaths) {
     continue
   }
   if (bg.dark !== expectedDark) {
-    mismatches.push(`${label} BG.dark=${bg.dark} | theme.js=${expectedDark} | scss=${darkVars['--color-bg']}`)
+    mismatches.push(
+      `${label} BG.dark=${bg.dark} | theme.js=${expectedDark} | scss=${darkVars['--color-bg']}`,
+    )
   }
   if (bg.light !== expectedLight) {
-    mismatches.push(`${label} BG.light=${bg.light} | theme.js=${expectedLight} | scss=${lightVars['--color-bg']}`)
+    mismatches.push(
+      `${label} BG.light=${bg.light} | theme.js=${expectedLight} | scss=${lightVars['--color-bg']}`,
+    )
   }
 }
 

@@ -13,8 +13,10 @@ export const ENHANCE_SYSTEM_IMAGE = [
 ].join('')
 
 const MODE_HINTS = {
-  img2video: '当前为图生视频：请基于参考图主体进行优化，不要推翻或替换主体，侧重镜头运动、动态与节奏描述。',
-  img2img: '当前为图生图：请基于参考图主体进行优化，不要推翻或替换主体，侧重改动方向、风格与细节描述。',
+  img2video:
+    '当前为图生视频：请基于参考图主体进行优化，不要推翻或替换主体，侧重镜头运动、动态与节奏描述。',
+  img2img:
+    '当前为图生图：请基于参考图主体进行优化，不要推翻或替换主体，侧重改动方向、风格与细节描述。',
 }
 
 function resolveSystemPrompt(domain, mode) {

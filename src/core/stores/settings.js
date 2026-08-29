@@ -141,7 +141,9 @@ function buildChatDefaults(saved = {}) {
         ? normalizeMaxChars(saved.chatContextMaxChars)
         : DEFAULT_CHAT_CONTEXT_MAX_CHARS,
     chatMaxTokens:
-      saved.chatMaxTokens != null ? normalizeMaxTokens(saved.chatMaxTokens) : DEFAULT_CHAT_MAX_TOKENS,
+      saved.chatMaxTokens != null
+        ? normalizeMaxTokens(saved.chatMaxTokens)
+        : DEFAULT_CHAT_MAX_TOKENS,
     apiTimeoutMs:
       saved.apiTimeoutMs != null ? normalizeApiTimeoutMs(saved.apiTimeoutMs) : API_TIMEOUT_MS,
   }

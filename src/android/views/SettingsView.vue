@@ -12,9 +12,7 @@ import AboutSettings from '@/components/settings/AboutSettings.vue'
 const settings = useSettingsStore()
 const activeTab = ref('providers')
 const providersRef = ref(null)
-const themeIcon = computed(() =>
-  settings.resolvedTheme === 'light' ? MoonOutline : SunnyOutline,
-)
+const themeIcon = computed(() => (settings.resolvedTheme === 'light' ? MoonOutline : SunnyOutline))
 const themeLabel = computed(() =>
   settings.theme === 'system'
     ? settings.resolvedTheme === 'light'

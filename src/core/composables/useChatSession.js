@@ -68,8 +68,7 @@ export function formatChatContextHint(info, variant = 'full') {
       : `上下文接近上限：${totalTurns} / ${maxTurns} 轮，建议新开会话或提高上限`
   }
   if (nearCharLimit) {
-    const charsPart =
-      keptChars != null && maxChars != null ? `${keptChars} / ${maxChars}` : ''
+    const charsPart = keptChars != null && maxChars != null ? `${keptChars} / ${maxChars}` : ''
     return variant === 'short'
       ? charsPart
         ? `接近字符预算：${charsPart}`
@@ -164,9 +163,7 @@ export function useChatSession(options = {}) {
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({role: m.role, content: m.content}))
     const systemPrompt = effectiveSystemPrompt.value
-    const withSystem = systemPrompt
-      ? [{role: 'system', content: systemPrompt}, ...msgs]
-      : msgs
+    const withSystem = systemPrompt ? [{role: 'system', content: systemPrompt}, ...msgs] : msgs
     return trimChatMessages(withSystem, {
       enabled: settings.chatContextTrimEnabled,
       maxTurns: settings.chatContextMaxTurns,
