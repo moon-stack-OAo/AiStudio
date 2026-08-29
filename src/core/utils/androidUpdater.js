@@ -6,7 +6,7 @@ import {appFetch} from '@core/utils/http'
 
 /** 官方 Android 更新清单（固定 endpoint，不可由用户改写） */
 export const ANDROID_LATEST_JSON_URL =
-  'https://github.com/moon-stack-OAo/AI_Studio/releases/latest/download/android-latest.json'
+  'https://github.com/moon-stack-OAo/AiStudio/releases/latest/download/android-latest.json'
 
 function compareSemver(a, b) {
   const pa = String(a || '')
