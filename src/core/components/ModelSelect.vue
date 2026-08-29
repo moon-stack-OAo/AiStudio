@@ -22,6 +22,11 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  /** sheet 内全宽布局（android 底栏/抽屉） */
+  sheet: {
+    type: Boolean,
+    default: false,
+  },
   placeholder: {
     type: String,
     default: '',
@@ -31,7 +36,11 @@ const props = defineProps({
 const settings = useSettingsStore()
 const message = useMessage()
 const {isMobile} = useBreakpoints()
-const showRefreshBtn = computed(() => props.showRefresh && !isMobile.value)
+
+/** sheet 模式始终尊重 showRefresh；桌面非 sheet 在窄屏隐藏刷新 */
+const showRefreshBtn = computed(
+  () => props.showRefresh && (props.sheet || !isMobile.value),
+)
 
 const field = computed(() => {
   if (props.kind === 'image') return 'imageModel'
@@ -45,7 +54,7 @@ const {
   error,
   options,
   refresh,
-} = useProviderModels(() => settings.activeProvider, { kind: props.kind })
+} = useProviderModels(() => settings.activeProvider, {kind: props.kind})
 
 const selectPlaceholder = computed(() => {
   if (props.placeholder) return props.placeholder
@@ -57,12 +66,12 @@ const selectPlaceholder = computed(() => {
 function onUpdate(v) {
   const p = settings.activeProvider
   if (!p || !v) return
-  settings.updateProvider(p.id, { [field.value]: v })
+  settings.updateProvider(p.id, {[field.value]: v})
 }
 
 async function onRefresh() {
   try {
-    await refresh({ force: true })
+    await refresh({force: true})
     if (!options.value.length) {
       message.warning(error.value || '未获取到模型列表，可手动输入')
       return
@@ -75,7 +84,7 @@ async function onRefresh() {
 </script>
 
 <template>
-  <div class="model-select-wrap">
+  <div :class="{ sheet }" class="model-select-wrap">
     <n-select
       :loading="loading"
       :options="options"
@@ -92,14 +101,14 @@ async function onRefresh() {
       v-if="showRefreshBtn"
       :loading="loading"
       :size="size"
-      circle
-      quaternary
       aria-label="刷新模型列表"
+      circle
       class="touch-target"
+      quaternary
       @click="onRefresh"
     >
       <template #icon>
-        <n-icon :component="RefreshOutline" />
+        <n-icon :component="RefreshOutline"/>
       </template>
     </n-button>
   </div>
@@ -111,6 +120,16 @@ async function onRefresh() {
   align-items: center;
   gap: 4px;
   min-width: 0;
+
+  &.sheet {
+    width: 100%;
+
+    .model-select {
+      flex: 1;
+      width: 100%;
+      min-width: 0;
+    }
+  }
 }
 
 .model-select {
@@ -119,12 +138,12 @@ async function onRefresh() {
 }
 
 @media (max-width: 767.98px) {
-  .model-select-wrap {
+  .model-select-wrap:not(.sheet) {
     flex: 1 1 0;
     min-width: 0;
   }
 
-  .model-select {
+  .model-select-wrap:not(.sheet) .model-select {
     width: 100%;
     min-width: 0;
   }

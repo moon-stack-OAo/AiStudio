@@ -4,7 +4,11 @@ import {getOpenAiCapabilities} from './profiles/openai'
 import {getOpenAiCompatibleCapabilities} from './profiles/openaiCompatible'
 import {getXaiCapabilities} from './profiles/xai'
 
-/** 是否向生图接口附带 quality（自定义中转一律不传，避免队列拒参） */
+/**
+ * 是否向生图接口附带 quality（自定义中转一律不传，避免队列拒参）
+ * @param {object} provider
+ * @returns {boolean}
+ */
 export function supportsImageQuality(provider) {
   // 自定义提供商（含 Agnes 等中转）一律不传
   if (!provider?.builtin) return false
@@ -18,7 +22,9 @@ export function supportsImageQuality(provider) {
 }
 
 /**
- * 返回当前 provider 的协议能力声明（供 UI / 后续 adapter 使用）
+ * 返回当前 provider 的协议能力声明（供 UI / adapter 使用：尺寸、超时、轮询风格等）
+ * @param {object} provider
+ * @returns {{ id: string, chat: object, image: object, video: object }}
  */
 export function getCapabilities(provider) {
   const profileId = resolveProfile(provider)

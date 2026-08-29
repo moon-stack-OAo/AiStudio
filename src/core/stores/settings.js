@@ -1,3 +1,7 @@
+/**
+ * 应用设置 Pinia store：主题、更新偏好、对话上下文裁剪、多提供商 CRUD。
+ * 持久化键：settings；apiKey 落盘前加密。
+ */
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
@@ -170,10 +174,17 @@ export const useSettingsStore = defineStore('settings', {
       this.skippedUpdateVersion = ''
       this.persist()
     },
+    /** @param {string} id */
     setActiveProvider(id) {
       this.activeProviderId = id
       this.persist()
     },
+    /**
+     * 合并更新提供商字段（apiKey、模型、Base URL 等）
+     * @param {string} id
+     * @param {object} patch
+     * @param {{ persist?: boolean }} [options]
+     */
     updateProvider(id, patch, options = {}) {
       const { persist = true } = options
       const target = this.providers.find((p) => p.id === id)
@@ -181,6 +192,11 @@ export const useSettingsStore = defineStore('settings', {
       Object.assign(target, patch)
       if (persist) this.persist()
     },
+    /**
+     * 新增自定义提供商并设为当前
+     * @param {object} [partial]
+     * @returns {object} 新建的 provider
+     */
     addProvider(partial = {}) {
       const item = createProvider(partial)
       this.providers.push(item)
@@ -188,6 +204,11 @@ export const useSettingsStore = defineStore('settings', {
       this.persist()
       return item
     },
+    /**
+     * 删除非内置提供商（至少保留一个）
+     * @param {string} id
+     * @returns {boolean} 是否删除成功
+     */
     removeProvider(id) {
       const target = this.providers.find((p) => p.id === id)
       if (!target) return false
@@ -200,6 +221,7 @@ export const useSettingsStore = defineStore('settings', {
       this.persist()
       return true
     },
+    /** 重置为内置 OpenAI / xAI 预设（清空自定义） */
     resetPresets() {
       this.providers = PRESETS.map((p) => createProvider(p))
       this.activeProviderId = this.providers[0].id

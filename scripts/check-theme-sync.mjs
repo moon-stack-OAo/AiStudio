@@ -32,7 +32,6 @@ function extractPalette(src) {
     }
   }
   if (end < 0) throw new Error('PALETTE 对象括号不匹配')
-  // eslint-disable-next-line no-new-func
   return new Function(`return (${src.slice(start + 'const PALETTE = '.length, end + 1)})`)()
 }
 

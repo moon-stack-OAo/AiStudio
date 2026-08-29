@@ -7,9 +7,9 @@ import {ArrowUndoOutline, SendOutline} from '@vicons/ionicons5'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import MarkdownRenderer from '@core/components/MarkdownRenderer.vue'
-import ModelSelect from '@/components/ModelSelect.vue'
+import ModelSelect from '@core/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
-import ComposerSendStop from '@/components/ComposerSendStop.vue'
+import ComposerSendStop from '@core/components/ComposerSendStop.vue'
 import {useChatStore} from '@core/stores/chat'
 import {useSettingsStore} from '@core/stores/settings'
 import {streamChatCompletions, toErrorMessage} from '@core/api/client'
@@ -472,6 +472,7 @@ onBeforeUnmount(() => {
           />
           <div class="composer-actions">
             <ComposerSendStop
+              with-tooltip
               :disabled="!input.trim()"
               :loading="isStreamingCurrent"
               :send-icon="SendOutline"

@@ -1,3 +1,7 @@
+/**
+ * Barrel：协议 profile 解析 + 能力声明 + Agnes 辅助导出。
+ * 业务侧优先从此入口引用，避免散落 import profiles/*。
+ */
 export {resolveProfile} from './resolveProfile'
 export {getCapabilities, supportsImageQuality} from './capabilities'
 

@@ -1,4 +1,19 @@
-/** OpenAI / 兼容：/videos；完成无 URL 时拉 /videos/{id}/content */
+/**
+ * OpenAI / 兼容：POST /videos；完成无 URL 时拉 /videos/{id}/content
+ */
+
+/**
+ * @param {object} provider
+ * @param {object} options
+ * @param {string} [options.prompt]
+ * @param {'txt2video'|'img2video'|string} [options.mode='txt2video']
+ * @param {File|Blob} [options.imageFile]
+ * @param {number|string} [options.seconds]
+ * @param {number|string} [options.duration]
+ * @param {string} [options.size]
+ * @param {{ compressImageFile: (file: File|Blob) => Promise<File|Blob> }} deps
+ * @returns {Promise<{ transport: 'json'|'multipart', path: string, body?: object, form?: FormData }>}
+ */
 export async function prepareCreate(provider, options, deps) {
   const {
     prompt,
@@ -51,6 +66,11 @@ export async function prepareCreate(provider, options, deps) {
   }
 }
 
+/**
+ * @param {object} provider
+ * @param {string} jobId
+ * @returns {{ style: 'status', path: string, fetchContent: true, contentPath: string }}
+ */
 export function preparePoll(provider, jobId) {
   const id = String(jobId || '').trim()
   return {

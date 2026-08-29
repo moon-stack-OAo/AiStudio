@@ -1,0 +1,55 @@
+# Dependabot：每周自动检查并创建依赖更新 PR
+# 覆盖 npm（前端）、cargo（Tauri/Rust）、github-actions（CI 工作流）
+
+version: 2
+updates:
+  # 前端 npm 依赖（根目录 package.json / package-lock.json）
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 8
+    groups:
+      # 具体工具链优先匹配，避免落入下方通用组
+      eslint:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "globals"
+        update-types:
+          - minor
+          - patch
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "vitest"
+        update-types:
+          - minor
+          - patch
+      production-dependencies:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  # Rust / Tauri 依赖（src-tauri/Cargo.toml + Cargo.lock）
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+
+  # GitHub Actions 工作流中的 action 版本
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

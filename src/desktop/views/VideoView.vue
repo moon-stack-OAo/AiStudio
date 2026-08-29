@@ -12,7 +12,7 @@ import {
   TrashOutline,
 } from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
-import ModelSelect from '@/components/ModelSelect.vue'
+import ModelSelect from '@core/components/ModelSelect.vue'
 import GenerateTimelineUserBubble from '@/components/generate/GenerateTimelineUserBubble.vue'
 import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue'
 import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'

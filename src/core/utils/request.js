@@ -1,4 +1,7 @@
-/** 是否运行在 Tauri（含桌面 / Android / iOS） */
+/**
+ * 是否运行在 Tauri（含桌面 / Android / iOS）
+ * @returns {boolean}
+ */
 export function isTauri() {
   return typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__)
 }
@@ -6,6 +9,7 @@ export function isTauri() {
 /**
  * 是否为桌面端 Tauri（自定义标题栏 / 托盘 / 桌面 Updater）
  * Android、iOS 上 isTauri() 也为 true，但不走桌面帧逻辑
+ * @returns {boolean}
  */
 export function isDesktopTauri() {
   if (!isTauri()) return false
@@ -15,7 +19,10 @@ export function isDesktopTauri() {
   return true
 }
 
-/** 是否为 Android Tauri（侧载清单更新） */
+/**
+ * 是否为 Android Tauri（侧载清单更新）
+ * @returns {boolean}
+ */
 export function isAndroidTauri() {
   if (!isTauri()) return false
   const p = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
@@ -25,6 +32,8 @@ export function isAndroidTauri() {
 /**
  * 是否应使用开发态 CORS 代理（仅浏览器 npm run dev）
  * 桌面端一律直连上游
+ * @param {boolean} useCorsProxy 用户设置中的开关
+ * @returns {boolean}
  */
 export function shouldUseCorsProxy(useCorsProxy) {
   if (!useCorsProxy) return false
@@ -35,6 +44,9 @@ export function shouldUseCorsProxy(useCorsProxy) {
 /**
  * 将真实 Base URL 转为实际请求地址。
  * 开启开发代理时：请求打到 /api-proxy，由 Vite 插件转发。
+ * @param {string} baseUrl
+ * @param {boolean} useCorsProxy
+ * @returns {string}
  */
 export function resolveBaseUrl(baseUrl, useCorsProxy) {
   const normalized = String(baseUrl || '').replace(/\/+$/, '')
@@ -43,6 +55,13 @@ export function resolveBaseUrl(baseUrl, useCorsProxy) {
   return '/api-proxy'
 }
 
+/**
+ * 合并请求头；开发代理开启时附加 X-Proxy-Target。
+ * @param {string} baseUrl 真实上游 Base URL
+ * @param {boolean} useCorsProxy
+ * @param {Record<string, string>} [extra]
+ * @returns {Record<string, string>}
+ */
 export function proxyHeaders(baseUrl, useCorsProxy, extra = {}) {
   const headers = { ...extra }
   if (shouldUseCorsProxy(useCorsProxy)) {
@@ -51,7 +70,11 @@ export function proxyHeaders(baseUrl, useCorsProxy, extra = {}) {
   return headers
 }
 
-/** 从任意错误中取出短文案，禁止序列化含 headers/config 的整包对象 */
+/**
+ * 从任意错误中取出短文案，禁止序列化含 headers/config 的整包对象
+ * @param {unknown} error
+ * @returns {string}
+ */
 export function pickErrorText(error) {
   if (error == null) return ''
   if (typeof error === 'string') return error.trim()
@@ -66,6 +89,12 @@ export function pickErrorText(error) {
   return ''
 }
 
+/**
+ * 将网络类错误格式化为面向用户的中文提示（区分 Tauri / 代理 / CORS）。
+ * @param {unknown} error
+ * @param {boolean} useCorsProxy
+ * @returns {string}
+ */
 export function formatNetworkError(error, useCorsProxy) {
   const msg = pickErrorText(error) || '网络请求失败'
   const code = String(error?.code || '')

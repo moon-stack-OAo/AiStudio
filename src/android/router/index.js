@@ -1,31 +1,12 @@
 import {createRouter, createWebHashHistory} from 'vue-router'
+import {createAppRoutes} from '@core/router/routes'
 
-const routes = [
-  {
-    path: '/',
-    redirect: '/chat',
-  },
-  {
-    path: '/chat',
-    name: 'chat',
-    component: () => import('@/views/ChatView.vue'),
-  },
-  {
-    path: '/image',
-    name: 'image',
-    component: () => import('@/views/ImageView.vue'),
-  },
-  {
-    path: '/video',
-    name: 'video',
-    component: () => import('@/views/VideoView.vue'),
-  },
-  {
-    path: '/settings',
-    name: 'settings',
-    component: () => import('@/views/SettingsView.vue'),
-  },
-]
+const routes = createAppRoutes({
+  ChatView: () => import('@/views/ChatView.vue'),
+  ImageView: () => import('@/views/ImageView.vue'),
+  VideoView: () => import('@/views/VideoView.vue'),
+  SettingsView: () => import('@/views/SettingsView.vue'),
+})
 
 const router = createRouter({
   history: createWebHashHistory(),

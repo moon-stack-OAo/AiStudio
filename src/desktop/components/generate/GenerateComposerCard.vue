@@ -1,6 +1,6 @@
 <script setup>
 import {SparklesOutline} from '@vicons/ionicons5'
-import ComposerSendStop from '@/components/ComposerSendStop.vue'
+import ComposerSendStop from '@core/components/ComposerSendStop.vue'
 
 defineProps({
   /** 提示词，配合 v-model:prompt */
@@ -69,6 +69,7 @@ const emit = defineEmits(['update:prompt', 'send', 'stop', 'focus', 'keydown'])
         <div class="composer-actions">
           <slot name="footer">
             <ComposerSendStop
+              with-tooltip
               :disabled="disabled"
               :loading="loading"
               :send-icon="sendIcon"

@@ -13,6 +13,40 @@ import {
   shouldFetchVideoContent,
 } from '@core/providers/adapters/video'
 
+/**
+ * OpenAI 兼容 API 客户端：对话、生图、视频任务与连通性探测。
+ * 按 provider 配置鉴权与代理；桌面端走 Tauri HTTP，浏览器开发态可走 CORS 代理。
+ *
+ * @typedef {object} ProviderSettings
+ * @property {string} [id] 本地提供商 ID
+ * @property {string} [name] 显示名
+ * @property {string} baseUrl API Base URL（通常含 /v1）
+ * @property {string} [apiKey] API Key
+ * @property {string} [chatModel] 对话模型
+ * @property {string} [imageModel] 生图模型
+ * @property {string} [videoModel] 视频模型
+ * @property {string} [provider] 内置类型：openai | xai | openai-compatible 等
+ * @property {boolean} [builtin] 是否内置预设
+ * @property {boolean} [useCorsProxy] 浏览器开发态是否走 Vite CORS 代理
+ *
+ * @typedef {object} ChatMessage
+ * @property {'system'|'user'|'assistant'|string} role
+ * @property {string|Array<object>} content
+ *
+ * @typedef {object} ImageResult
+ * @property {'b64'|'url'} type
+ * @property {string} src 可展示的 data URL 或远程 URL
+ * @property {string} [revisedPrompt]
+ *
+ * @typedef {object} VideoJob
+ * @property {string} jobId
+ * @property {'queued'|'in_progress'|'completed'|'failed'|string} status
+ * @property {number} [progress]
+ * @property {string} [videoUrl]
+ * @property {string} [errorMessage]
+ * @property {object} [raw] 上游原始响应
+ */
+
 export {
   getCapabilities,
   resolveProfile,
@@ -113,7 +147,12 @@ function httpStatusErrorMessage(status, bodyMessage = '') {
   return fromBody || (status ? `HTTP ${status}` : '')
 }
 
-/** 将任意抛出值转为可读错误文案 */
+/**
+ * 将任意抛出值转为可读错误文案（脱敏密钥、截断过长文本、映射常见 HTTP 状态）。
+ * @param {unknown} error
+ * @param {string} [fallback='未知错误']
+ * @returns {string}
+ */
 export function toErrorMessage(error, fallback = '未知错误') {
   if (error == null) return fallback
   if (typeof error === 'string') {
@@ -185,6 +224,11 @@ function buildAxiosConfig(provider) {
   return config
 }
 
+/**
+ * 创建带鉴权与错误归一化的 axios 实例（JSON 请求）。
+ * @param {ProviderSettings} provider
+ * @returns {import('axios').AxiosInstance}
+ */
 export function createApiClient(provider) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
   const client = axios.create(buildAxiosConfig(provider))
@@ -220,7 +264,8 @@ export function createApiClient(provider) {
 }
 
 /**
- * 拉取提供商模型列表（OpenAI 兼容 /models）
+ * 拉取提供商模型列表（OpenAI 兼容 GET /models）
+ * @param {ProviderSettings} provider
  * @returns {Promise<Array<{ id: string, ownedBy?: string }>>}
  */
 export async function listProviderModels(provider) {
@@ -264,7 +309,9 @@ function describeHttpProbeError(err, fallback) {
 
 /**
  * 测试提供商连通性：优先 GET /models，失败再试最小 chat（需已配置 chatModel）
+ * @param {ProviderSettings} provider
  * @returns {Promise<{ ok: true, detail: string }>}
+ * @throws {Error} 模型列表与 chat 均不可达时抛出合并说明
  */
 export async function testProviderConnection(provider) {
   if (!provider?.baseUrl) {
@@ -307,6 +354,15 @@ export async function testProviderConnection(provider) {
   }
 }
 
+/**
+ * 非流式对话补全（POST /chat/completions）
+ * @param {ProviderSettings} provider
+ * @param {object} options
+ * @param {ChatMessage[]} options.messages
+ * @param {boolean} [options.stream=false] 应为 false；流式请用 streamChatCompletions
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<object>} 上游原始响应（含 choices 等）
+ */
 export async function chatCompletions(provider, { messages, stream = false, signal }) {
   const client = createApiClient(provider)
   const { data } = await client.post(
@@ -322,6 +378,15 @@ export async function chatCompletions(provider, { messages, stream = false, sign
   return data
 }
 
+/**
+ * SSE 流式对话补全；通过 onDelta 增量回调，最终返回完整文本。
+ * @param {ProviderSettings} provider
+ * @param {object} options
+ * @param {ChatMessage[]} options.messages
+ * @param {(delta: string, fullText: string) => void} [options.onDelta]
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<string>} 拼接后的完整助手文本
+ */
 export async function streamChatCompletions(provider, { messages, onDelta, signal }) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
   const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
@@ -535,6 +600,19 @@ async function getJsonByUrl(provider, url, signal) {
   return res.json()
 }
 
+/**
+ * 文生图：经 adapter 组装请求后 POST，并归一化为可展示结果列表。
+ * @param {ProviderSettings} provider
+ * @param {object} options
+ * @param {string} options.prompt
+ * @param {number} [options.n]
+ * @param {string} [options.size] 如 1024x1024
+ * @param {string} [options.quality]
+ * @param {string} [options.aspectRatio]
+ * @param {'b64_json'|'url'|string} [options.responseFormat]
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<ImageResult[]>}
+ */
 export async function generateImage(provider, options) {
   const {signal} = options
   const prepared = await prepareGenerateImage(provider, options)
@@ -546,6 +624,19 @@ export async function generateImage(provider, options) {
   return normalizeImageResponse(data)
 }
 
+/**
+ * 图生图 / 编辑：multipart（OpenAI edits）或 JSON（如 Agnes）。
+ * @param {ProviderSettings} provider
+ * @param {object} options
+ * @param {string} options.prompt
+ * @param {File|Blob} options.imageFile 参考图
+ * @param {number} [options.n]
+ * @param {string} [options.size]
+ * @param {string} [options.aspectRatio]
+ * @param {'b64_json'|'url'|string} [options.responseFormat]
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<ImageResult[]>}
+ */
 export async function editImage(provider, options) {
   const {signal} = options
   const prepared = await prepareEditImage(provider, options, {
@@ -590,6 +681,11 @@ function normalizeImageResponse(data) {
   })
 }
 
+/**
+ * 将本地文件转为 data URL，供 UI 预览。
+ * @param {File|Blob} file
+ * @returns {Promise<string>} data URL
+ */
 export async function fileToPreview(file) {
   return fileToDataUrl(file)
 }
@@ -727,7 +823,17 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
 
 /**
  * 创建视频生成任务（文生 / 图生）
- * @returns {Promise<{ jobId, status, progress?, videoUrl?, errorMessage?, raw? }>}
+ * @param {ProviderSettings} provider
+ * @param {object} [options]
+ * @param {string} [options.prompt]
+ * @param {'txt2video'|'img2video'|string} [options.mode='txt2video']
+ * @param {File|Blob} [options.imageFile] 图生视频参考图
+ * @param {number|string} [options.seconds]
+ * @param {number|string} [options.duration] 与 seconds 二选一
+ * @param {string} [options.size]
+ * @param {string} [options.aspectRatio]
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<VideoJob>}
  */
 export async function createVideoJob(provider, options = {}) {
   if (!provider?.baseUrl) throw new Error('请先填写 Base URL')
@@ -762,7 +868,13 @@ export async function createVideoJob(provider, options = {}) {
 }
 
 /**
- * 查询视频任务状态；OpenAI 兼容完成且无 url 时尝试拉取 /content
+ * 查询视频任务状态；OpenAI 兼容完成且无 url 时尝试拉取 /content。
+ * @param {ProviderSettings} provider
+ * @param {string} jobId
+ * @param {object} [options]
+ * @param {AbortSignal} [options.signal]
+ * @param {boolean} [options.fetchContent=true] 是否允许补拉视频二进制内容
+ * @returns {Promise<VideoJob>}
  */
 export async function getVideoJob(provider, jobId, options = {}) {
   const id = String(jobId || '').trim()
@@ -800,7 +912,15 @@ export async function getVideoJob(provider, jobId, options = {}) {
 }
 
 /**
- * 轮询直至完成 / 失败
+ * 轮询直至任务完成或失败。
+ * @param {ProviderSettings} provider
+ * @param {string} jobId
+ * @param {object} [options]
+ * @param {AbortSignal} [options.signal]
+ * @param {(job: VideoJob) => void} [options.onProgress]
+ * @param {number} [options.intervalMs=5000] 轮询间隔（至少 1000ms）
+ * @param {boolean} [options.fetchContent=true]
+ * @returns {Promise<VideoJob>}
  */
 export async function waitVideoJob(provider, jobId, options = {}) {
   const {
@@ -827,7 +947,13 @@ export async function waitVideoJob(provider, jobId, options = {}) {
 }
 
 /**
- * 创建并等待完成
+ * 创建视频任务并等待完成（或立即返回已终态结果）。
+ * @param {ProviderSettings} provider
+ * @param {object} [options] 同 createVideoJob，另含轮询选项
+ * @param {AbortSignal} [options.signal]
+ * @param {(job: VideoJob) => void} [options.onProgress]
+ * @param {number} [options.intervalMs]
+ * @returns {Promise<VideoJob>}
  */
 export async function generateVideo(provider, options = {}) {
   const {signal, onProgress, intervalMs, ...createOpts} = options

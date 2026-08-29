@@ -1,7 +1,17 @@
 import {API_TIMEOUT_MS} from '@core/utils/constants'
 import {getCapabilities, supportsImageQuality} from '../../capabilities'
 
-/** OpenAI / 兼容：文生图 JSON /images/generations */
+/**
+ * OpenAI / 兼容：文生图 JSON POST /images/generations
+ * @param {object} provider
+ * @param {object} options
+ * @param {string} options.prompt
+ * @param {number} [options.n=1]
+ * @param {string} [options.size='1024x1024']
+ * @param {string} [options.quality]
+ * @param {string} [options.responseFormat]
+ * @returns {Promise<{ transport: 'json', path: string, body: object, timeout: number }>}
+ */
 export async function prepareGenerate(provider, options) {
   const {
     prompt,
@@ -30,7 +40,18 @@ export async function prepareGenerate(provider, options) {
   }
 }
 
-/** OpenAI / 兼容：图生图 multipart /images/edits */
+/**
+ * OpenAI / 兼容：图生图 multipart POST /images/edits
+ * @param {object} provider
+ * @param {object} options
+ * @param {string} options.prompt
+ * @param {File|Blob} options.imageFile
+ * @param {number} [options.n=1]
+ * @param {string} [options.size='1024x1024']
+ * @param {string} [options.responseFormat]
+ * @param {{ compressImageFile: (file: File|Blob) => Promise<File|Blob> }} deps
+ * @returns {Promise<{ transport: 'multipart', path: string, form: FormData, timeout: number }>}
+ */
 export async function prepareEdit(provider, options, deps) {
   const {
     prompt,

@@ -168,9 +168,7 @@ async function testConnection() {
   try {
     const result = await testProviderConnection(current.value)
     message.success(result.detail || '连接成功')
-    refreshChatModels({ force: true }).catch(() => {})
-    refreshImageModels({ force: true }).catch(() => {})
-    refreshVideoModels({ force: true }).catch(() => {})
+    refreshModels({ force: true }).catch(() => {})
   } catch (e) {
     message.error(e?.message || '连接失败')
   } finally {

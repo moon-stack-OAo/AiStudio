@@ -1,3 +1,7 @@
+/**
+ * 生图会话 Pinia store：会话与生成条目 CRUD，联动 IndexedDB 图片缓存清理。
+ * 持久化键：image_sessions；hydrate 时将残留 loading 标为 error。
+ */
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'

@@ -1,3 +1,7 @@
+/**
+ * 对话会话 Pinia store：多会话 CRUD、消息追加/更新、用户消息撤回。
+ * 持久化键：chat_sessions
+ */
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
@@ -114,6 +118,8 @@ export const useChatStore = defineStore('chat', {
     },
     /**
      * 撤回用户消息；若紧随其后是 assistant 回复，一并删除。
+     * @param {string} sessionId
+     * @param {string} messageId 用户消息 ID
      * @returns {{ removedIds: string[], abortedStreaming: boolean } | null}
      */
     recallUserMessage(sessionId, messageId) {

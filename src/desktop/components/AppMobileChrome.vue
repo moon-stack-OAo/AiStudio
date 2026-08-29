@@ -5,7 +5,7 @@ import {MenuOutline} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import ThemeToggleButton from '@/components/ThemeToggleButton.vue'
 
-const props = defineProps({
+defineProps({
   /** 是否显示顶部栏（非工作区路由的窄屏） */
   showTopbar: {type: Boolean, default: false},
   menuOptions: {type: Array, default: () => []},

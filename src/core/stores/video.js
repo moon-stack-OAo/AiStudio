@@ -1,3 +1,7 @@
+/**
+ * 视频会话 Pinia store：任务条目、进度与未完成任务恢复（resumePendingJobs）。
+ * 持久化键：video_sessions；hydrate 时有 jobId 的 loading → pending_resume。
+ */
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
@@ -189,7 +193,12 @@ export const useVideoStore = defineStore('video', {
     },
     /**
      * 恢复仍有 jobId 的未完成任务（由 UI 在挂载时调用）
-     * @param {(id: string) => object|null} getProviderById
+     * @param {(id: string) => object|null} getProviderById 按条目 providerId 解析提供商
+     * @param {object} [options]
+     * @param {AbortSignal} [options.signal]
+     * @param {(sessionId: string, itemId: string, job: object) => void} [options.onProgress]
+     * @param {number} [options.intervalMs]
+     * @returns {Promise<Array<{ sessionId: string, itemId: string, job?: object, error?: unknown }>>}
      */
     async resumePendingJobs(getProviderById, options = {}) {
       const { signal, onProgress, intervalMs } = options

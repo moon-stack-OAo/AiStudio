@@ -1,0 +1,72 @@
+# 日常 CI（非发版）：PR / 推送到主开发分支时校验前端构建与主题同步
+# 不跑完整 Tauri 原生构建（太重）；可选 cargo check 做 Rust 编译期校验
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - dev
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check theme sync
+        run: npm run check:theme
+
+      - name: Lint
+        run: npm run lint
+
+      # format:check 脚本已就绪；现有代码风格混杂，全量 check 会大面积失败，
+      # 待后续单独做格式化 PR 后再启用（见 package.json format / format:check）
+      # - name: Format check
+      #   run: npm run format:check
+
+      - name: Test
+        run: npm run test
+
+      - name: Build desktop
+        run: npm run build:desktop
+
+      - name: Build android (Vite)
+        run: npm run build:android
+
+  # 轻量 Rust 校验，不做完整 cargo build / Tauri 打包
+  rust-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Cargo check
+        run: cargo check --manifest-path src-tauri/Cargo.toml

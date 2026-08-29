@@ -4,20 +4,20 @@
 
 可用浏览器进行 Web 开发，也可通过 Tauri 2 打包为 Windows 桌面应用，并由 CI 产出可侧载的 Android APK（arm64）。
 
-当前版本：**1.0.0**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
+当前版本： **1.0.0**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
 
 ## 功能概览
 
-| 模块          | 能力                                                                              |
-|-------------|---------------------------------------------------------------------------------|
-| **对话**      | 流式 SSE、停止生成、Markdown / 代码高亮、复制；撤回用户消息及其后回复；会话新建 / 重命名 / 删除 / 清空；可选上下文裁剪（最近 N 轮） |
-| **生图**      | 文生图 / 图生图；数量、尺寸或比例、质量；气泡时间线、灯箱、下载、用作参考图、粘贴剪贴板图片；生成中可停止                          |
-| **生视频**     | 文生 / 图生；进度与停止、恢复未完成任务、播放与下载（桌面 + Android）                                       |
-| **提供商**     | OpenAI / xAI / 自定义兼容中转；测试连接、拉取模型列表、密钥仅存本机                                       |
-| **设置**      | 提供商 / 关于与更新；主题、清数据、上下文裁剪；桌面关闭行为；双端检查更新                                          |
-| **桌面**      | 无边框标题栏、可缩放窗口、系统托盘、Tauri Updater                                                 |
-| **Android** | 底栏 Tab、安全区、返回键分层关闭、侧载更新、媒体保存到相册                                                 |
-| **持久化**     | 配置与会话 → `localStorage`；生图二进制 → IndexedDB                                        |
+| 模块        | 能力                                                                                                                                |
+|-------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| **对话**    | 流式 SSE、停止生成、Markdown / 代码高亮、复制；撤回用户消息及其后回复；会话新建 / 重命名 / 删除 / 清空；可选上下文裁剪（最近 N 轮） |
+| **生图**    | 文生图 / 图生图；数量、尺寸或比例、质量；气泡时间线、灯箱、下载、用作参考图、粘贴剪贴板图片；生成中可停止                           |
+| **生视频**  | 文生 / 图生；进度与停止、恢复未完成任务、播放与下载（桌面 + Android）                                                               |
+| **提供商**  | OpenAI / xAI / 自定义兼容中转；测试连接、拉取模型列表、密钥仅存本机                                                                 |
+| **设置**    | 提供商 / 关于与更新；主题、清数据、上下文裁剪；桌面关闭行为；双端检查更新                                                           |
+| **桌面**    | 无边框标题栏、可缩放窗口、系统托盘、Tauri Updater                                                                                   |
+| **Android** | 底栏 Tab、安全区、返回键分层关闭、侧载更新、媒体保存到相册                                                                          |
+| **持久化**  | 配置与会话 → `localStorage`；生图二进制 → IndexedDB                                                                                 |
 
 ## 技术栈
 
@@ -25,7 +25,7 @@
 - **桌面 / 移动**：Tauri 2（Windows + Android）
 - **持久化**：`localStorage` / IndexedDB
 
-源码按端拆分：`src/core`（共享业务）· `src/desktop` · `src/android` · `src-tauri`（Rust / 原生插件）。
+源码按端拆分：`src/core`（共享业务）· `src/desktop` · `src/android` · `src-tauri`（Rust / 原生插件）。架构说明见 [`docs/architecture.md`](./docs/architecture.md)；贡献与发版检查见 [`CONTRIBUTING.md`](./CONTRIBUTING.md)。
 
 ## 快速开始（Web）
 
@@ -47,12 +47,12 @@ npm run preview
 
 ### 环境要求
 
-| 依赖               | 说明                                        |
-|------------------|-------------------------------------------|
-| Node.js          | 建议 18+                                    |
-| Rust             | [rustup](https://rustup.rs/)              |
-| Windows WebView2 | Win10/11 通常已预装                            |
-| MSVC 构建工具        | Visual Studio Build Tools（「使用 C++ 的桌面开发」） |
+| 依赖             | 说明                                                 |
+|------------------|------------------------------------------------------|
+| Node.js          | 18+（CI 使用 20）                                    |
+| Rust             | [rustup](https://rustup.rs/)                         |
+| Windows WebView2 | Win10/11 通常已预装                                  |
+| MSVC 构建工具    | Visual Studio Build Tools（「使用 C++ 的桌面开发」） |
 
 ```bash
 node -v && npm -v && rustc --version && cargo --version
@@ -89,13 +89,13 @@ npm run tauri:build:check
 
 ### 本机环境（可选）
 
-| 依赖          | 说明                                                                                                      |
-|-------------|---------------------------------------------------------------------------------------------------------|
-| JDK 17+     | Temurin / Oracle 等                                                                                      |
-| Android SDK | `platforms;android-34`、Build-Tools、NDK 27.x                                                             |
-| 环境变量        | `ANDROID_HOME`、`NDK_HOME`                                                                               |
-| Rust target | `rustup target add aarch64-linux-android`                                                               |
-| 正式签名        | 配置 `src-tauri/gen/android/keystore.properties`（见 [签名文档](https://v2.tauri.app/distribute/sign/android/)） |
+| 依赖        | 说明                                                                                                             |
+|-------------|------------------------------------------------------------------------------------------------------------------|
+| JDK 17+     | Temurin / Oracle 等                                                                                              |
+| Android SDK | `platforms;android-34`、Build-Tools、NDK 27.x                                                                    |
+| 环境变量    | `ANDROID_HOME`、`NDK_HOME`                                                                                       |
+| Rust target | `rustup target add aarch64-linux-android`                                                                        |
+| 正式签名    | 配置 `src-tauri/gen/android/keystore.properties`（见 [签名文档](https://v2.tauri.app/distribute/sign/android/)） |
 
 ```bash
 npm run tauri:android:init
@@ -104,7 +104,7 @@ npm run tauri:build:android:debug   # debug APK
 npm run tauri:build:android         # release APK（需 keystore）
 ```
 
-> 本地若无 SDK，`android init` 可能失败，**不影响发版**（CI 每次 Release 会按需 init）。
+> 本地若无 SDK，`android init` 可能失败， **不影响发版**（CI 每次 Release 会按需 init）。
 >
 > 持久原生源在 `src-tauri/android/`（`MainActivity.kt`、`UpdaterPlugin.kt`、`MediaSaverPlugin.kt`、`file_paths.xml`）。`gen/android` 被 init 覆盖后必须重新同步，否则安全区 Bridge、侧载更新与相册保存会丢失。
 
@@ -123,11 +123,11 @@ npm run tauri:build:android         # release APK（需 keystore）
 
 ### 预设示例
 
-| 提供商      | Base URL                    | 对话示例       | 生图示例                       | 生视频示例                |
+| 提供商   | Base URL                    | 对话示例   | 生图示例                   | 生视频示例           |
 |----------|-----------------------------|------------|----------------------------|----------------------|
 | OpenAI   | `https://api.openai.com/v1` | `gpt-4o`   | `gpt-image-1` / `dall-e-3` | `sora-2`             |
 | xAI Grok | `https://api.x.ai/v1`       | `grok-4.5` | `grok-imagine-image`       | `grok-imagine-video` |
-| 兼容中转     | 你的中转地址 `/v1`                | 按中转文档      | 按中转文档                      | 按中转文档                |
+| 兼容中转 | 你的中转地址 `/v1`          | 按中转文档 | 按中转文档                 | 按中转文档           |
 
 ## 接口约定
 
@@ -152,13 +152,13 @@ npm run tauri:build:android         # release APK（需 keystore）
 
 ### 仓库 Secrets
 
-| Secret                               | 说明                               |
-|--------------------------------------|----------------------------------|
+| Secret                               | 说明                                          |
+|--------------------------------------|-----------------------------------------------|
 | `TAURI_SIGNING_PRIVATE_KEY`          | **必需**（Windows Updater）：更新签名私钥全文 |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **必需**（Windows Updater）：私钥密码     |
-| `ANDROID_KEY_ALIAS`                  | **必需**（Android）：Keystore alias   |
-| `ANDROID_KEY_PASSWORD`               | **必需**（Android）：密钥密码             |
-| `ANDROID_KEY_BASE64`                 | **必需**（Android）：`.jks` 的 base64  |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **必需**（Windows Updater）：私钥密码         |
+| `ANDROID_KEY_ALIAS`                  | **必需**（Android）：Keystore alias           |
+| `ANDROID_KEY_PASSWORD`               | **必需**（Android）：密钥密码                 |
+| `ANDROID_KEY_BASE64`                 | **必需**（Android）：`.jks` 的 base64         |
 
 > CI 会写入 `keystore.properties` 并注入 Gradle release 签名。本地 keystore 请自行备份，勿提交仓库。
 
@@ -199,3 +199,7 @@ git push origin v1.0.0
 
 **Android init 后更新 / 相册 / 安全区异常**  
 重新执行：`node .github/scripts/sync-android-updater-sources.mjs`。
+
+## 许可与安全
+
+本项目采用 [MIT License](./LICENSE)。安全披露与已知安全模型见 [SECURITY.md](./SECURITY.md)。参与开发请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
