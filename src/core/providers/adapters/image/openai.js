@@ -13,13 +13,7 @@ import {getCapabilities, supportsImageQuality} from '../../capabilities'
  * @returns {Promise<{ transport: 'json', path: string, body: object, timeout: number }>}
  */
 export async function prepareGenerate(provider, options) {
-  const {
-    prompt,
-    n = 1,
-    size = '1024x1024',
-    quality,
-    responseFormat,
-  } = options
+  const {prompt, n = 1, size = '1024x1024', quality, responseFormat} = options
 
   const caps = getCapabilities(provider).image
   const format = responseFormat || caps.preferResponseFormat || 'b64_json'
@@ -53,13 +47,7 @@ export async function prepareGenerate(provider, options) {
  * @returns {Promise<{ transport: 'multipart', path: string, form: FormData, timeout: number }>}
  */
 export async function prepareEdit(provider, options, deps) {
-  const {
-    prompt,
-    imageFile,
-    n = 1,
-    size = '1024x1024',
-    responseFormat,
-  } = options
+  const {prompt, imageFile, n = 1, size = '1024x1024', responseFormat} = options
   const {compressImageFile} = deps
 
   const format = responseFormat || 'b64_json'

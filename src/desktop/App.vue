@@ -2,7 +2,7 @@
 import {computed, h, onMounted, provide, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
-import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline,} from '@vicons/ionicons5'
+import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useVisualViewport} from '@core/composables/useVisualViewport'
@@ -17,7 +17,7 @@ import AppMobileChrome from '@/components/AppMobileChrome.vue'
 const route = useRoute()
 const router = useRouter()
 const settings = useSettingsStore()
-const { isMobile, isCompact } = useBreakpoints()
+const {isMobile, isCompact} = useBreakpoints()
 const desktopFrame = isDesktopTauri()
 if (!desktopFrame) useVisualViewport()
 
@@ -38,26 +38,26 @@ const naiveTheme = computed(() => (settings.theme === 'dark' ? darkTheme : null)
 const themeOverrides = computed(() => THEME_OVERRIDES[settings.theme] || THEME_OVERRIDES.dark)
 
 function renderIcon(icon) {
-  return () => h(NIcon, null, { default: () => h(icon) })
+  return () => h(NIcon, null, {default: () => h(icon)})
 }
 
 const menuOptions = computed(() => {
   const showNew = settings.hasAvailableUpdate
   return [
-    { label: '对话', key: 'chat', icon: renderIcon(ChatbubblesOutline) },
-    { label: '生图', key: 'image', icon: renderIcon(ImageOutline) },
-    { label: '生视频', key: 'video', icon: renderIcon(VideocamOutline) },
+    {label: '对话', key: 'chat', icon: renderIcon(ChatbubblesOutline)},
+    {label: '生图', key: 'image', icon: renderIcon(ImageOutline)},
+    {label: '生视频', key: 'video', icon: renderIcon(VideocamOutline)},
     {
       label: () =>
-        h('span', { class: 'menu-label-with-badge' }, [
+        h('span', {class: 'menu-label-with-badge'}, [
           '设置',
-          showNew ? h('span', { class: 'menu-new-badge' }, 'NEW') : null,
+          showNew ? h('span', {class: 'menu-new-badge'}, 'NEW') : null,
         ]),
       key: 'settings',
       icon: () =>
-        h('span', { class: 'menu-icon-wrap' }, [
-          h(NIcon, null, { default: () => h(SettingsOutline) }),
-          showNew ? h('span', { class: 'menu-icon-dot' }) : null,
+        h('span', {class: 'menu-icon-wrap'}, [
+          h(NIcon, null, {default: () => h(SettingsOutline)}),
+          showNew ? h('span', {class: 'menu-icon-dot'}) : null,
         ]),
     },
   ]
@@ -69,7 +69,7 @@ const collapsed = computed(() => isCompact.value && !isMobile.value)
 watch(
   () => settings.theme,
   (theme) => applyDocumentTheme(theme),
-  { immediate: true },
+  {immediate: true},
 )
 
 onMounted(() => {
@@ -114,7 +114,7 @@ function onMenuUpdate(key) {
                 @menu-update="onMenuUpdate"
               />
 
-              <aside v-if="!isMobile" :class="{ collapsed }" class="sidebar">
+              <aside v-if="!isMobile" :class="{collapsed}" class="sidebar">
                 <div class="brand">
                   <div class="logo">AI</div>
                   <div v-if="!collapsed" class="brand-text">
@@ -142,7 +142,7 @@ function onMenuUpdate(key) {
               </aside>
 
               <main class="main">
-                <router-view v-slot="{ Component }">
+                <router-view v-slot="{Component}">
                   <keep-alive :include="['ChatView', 'ImageView', 'VideoView', 'SettingsView']">
                     <component :is="Component" />
                   </keep-alive>
@@ -164,8 +164,7 @@ function onMenuUpdate(key) {
   height: 100%;
   background:
     radial-gradient(1200px 600px at 10% -10%, var(--glow-primary), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, var(--glow-accent), transparent 55%),
-    var(--color-bg);
+    radial-gradient(900px 500px at 100% 0%, var(--glow-accent), transparent 55%), var(--color-bg);
 
   &.framed {
     border: 1px solid var(--border-muted);

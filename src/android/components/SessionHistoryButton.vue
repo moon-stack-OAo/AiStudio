@@ -25,12 +25,7 @@ function onClick(e) {
 </script>
 
 <template>
-  <n-badge
-    :show="showBadge"
-    :value="badgeValue"
-    class="history-badge"
-    type="info"
-  >
+  <n-badge :show="showBadge" :value="badgeValue" class="history-badge" type="info">
     <n-button
       :aria-label="showBadge ? `打开会话列表，共 ${count} 个会话` : '打开会话列表'"
       circle
@@ -39,7 +34,7 @@ function onClick(e) {
       @click="onClick"
     >
       <template #icon>
-        <n-icon :component="ListOutline"/>
+        <n-icon :component="ListOutline" />
       </template>
     </n-button>
   </n-badge>

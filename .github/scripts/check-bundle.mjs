@@ -9,8 +9,8 @@ const root = process.cwd()
 const bundleRoot = path.join(root, 'src-tauri', 'target', 'release', 'bundle')
 
 const requiredGlobs = [
-  { dir: 'nsis', pattern: /\.exe$/i, label: 'NSIS 安装包 (.exe)' },
-  { dir: 'msi', pattern: /\.msi$/i, label: 'MSI 安装包 (.msi)' },
+  {dir: 'nsis', pattern: /\.exe$/i, label: 'NSIS 安装包 (.exe)'},
+  {dir: 'msi', pattern: /\.msi$/i, label: 'MSI 安装包 (.msi)'},
 ]
 
 function listFiles(dir) {

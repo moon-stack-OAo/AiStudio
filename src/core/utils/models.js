@@ -57,12 +57,12 @@ export function filterModelsByKind(models, kind) {
   return list.filter((m) => classifyModelId(m.id || m) === kind)
 }
 
-export function toSelectOptions(models, { current, fallbackLabel } = {}) {
+export function toSelectOptions(models, {current, fallbackLabel} = {}) {
   const map = new Map()
   for (const item of models || []) {
     const id = typeof item === 'string' ? item : item?.id
     if (!id) continue
-    map.set(id, { label: id, value: id })
+    map.set(id, {label: id, value: id})
   }
   if (current && !map.has(current)) {
     map.set(current, {

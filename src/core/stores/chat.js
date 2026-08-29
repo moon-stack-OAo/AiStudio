@@ -107,7 +107,7 @@ export const useChatStore = defineStore('chat', {
       return item
     },
     updateMessage(sessionId, messageId, patch, options = {}) {
-      const { persist = true } = options
+      const {persist = true} = options
       const session = this.sessions.find((s) => s.id === sessionId)
       if (!session) return
       const msg = session.messages.find((m) => m.id === messageId)

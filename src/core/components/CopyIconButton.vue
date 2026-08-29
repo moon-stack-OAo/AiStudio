@@ -3,9 +3,9 @@ import {CheckmarkOutline, CopyOutline} from '@vicons/ionicons5'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 
 defineProps({
-  active: { type: Boolean, default: false },
-  tooltip: { type: String, default: '复制' },
-  copiedTooltip: { type: String, default: '已复制' },
+  active: {type: Boolean, default: false},
+  tooltip: {type: String, default: '复制'},
+  copiedTooltip: {type: String, default: '已复制'},
 })
 
 defineEmits(['click'])
@@ -25,10 +25,7 @@ const {tooltipTrigger} = useTooltipTrigger()
         @click="$emit('click')"
       >
         <template #icon>
-          <n-icon
-            :component="active ? CheckmarkOutline : CopyOutline"
-            :size="14"
-          />
+          <n-icon :component="active ? CheckmarkOutline : CopyOutline" :size="14" />
         </template>
       </n-button>
     </template>

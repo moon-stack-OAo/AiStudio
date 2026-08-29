@@ -35,29 +35,25 @@ const emit = defineEmits(['update:prompt', 'send', 'stop', 'focus', 'keydown'])
 
 <template>
   <div class="composer">
-    <div
-      v-if="showHint"
-      :class="{ 'is-critical': hintCritical }"
-      class="composer-hint"
-    >
+    <div v-if="showHint" :class="{'is-critical': hintCritical}" class="composer-hint">
       {{ loading ? hintLoading : hintIdle }}
     </div>
     <div class="composer-card">
       <!-- 桌面端参数条 -->
       <div v-if="!isMobile && $slots.toolbar" class="composer-toolbar">
-        <slot name="toolbar"/>
+        <slot name="toolbar" />
       </div>
 
       <!-- 移动端参数摘要 -->
-      <slot v-else-if="isMobile" name="params-summary"/>
+      <slot v-else-if="isMobile" name="params-summary" />
 
       <!-- 参考图 / ref-chip -->
-      <slot name="reference"/>
+      <slot name="reference" />
 
       <div class="composer-input">
         <n-input
           :value="prompt"
-          :autosize="{ minRows: isMobile ? 1 : 3, maxRows: isMobile ? 4 : 8 }"
+          :autosize="{minRows: isMobile ? 1 : 3, maxRows: isMobile ? 4 : 8}"
           :disabled="loading"
           class="composer-field"
           :placeholder="placeholder"

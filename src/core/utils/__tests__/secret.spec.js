@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { encryptSecret, decryptSecret } from '@core/utils/secret'
+import {describe, it, expect} from 'vitest'
+import {encryptSecret, decryptSecret} from '@core/utils/secret'
 
 describe('encryptSecret / decryptSecret', () => {
   it('往返加密解密', () => {

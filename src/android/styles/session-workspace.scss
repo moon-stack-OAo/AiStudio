@@ -5,128 +5,24 @@
   width: 100%;
 }
 
-.empty {
-  margin-top: 16vh;
-  padding: 0 12px;
-  text-align: center;
-  color: var(--text-3);
-}
-
-.empty-title {
-  font-size: 17px;
-  font-weight: 600;
-  margin-bottom: 10px;
-  color: var(--text-1);
-}
-
-.empty-desc {
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.msg {
-  display: flex;
-  gap: 0;
-  margin-bottom: 22px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
 /* 移动端隐藏角色头像，把横向空间还给气泡 */
 .role {
   display: none;
 }
 
-.msg-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-  max-width: 100%;
-}
-
-.bubble {
-  padding: 14px 16px;
-  border-radius: var(--radius-xl);
-  background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
-  width: fit-content;
-  max-width: 80%;
-  min-width: 0;
-  box-sizing: border-box;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  line-height: 1.55;
-}
-
-.msg-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-top: 4px;
-  color: var(--text-4);
-  opacity: 1;
-}
-
-.composer {
-  /* 底栏已含 safe-bottom，常态勿再叠；键盘弹起时由 App.vue .keyboard-open 补 inset */
-  padding: 8px calc(12px + var(--safe-right)) 10px calc(12px + var(--safe-left));
-  background: transparent;
-}
-
-.composer-card {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: flex-end;
-  padding: 8px 8px 8px 10px;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--composer-border);
-  background: var(--composer-bg);
-  box-shadow: var(--composer-shadow);
-  backdrop-filter: blur(12px);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-
-  &:focus-within {
-    border-color: var(--composer-focus-border);
-    box-shadow: var(--composer-focus-shadow);
-  }
-}
-
 .composer-actions {
-  display: flex;
   flex-direction: row;
   justify-content: flex-end;
-  gap: 8px;
-  flex-shrink: 0;
-  align-items: center;
-  min-width: 0;
   width: auto;
   padding-bottom: 2px;
-}
-
-.send-btn {
-  width: var(--touch-min);
-  height: var(--touch-min);
-  min-width: var(--touch-min);
-  min-height: var(--touch-min);
-  box-shadow: var(--shadow-send);
 }
 
 /* 常态隐藏说明；仅 critical 时显示在输入区上方 */
 .composer-hint {
   display: none;
   margin-bottom: 6px;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
   gap: 6px 10px;
-  font-size: 11px;
   line-height: 1.5;
-  color: var(--text-4);
 }
 
 .composer-hint.is-critical {

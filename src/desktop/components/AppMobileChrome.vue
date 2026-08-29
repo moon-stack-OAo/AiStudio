@@ -43,13 +43,7 @@ defineExpose({open, close})
 
 <template>
   <header v-if="showTopbar" class="mobile-topbar">
-    <n-button
-      aria-label="打开菜单"
-      circle
-      class="touch-target"
-      quaternary
-      @click="open"
-    >
+    <n-button aria-label="打开菜单" circle class="touch-target" quaternary @click="open">
       <template #icon>
         <n-icon :component="MenuOutline" />
       </template>
@@ -58,17 +52,9 @@ defineExpose({open, close})
     <ThemeToggleButton variant="toolbar" />
   </header>
 
-  <n-drawer
-    v-model:show="mobileNavShow"
-    :width="260"
-    placement="left"
-  >
+  <n-drawer v-model:show="mobileNavShow" :width="260" placement="left">
     <n-drawer-content closable title="AI Studio">
-      <n-menu
-        :options="menuOptions"
-        :value="activeKey"
-        @update:value="onMenuUpdate"
-      />
+      <n-menu :options="menuOptions" :value="activeKey" @update:value="onMenuUpdate" />
       <div class="drawer-footer">
         <div v-if="settings.activeProvider" class="provider-chip">
           <span class="dot" />

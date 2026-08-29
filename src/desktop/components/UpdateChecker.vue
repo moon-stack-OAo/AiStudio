@@ -17,47 +17,43 @@ function showUpdateDialog(result) {
     closable: true,
     maskClosable: true,
     action: () =>
-      h(
-        'div',
-        {style: 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap'},
-        [
-          h(
-            NButton,
-            {
-              size: 'small',
-              disabled: installing.value,
-              onClick: () => {
-                skipVersion(result.latest.version)
-                d.destroy()
-              },
+      h('div', {style: 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap'}, [
+        h(
+          NButton,
+          {
+            size: 'small',
+            disabled: installing.value,
+            onClick: () => {
+              skipVersion(result.latest.version)
+              d.destroy()
             },
-            {default: () => '跳过此版本'},
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              disabled: installing.value,
-              onClick: () => d.destroy(),
+          },
+          {default: () => '跳过此版本'},
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            disabled: installing.value,
+            onClick: () => d.destroy(),
+          },
+          {default: () => '稍后'},
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            loading: installing.value,
+            onClick: async () => {
+              if (installing.value) return
+              await installUpdate(result.update)
+              // 成功会 relaunch；失败时 composable 已复位 installing
             },
-            {default: () => '稍后'},
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              type: 'primary',
-              loading: installing.value,
-              onClick: async () => {
-                if (installing.value) return
-                await installUpdate(result.update)
-                // 成功会 relaunch；失败时 composable 已复位 installing
-              },
-            },
-            {default: () => '下载并安装'},
-          ),
-        ],
-      ),
+          },
+          {default: () => '下载并安装'},
+        ),
+      ]),
   })
 }
 

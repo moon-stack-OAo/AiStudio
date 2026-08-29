@@ -2,7 +2,7 @@
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
-import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline,} from '@vicons/ionicons5'
+import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import {KEYBOARD_OPEN_DELTA_PX, useVisualViewport} from '@core/composables/useVisualViewport'
 import {applyDocumentTheme, THEME_OVERRIDES} from '@core/utils/theme'
@@ -83,13 +83,13 @@ async function goTab(tab) {
     <n-message-provider>
       <n-dialog-provider>
         <n-notification-provider>
-          <UpdateChecker/>
-          <div :class="{ 'keyboard-open': keyboardOpen }" class="app-shell mobile">
+          <UpdateChecker />
+          <div :class="{'keyboard-open': keyboardOpen}" class="app-shell mobile">
             <div class="app-body">
               <main class="main">
-                <router-view v-slot="{ Component }">
+                <router-view v-slot="{Component}">
                   <keep-alive :include="['ChatView', 'ImageView', 'VideoView', 'SettingsView']">
-                    <component :is="Component"/>
+                    <component :is="Component" />
                   </keep-alive>
                 </router-view>
               </main>
@@ -98,18 +98,17 @@ async function goTab(tab) {
                 <button
                   v-for="tab in tabs"
                   :key="tab.key"
-                  :aria-label="tab.key === 'settings' && showUpdateBadge ? '设置，有可用更新' : tab.label"
-                  :class="{ active: activeKey === tab.key }"
+                  :aria-label="
+                    tab.key === 'settings' && showUpdateBadge ? '设置，有可用更新' : tab.label
+                  "
+                  :class="{active: activeKey === tab.key}"
                   class="tab-item"
                   type="button"
                   @click="goTab(tab)"
                 >
                   <span class="tab-icon-wrap">
-                    <n-icon :component="tab.icon" :size="22" class="tab-icon"/>
-                    <span
-                      v-if="tab.key === 'settings' && showUpdateBadge"
-                      class="tab-icon-dot"
-                    />
+                    <n-icon :component="tab.icon" :size="22" class="tab-icon" />
+                    <span v-if="tab.key === 'settings' && showUpdateBadge" class="tab-icon-dot" />
                   </span>
                   <span class="tab-label">{{ tab.label }}</span>
                 </button>
@@ -130,8 +129,7 @@ async function goTab(tab) {
   height: 100%;
   background:
     radial-gradient(1200px 600px at 10% -10%, var(--glow-primary), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, var(--glow-accent), transparent 55%),
-    var(--color-bg);
+    radial-gradient(900px 500px at 100% 0%, var(--glow-accent), transparent 55%), var(--color-bg);
 }
 
 .app-body {
@@ -155,10 +153,16 @@ async function goTab(tab) {
   justify-content: space-around;
   gap: 4px;
   min-height: calc(52px + var(--safe-bottom));
-  padding: 4px calc(8px + var(--safe-right)) calc(4px + var(--safe-bottom)) calc(8px + var(--safe-left));
+  padding: 4px calc(8px + var(--safe-right)) calc(4px + var(--safe-bottom))
+    calc(8px + var(--safe-left));
   border-top: 1px solid var(--border-subtle);
   background: var(--color-titlebar);
-  transition: transform 0.18s ease, opacity 0.18s ease, max-height 0.18s ease, padding 0.18s ease, min-height 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    max-height 0.18s ease,
+    padding 0.18s ease,
+    min-height 0.18s ease;
   max-height: 120px;
   overflow: hidden;
 }

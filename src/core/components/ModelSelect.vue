@@ -38,9 +38,7 @@ const message = useMessage()
 const {isMobile} = useBreakpoints()
 
 /** sheet 模式始终尊重 showRefresh；桌面非 sheet 在窄屏隐藏刷新 */
-const showRefreshBtn = computed(
-  () => props.showRefresh && (props.sheet || !isMobile.value),
-)
+const showRefreshBtn = computed(() => props.showRefresh && (props.sheet || !isMobile.value))
 
 const field = computed(() => {
   if (props.kind === 'image') return 'imageModel'
@@ -49,12 +47,9 @@ const field = computed(() => {
 })
 const value = computed(() => settings.activeProvider?.[field.value] || null)
 
-const {
-  loading,
-  error,
-  options,
-  refresh,
-} = useProviderModels(() => settings.activeProvider, {kind: props.kind})
+const {loading, error, options, refresh} = useProviderModels(() => settings.activeProvider, {
+  kind: props.kind,
+})
 
 const selectPlaceholder = computed(() => {
   if (props.placeholder) return props.placeholder
@@ -84,7 +79,7 @@ async function onRefresh() {
 </script>
 
 <template>
-  <div :class="{ sheet }" class="model-select-wrap">
+  <div :class="{sheet}" class="model-select-wrap">
     <n-select
       :loading="loading"
       :options="options"
@@ -108,7 +103,7 @@ async function onRefresh() {
       @click="onRefresh"
     >
       <template #icon>
-        <n-icon :component="RefreshOutline"/>
+        <n-icon :component="RefreshOutline" />
       </template>
     </n-button>
   </div>

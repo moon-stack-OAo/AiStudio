@@ -1,6 +1,46 @@
 @use '@core/styles/tokens.scss';
 @use '@core/styles/base.scss';
 
+/* Android 布局密度：偏紧（对齐当前移动端视觉，勿与 Desktop 硬统一） */
+:root {
+  --gap-msg: 0px;
+  --gap-msg-body: var(--space-2);
+  --space-msg-y: 22px;
+  --mt-msg-actions: var(--space-1);
+  --pad-bubble-y: 14px;
+  --pad-bubble-x: var(--space-4);
+  --radius-bubble: var(--radius-xl);
+  --line-bubble: 1.55;
+  --pad-composer-y: var(--space-2);
+  --pad-composer-x: var(--space-3);
+  --pad-composer-bottom: 10px;
+  --pad-composer-card: var(--space-2) var(--space-2) var(--space-2) 10px;
+  --radius-composer-card: var(--radius-xl);
+  --size-send: var(--touch-min);
+  --empty-offset-y: 16vh;
+  --empty-title-size: 17px;
+  --empty-title-gap: 10px;
+  --empty-pad-x: var(--space-3);
+  --line-empty-desc: 1.55;
+  --msg-body-max: 100%;
+
+  --pad-gallery-y: 18px;
+  --pad-gallery-x: var(--space-4);
+  --pad-gallery-bottom: var(--space-6);
+  --gap-user-bubble: 10px;
+  --gap-composer-card-gen: 6px;
+  --pad-composer-card-gen: 6px;
+  --gap-composer-input: 6px;
+  --pad-ref-chip: 2px 6px 2px 2px;
+  --gap-ref-chip: 6px;
+  --size-ref-chip-img: 28px;
+  --fs-ref-name: var(--text-xs);
+  --fs-mode-item: var(--text-sm);
+  --pad-mode-item: var(--space-2) 14px;
+  --fs-composer-input: var(--text-sm);
+  --pad-composer-input-y: var(--space-1);
+}
+
 /* 扩大圆形 / tiny / small 图标按钮可点热区（Android 全局默认） */
 .touch-target {
   position: relative;

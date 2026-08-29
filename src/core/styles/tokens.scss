@@ -82,6 +82,48 @@
   --text-sm: 13px;
   --text-md: 15px;
 
+  /*
+   * 布局密度（默认 = Desktop 偏松）。
+   * Android / 窄屏在端侧 main.scss 覆写为偏紧；结构规则走 base，数值走变量。
+   */
+  --gap-msg: 10px;
+  --gap-msg-body: var(--space-1);
+  --space-msg-y: var(--space-4);
+  --mt-msg-actions: 0px;
+  --pad-bubble-y: 10px;
+  --pad-bubble-x: var(--space-3);
+  --radius-bubble: var(--radius-lg);
+  --line-bubble: normal;
+  --pad-composer-y: 10px;
+  --pad-composer-x: 18px;
+  --pad-composer-bottom: 14px;
+  --pad-composer-card: 10px 10px 10px var(--space-3);
+  --radius-composer-card: var(--radius-2xl);
+  --gap-composer: var(--space-2);
+  --size-send: 40px;
+  --empty-offset-y: 18vh;
+  --empty-title-size: 18px;
+  --empty-title-gap: var(--space-2);
+  --empty-pad-x: 0px;
+  --line-empty-desc: normal;
+  --msg-body-max: calc(100% - 38px);
+
+  --pad-gallery-y: 18px;
+  --pad-gallery-x: 22px;
+  --pad-gallery-bottom: 18px;
+  --gap-user-bubble: var(--space-2);
+  --gap-composer-card-gen: 10px;
+  --pad-composer-card-gen: var(--space-3);
+  --gap-composer-input: var(--space-3);
+  --pad-ref-chip: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  --gap-ref-chip: var(--space-2);
+  --size-ref-chip-img: 44px;
+  --fs-ref-name: 12px;
+  --fs-mode-item: var(--text-sm);
+  --pad-mode-item: var(--space-2) 14px;
+  --fs-composer-input: 14px;
+  --pad-composer-input-y: 6px;
+
   /* 移动端最小可点热区（约 44–48dp） */
   --touch-min: 44px;
 

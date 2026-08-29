@@ -31,7 +31,7 @@ function sanitizeItem(item) {
   if (!item || typeof item !== 'object') return item
   const ref = item.refPreview
   if (typeof ref === 'string' && ref.length > MAX_REF_PREVIEW) {
-    return { ...item, refPreview: '' }
+    return {...item, refPreview: ''}
   }
   return item
 }

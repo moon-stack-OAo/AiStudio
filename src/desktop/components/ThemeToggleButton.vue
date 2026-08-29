@@ -16,12 +16,8 @@ defineProps({
 const settings = useSettingsStore()
 const {tooltipTrigger} = useTooltipTrigger()
 
-const icon = computed(() =>
-  settings.theme === 'light' ? MoonOutline : SunnyOutline,
-)
-const tip = computed(() =>
-  settings.theme === 'light' ? '切换为深色' : '切换为浅色',
-)
+const icon = computed(() => (settings.theme === 'light' ? MoonOutline : SunnyOutline))
+const tip = computed(() => (settings.theme === 'light' ? '切换为深色' : '切换为浅色'))
 
 function onToggle() {
   settings.toggleTheme()
@@ -33,12 +29,7 @@ function onToggle() {
   <div v-if="variant === 'titlebar'" class="titlebar-wrap">
     <n-tooltip placement="bottom" trigger="hover">
       <template #trigger>
-        <button
-          :aria-label="tip"
-          class="ctrl"
-          type="button"
-          @click="onToggle"
-        >
+        <button :aria-label="tip" class="ctrl" type="button" @click="onToggle">
           <n-icon :component="icon" :size="14" />
         </button>
       </template>
@@ -46,11 +37,7 @@ function onToggle() {
     </n-tooltip>
   </div>
 
-  <n-tooltip
-    v-else-if="variant === 'toolbar'"
-    :trigger="tooltipTrigger"
-    placement="bottom"
-  >
+  <n-tooltip v-else-if="variant === 'toolbar'" :trigger="tooltipTrigger" placement="bottom">
     <template #trigger>
       <n-button
         :aria-label="tip"
@@ -98,7 +85,9 @@ function onToggle() {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 
   &:hover {
     background: var(--border-muted);

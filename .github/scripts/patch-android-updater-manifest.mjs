@@ -24,8 +24,7 @@ if (!fs.existsSync(manifestPath)) {
 }
 
 let text = fs.readFileSync(manifestPath, 'utf8')
-const perm =
-  '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
+const perm = '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
 
 if (!text.includes('android.permission.REQUEST_INSTALL_PACKAGES')) {
   if (text.includes('android.permission.INTERNET')) {

@@ -29,15 +29,8 @@ function close() {
   >
     <n-drawer-content closable :title="title">
       <div class="params-drawer">
-        <slot/>
-        <n-button
-          block
-          class="params-done"
-          type="primary"
-          @click="close"
-        >
-          完成
-        </n-button>
+        <slot />
+        <n-button block class="params-done" type="primary" @click="close"> 完成 </n-button>
       </div>
     </n-drawer-content>
   </n-drawer>

@@ -3,81 +3,18 @@
 
 .provider-select {
   width: 160px;
-  flex-shrink: 0;
 }
 
-.empty {
-  margin-top: 18vh;
-  text-align: center;
-  color: var(--text-3);
+/* 桌面端消费 safe-bottom；安卓底栏场景由端侧覆盖 */
+.composer {
+  padding-bottom: max(var(--pad-composer-bottom), calc(8px + var(--safe-bottom)));
 }
 
-.empty-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: var(--space-2);
-  color: var(--text-1);
-}
-
-.empty-desc {
-  font-size: var(--text-sm);
-}
-
-.msg {
-  display: flex;
-  gap: 10px;
-  margin-bottom: var(--space-4);
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.role {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  display: grid;
-  place-items: center;
-  font-size: var(--text-xs);
-  flex-shrink: 0;
-  background: var(--role-ai-bg);
-  color: var(--role-ai-fg);
-}
-
-.msg.user .role {
-  background: var(--role-user-bg);
-  color: var(--role-user-fg);
-}
-
-.msg-body {
-  display: flex;
+.composer-actions {
   flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-  flex: 1;
-  max-width: calc(100% - 38px);
-}
-
-.bubble {
-  padding: 10px var(--space-3);
-  border-radius: var(--radius-lg);
-  background: var(--surface-3);
-  border: 1px solid var(--border-subtle);
-  width: fit-content;
-  max-width: 80%;
-  min-width: 0;
-  box-sizing: border-box;
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .msg-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--text-4);
-  opacity: 1;
   transition: opacity 0.15s ease;
 }
 
@@ -92,136 +29,34 @@
   }
 }
 
-.composer {
-  /* 桌面端消费 safe-bottom；安卓底栏场景由端侧覆盖 */
-  padding: 10px calc(18px + var(--safe-right)) 14px calc(18px + var(--safe-left));
-  padding-bottom: max(14px, calc(8px + var(--safe-bottom)));
-  background: transparent;
-}
-
-.composer-card {
-  display: flex;
-  gap: var(--space-2);
-  align-items: flex-end;
-  padding: 10px 10px 10px var(--space-3);
-  border-radius: var(--radius-2xl);
-  border: 1px solid var(--composer-border);
-  background: var(--composer-bg);
-  box-shadow: var(--composer-shadow);
-  backdrop-filter: blur(12px);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-
-  &:focus-within {
-    border-color: var(--composer-focus-border);
-    box-shadow: var(--composer-focus-shadow);
-  }
-}
-
-.composer-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  align-items: center;
-  min-width: 0;
-}
-
-.send-btn {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
-  box-shadow: var(--shadow-send);
-}
-
-.composer-hint {
-  margin-bottom: var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: var(--space-2) 14px;
-  font-size: var(--text-xs);
-  color: var(--text-4);
-}
-
 .page.compact .composer {
-  padding: var(--space-2) calc(14px + var(--safe-right)) var(--space-3) calc(14px + var(--safe-left));
+  padding: var(--space-2) calc(14px + var(--safe-right)) var(--space-3)
+    calc(14px + var(--safe-left));
 }
 
-/* 与 useBreakpoints isMobile(<768) 对齐 */
+/* 与 useBreakpoints isMobile(<768) 对齐：结构分叉（密度变量见 main.scss） */
 @media (max-width: 767.98px) {
   .provider-select {
     width: auto;
   }
 
-  .empty {
-    margin-top: 16vh;
-    padding: 0 var(--space-3);
-  }
-
-  .empty-title {
-    font-size: 17px;
-    margin-bottom: 10px;
-  }
-
-  .empty-desc {
-    font-size: var(--text-sm);
-    line-height: 1.55;
-  }
-
-  /* 移动端隐藏角色头像，把横向空间还给气泡 */
   .role {
     display: none;
   }
 
-  .msg-body {
-    max-width: 100%;
-    gap: var(--space-2);
-  }
-
-  .bubble {
-    max-width: 80%;
-    padding: 14px var(--space-4);
-    border-radius: var(--radius-xl);
-    line-height: 1.55;
-  }
-
-  .msg {
-    gap: 0;
-    margin-bottom: 22px;
-  }
-
-  .msg-actions {
-    opacity: 1;
-    margin-top: var(--space-1);
-  }
-
   .composer {
-    padding: var(--space-2) calc(var(--space-3) + var(--safe-right)) 10px calc(var(--space-3) + var(--safe-left));
     padding-bottom: max(10px, calc(var(--space-2) + var(--safe-bottom)));
-  }
-
-  .composer-card {
-    border-radius: var(--radius-xl);
-    padding: var(--space-2) var(--space-2) var(--space-2) 10px;
-    gap: var(--space-2);
   }
 
   .composer-actions {
     flex-direction: row;
     justify-content: flex-end;
-    min-width: 0;
   }
 
-  .send-btn {
-    width: var(--touch-min);
-    height: var(--touch-min);
-    min-width: var(--touch-min);
-    min-height: var(--touch-min);
+  .msg-actions {
+    opacity: 1;
   }
 
-  /* 常态隐藏底部说明，减少占高；仅保留关键提示由页面按需覆盖 */
   .composer-hint {
     display: none;
   }

@@ -1,49 +1,47 @@
 <!doctype html>
 <html lang="zh-CN" style="background-color: #0f1115">
-<head>
-    <meta charset="UTF-8"/>
-    <link href="/favicon.svg" rel="icon" type="image/svg+xml"/>
-    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+  <head>
+    <meta charset="UTF-8" />
+    <link href="/favicon.svg" rel="icon" type="image/svg+xml" />
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
     <title>AI Studio - 对话 / 生图 / 生视频</title>
     <!-- 尽早按本地 theme 设背景，减轻浅色用户冷启动闪深色 -->
     <script>
-        (function () {
-            var BG = {dark: '#0f1115', light: '#f4f6fb'}
-            var theme = 'dark'
-            try {
-                var raw = localStorage.getItem('ai_studio_settings')
-                if (raw) {
-                    var parsed = JSON.parse(raw)
-                    if (parsed && parsed.theme === 'light') theme = 'light'
-                }
-            } catch (e) {
-            }
-            var color = BG[theme]
-            var root = document.documentElement
-            root.dataset.theme = theme
-            root.style.backgroundColor = color
-            document.addEventListener('DOMContentLoaded', function () {
-                if (document.body) document.body.style.backgroundColor = color
-            })
+      ;(function () {
+        var BG = {dark: '#0f1115', light: '#f4f6fb'}
+        var theme = 'dark'
+        try {
+          var raw = localStorage.getItem('ai_studio_settings')
+          if (raw) {
+            var parsed = JSON.parse(raw)
+            if (parsed && parsed.theme === 'light') theme = 'light'
+          }
+        } catch (e) {}
+        var color = BG[theme]
+        var root = document.documentElement
+        root.dataset.theme = theme
+        root.style.backgroundColor = color
+        document.addEventListener('DOMContentLoaded', function () {
+          if (document.body) document.body.style.backgroundColor = color
+        })
 
-            // Android：尽早同步系统栏图标（Bridge 可能稍后才注入）
-            function syncBars() {
-                try {
-                    if (window.TauriSystemBars && typeof window.TauriSystemBars.setTheme === 'function') {
-                        window.TauriSystemBars.setTheme(theme)
-                    }
-                } catch (e) {
-                }
+        // Android：尽早同步系统栏图标（Bridge 可能稍后才注入）
+        function syncBars() {
+          try {
+            if (window.TauriSystemBars && typeof window.TauriSystemBars.setTheme === 'function') {
+              window.TauriSystemBars.setTheme(theme)
             }
+          } catch (e) {}
+        }
 
-            syncBars()
-            setTimeout(syncBars, 50)
-            setTimeout(syncBars, 300)
-        })()
+        syncBars()
+        setTimeout(syncBars, 50)
+        setTimeout(syncBars, 300)
+      })()
     </script>
-</head>
-<body style="background-color: #0f1115; margin: 0">
-<div id="app"></div>
-<script src="/src/android/main.js" type="module"></script>
-</body>
+  </head>
+  <body style="background-color: #0f1115; margin: 0">
+    <div id="app"></div>
+    <script src="/src/android/main.js" type="module"></script>
+  </body>
 </html>

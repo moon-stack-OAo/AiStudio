@@ -25,7 +25,13 @@ function isBlockedProxyHost(hostname) {
   if (!host) return true
   if (BLOCKED_PROXY_HOSTS.has(host)) return true
   if (host.startsWith('169.254.')) return true
-  if (host === '0.0.0.0' || host === '::' || host === '[::]' || host === '::1' || host === '[::1]') {
+  if (
+    host === '0.0.0.0' ||
+    host === '::' ||
+    host === '[::]' ||
+    host === '::1' ||
+    host === '[::1]'
+  ) {
     return true
   }
   return false
@@ -108,7 +114,11 @@ export function corsProxyPlugin() {
           res.statusCode = upstream.status
           upstream.headers.forEach((value, key) => {
             const lower = key.toLowerCase()
-            if (['content-encoding', 'transfer-encoding', 'content-length', 'connection'].includes(lower)) {
+            if (
+              ['content-encoding', 'transfer-encoding', 'content-length', 'connection'].includes(
+                lower,
+              )
+            ) {
               return
             }
             res.setHeader(key, value)

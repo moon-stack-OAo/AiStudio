@@ -149,14 +149,11 @@ export async function downloadAndInstallAndroidUpdate(latest, onProgress) {
       canInstall = await invoke('android_can_install_packages')
     } catch (e) {
       throw new Error(
-        e?.message ||
-          '需要开启「允许安装未知应用」。请在系统设置中为本应用开启后重试。',
+        e?.message || '需要开启「允许安装未知应用」。请在系统设置中为本应用开启后重试。',
       )
     }
     if (!canInstall) {
-      throw new Error(
-        '未开启「允许安装未知应用」。请在系统设置中为本应用开启后重试。',
-      )
+      throw new Error('未开启「允许安装未知应用」。请在系统设置中为本应用开启后重试。')
     }
   }
 

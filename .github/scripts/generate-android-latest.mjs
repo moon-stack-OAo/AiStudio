@@ -30,7 +30,7 @@ function findApk() {
     const dir = stack.pop()
     let entries = []
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true })
+      entries = fs.readdirSync(dir, {withFileTypes: true})
     } catch {
       continue
     }
@@ -51,9 +51,7 @@ function extractNotes() {
   const changelogPath = path.join(process.cwd(), 'CHANGELOG.md')
   if (!fs.existsSync(changelogPath)) return ''
   const lines = fs.readFileSync(changelogPath, 'utf8').split(/\r?\n/)
-  const headerRe = new RegExp(
-    `^## \\[v?${version.replace(/\./g, '\\.')}\\](?:\\s|$)`,
-  )
+  const headerRe = new RegExp(`^## \\[v?${version.replace(/\./g, '\\.')}\\](?:\\s|$)`)
   let start = -1
   for (let i = 0; i < lines.length; i += 1) {
     if (headerRe.test(lines[i])) {

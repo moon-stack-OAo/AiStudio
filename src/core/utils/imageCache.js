@@ -14,7 +14,7 @@ function openDb() {
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' })
+        db.createObjectStore(STORE_NAME, {keyPath: 'id'})
       }
     }
     req.onsuccess = () => resolve(req.result)
@@ -40,7 +40,7 @@ function dataUrlToBlob(dataUrl) {
   for (let i = 0; i < len; i += 1) {
     bytes[i] = binary.charCodeAt(i)
   }
-  return new Blob([bytes], { type: mime })
+  return new Blob([bytes], {type: mime})
 }
 
 async function urlToBlob(url) {
@@ -156,9 +156,7 @@ export async function clearImageCache() {
  * 收集条目中的 idb 图片 id
  */
 export function collectCacheIds(images = []) {
-  return images
-    .filter((img) => img?.type === 'idb' && img.id)
-    .map((img) => img.id)
+  return images.filter((img) => img?.type === 'idb' && img.id).map((img) => img.id)
 }
 
 /**
@@ -172,14 +170,13 @@ export async function cacheGeneratedImages(images = []) {
   for (const image of images) {
     const revisedPrompt = image.revisedPrompt || ''
     const isData =
-      image.type === 'b64' ||
-      (typeof image.src === 'string' && image.src.startsWith('data:'))
+      image.type === 'b64' || (typeof image.src === 'string' && image.src.startsWith('data:'))
 
     if (isData) {
       try {
         const id = createId('imgc')
         const blob = await toBlob(image)
-        await putImageBlob(id, blob, { source: 'b64' })
+        await putImageBlob(id, blob, {source: 'b64'})
         results.push({
           id,
           type: 'idb',
@@ -200,7 +197,7 @@ export async function cacheGeneratedImages(images = []) {
     try {
       const id = createId('imgc')
       const blob = await toBlob(image)
-      await putImageBlob(id, blob, { source: 'url', remoteUrl: image.src })
+      await putImageBlob(id, blob, {source: 'url', remoteUrl: image.src})
       results.push({
         id,
         type: 'idb',

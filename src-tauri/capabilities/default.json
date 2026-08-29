@@ -3,9 +3,7 @@
   "identifier": "default",
   "description": "桌面主窗口默认能力：核心能力 + 关闭偏好相关 commands + updater",
   "platforms": ["linux", "macOS", "windows"],
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:default",
@@ -31,10 +29,10 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "https://**" },
-        { "url": "http://**" },
-        { "url": "https://*:*/**" },
-        { "url": "http://*:*/**" }
+        {"url": "https://**"},
+        {"url": "http://**"},
+        {"url": "https://*:*/**"},
+        {"url": "http://*:*/**"}
       ]
     }
   ]

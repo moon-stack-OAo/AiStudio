@@ -56,7 +56,11 @@ if (!/signingConfigs\s*\{[\s\S]*?create\("release"\)/.test(text)) {
   text = text.replace(/(\s*)buildTypes\s*\{/, `\n${signingBlock}$1buildTypes {`)
 }
 
-if (!/getByName\("release"\)\s*\{[\s\S]*?signingConfig\s*=\s*signingConfigs\.getByName\("release"\)/.test(text)) {
+if (
+  !/getByName\("release"\)\s*\{[\s\S]*?signingConfig\s*=\s*signingConfigs\.getByName\("release"\)/.test(
+    text,
+  )
+) {
   text = text.replace(
     /getByName\("release"\)\s*\{/,
     `getByName("release") {

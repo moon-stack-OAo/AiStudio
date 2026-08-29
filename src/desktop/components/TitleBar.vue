@@ -135,7 +135,9 @@ onUnmounted(() => {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 
   &:hover {
     background: var(--border-muted);

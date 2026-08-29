@@ -15,14 +15,7 @@
  * @returns {Promise<{ transport: 'json'|'multipart', path: string, body?: object, form?: FormData }>}
  */
 export async function prepareCreate(provider, options, deps) {
-  const {
-    prompt,
-    mode = 'txt2video',
-    imageFile,
-    seconds,
-    duration,
-    size,
-  } = options
+  const {prompt, mode = 'txt2video', imageFile, seconds, duration, size} = options
   const {compressImageFile} = deps
 
   const model = String(provider.videoModel || '').trim()

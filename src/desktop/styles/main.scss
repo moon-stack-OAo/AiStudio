@@ -1,6 +1,56 @@
 @use '@core/styles/tokens.scss';
 @use '@core/styles/base.scss';
 
+/* Desktop 密度默认值已在 tokens.scss；此处仅窄屏 / 中屏覆写（须放全局，勿进 scoped） */
+
+@media (max-width: 1279.98px) {
+  :root {
+    --pad-gallery-y: 14px;
+    --pad-gallery-x: var(--space-4);
+    --pad-gallery-bottom: 14px;
+  }
+}
+
+/* 与 useBreakpoints isMobile(<768) 对齐：窄屏切到偏紧密度 */
+@media (max-width: 767.98px) {
+  :root {
+    --gap-msg: 0px;
+    --gap-msg-body: var(--space-2);
+    --space-msg-y: 22px;
+    --mt-msg-actions: var(--space-1);
+    --pad-bubble-y: 14px;
+    --pad-bubble-x: var(--space-4);
+    --radius-bubble: var(--radius-xl);
+    --line-bubble: 1.55;
+    --pad-composer-y: var(--space-2);
+    --pad-composer-x: var(--space-3);
+    --pad-composer-bottom: 10px;
+    --pad-composer-card: var(--space-2) var(--space-2) var(--space-2) 10px;
+    --radius-composer-card: var(--radius-xl);
+    --size-send: var(--touch-min);
+    --empty-offset-y: 16vh;
+    --empty-title-size: 17px;
+    --empty-title-gap: 10px;
+    --empty-pad-x: var(--space-3);
+    --line-empty-desc: 1.55;
+    --msg-body-max: 100%;
+
+    --pad-gallery-y: 18px;
+    --pad-gallery-x: var(--space-4);
+    --pad-gallery-bottom: var(--space-6);
+    --gap-user-bubble: 10px;
+    --gap-composer-card-gen: 6px;
+    --pad-composer-card-gen: 6px;
+    --gap-composer-input: 6px;
+    --pad-ref-chip: 2px 6px 2px 2px;
+    --gap-ref-chip: 6px;
+    --size-ref-chip-img: 28px;
+    --fs-ref-name: var(--text-xs);
+    --fs-composer-input: var(--text-sm);
+    --pad-composer-input-y: var(--space-1);
+  }
+}
+
 /* 移动端：扩大圆形 / tiny / small 图标按钮可点热区 */
 @media (max-width: 767.98px) {
   .touch-target {

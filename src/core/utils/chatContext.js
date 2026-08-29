@@ -1,4 +1,4 @@
-import {CHAT_CONTEXT_WARN_RATIO, DEFAULT_CHAT_CONTEXT_MAX_TURNS,} from '@core/utils/constants'
+import {CHAT_CONTEXT_WARN_RATIO, DEFAULT_CHAT_CONTEXT_MAX_TURNS} from '@core/utils/constants'
 
 /**
  * 统计对话轮数：以 user 消息条数为准。
@@ -17,10 +17,7 @@ export function countChatTurns(messages = []) {
  */
 export function trimChatMessages(messages = [], options = {}) {
   const enabled = options.enabled !== false
-  const maxTurns = Math.max(
-    1,
-    Number(options.maxTurns) || DEFAULT_CHAT_CONTEXT_MAX_TURNS,
-  )
+  const maxTurns = Math.max(1, Number(options.maxTurns) || DEFAULT_CHAT_CONTEXT_MAX_TURNS)
 
   const system = []
   const rest = []

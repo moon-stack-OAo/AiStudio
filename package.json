@@ -34,7 +34,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check \"src/**/*.{js,vue}\" \"scripts/**/*.{js,mjs}\" \".github/scripts/**/*.{js,mjs}\" \"*.{js,mjs}\" \"vitest.config.js\"",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest"
   },

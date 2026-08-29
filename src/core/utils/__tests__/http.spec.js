@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import {describe, it, expect, vi} from 'vitest'
 
 vi.mock('@tauri-apps/plugin-http', () => ({
   fetch: vi.fn(),
@@ -8,7 +8,7 @@ vi.mock('@core/utils/request', () => ({
   isTauri: () => false,
 }))
 
-const { assertSafeFetchUrl } = await import('@core/utils/http')
+const {assertSafeFetchUrl} = await import('@core/utils/http')
 
 describe('assertSafeFetchUrl', () => {
   it('相对路径 /、blob:、data: 放行', () => {

@@ -2,7 +2,7 @@ import {defineConfig} from 'vite'
 import {fileURLToPath, URL} from 'node:url'
 import {existsSync, renameSync} from 'node:fs'
 import {join} from 'node:path'
-import {createServerOptions, createTauriBuildOptions, createVuePlugins,} from './vite.shared.js'
+import {createServerOptions, createTauriBuildOptions, createVuePlugins} from './vite.shared.js'
 
 const root = fileURLToPath(new URL('.', import.meta.url))
 const outDir = 'dist-android'

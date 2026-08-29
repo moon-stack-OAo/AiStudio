@@ -4,12 +4,12 @@ import {ListOutline, MenuOutline} from '@vicons/ionicons5'
 import SessionList from '@/components/SessionList.vue'
 
 const props = defineProps({
-  sessions: { type: Array, default: () => [] },
-  activeId: { type: String, default: '' },
-  historyTitle: { type: String, default: '历史' },
-  sessionTitle: { type: String, default: '' },
-  isCompact: { type: Boolean, default: false },
-  isMobile: { type: Boolean, default: false },
+  sessions: {type: Array, default: () => []},
+  activeId: {type: String, default: ''},
+  historyTitle: {type: String, default: '历史'},
+  sessionTitle: {type: String, default: ''},
+  isCompact: {type: Boolean, default: false},
+  isMobile: {type: Boolean, default: false},
 })
 
 const emit = defineEmits(['create', 'select', 'rename', 'remove'])
@@ -36,7 +36,7 @@ function onSelect(id) {
 </script>
 
 <template>
-  <div :class="{ compact: isCompact, mobile: isMobile }" class="page">
+  <div :class="{compact: isCompact, mobile: isMobile}" class="page">
     <SessionList
       v-if="!isCompact"
       :active-id="activeId"
@@ -48,11 +48,7 @@ function onSelect(id) {
       @select="(id) => emit('select', id)"
     />
 
-    <n-drawer
-      v-model:show="historyShow"
-      :width="isMobile ? '86%' : 280"
-      placement="left"
-    >
+    <n-drawer v-model:show="historyShow" :width="isMobile ? '86%' : 280" placement="left">
       <n-drawer-content closable :title="historyTitle">
         <SessionList
           :active-id="activeId"

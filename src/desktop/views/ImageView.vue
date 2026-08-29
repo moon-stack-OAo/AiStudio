@@ -1,43 +1,85 @@
 <script setup>
 defineOptions({name: 'ImageView'})
 
-import {computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch} from 'vue'
-import {useDialog, useMessage} from 'naive-ui'
-import {DownloadOutline, ImageOutline, OptionsOutline, SparklesOutline, TrashOutline,} from '@vicons/ionicons5'
+import {ref} from 'vue'
+import {
+  DownloadOutline,
+  ImageOutline,
+  OptionsOutline,
+  SparklesOutline,
+  TrashOutline,
+} from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
 import GenerateTimelineUserBubble from '@/components/generate/GenerateTimelineUserBubble.vue'
 import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue'
 import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'
-import {useImageStore} from '@core/stores/image'
-import {useSettingsStore} from '@core/stores/settings'
-import {
-  editImage,
-  fileToPreview,
-  generateImage,
-  getCapabilities,
-  toErrorMessage,
-} from '@core/api/client'
-import {cacheGeneratedImages, getImageObjectUrl} from '@core/utils/imageCache'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
-import {useCopyFeedback} from '@core/composables/useCopyFeedback'
-import {useScrollToBottom} from '@core/composables/useScrollToBottom'
-import {useClipboardImage} from '@core/composables/useClipboardImage'
-import {downloadMediaBlob, srcToBlob} from '@core/composables/useMediaDownload'
+import {useImageSession} from '@core/composables/useImageSession'
+import {downloadMediaBlob} from '@core/composables/useMediaDownload'
 import {useManualDropdown} from '@/composables/useManualDropdown'
 import {renderSelectLabel} from '@core/utils/selectRender'
-import {imageGeneration} from '@core/runtime/generationRuntime'
-import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
 
-const imageStore = useImageStore()
-const settings = useSettingsStore()
-const message = useMessage()
-const dialog = useDialog()
 const {isMobile, isCompact} = useBreakpoints()
 const {tooltipTrigger} = useTooltipTrigger()
-const {copiedId, copyText} = useCopyFeedback()
-const gen = useGenerationRuntime(imageGeneration)
+const {
+  imageStore,
+  settings,
+  message,
+  copiedId,
+  mode,
+  prompt,
+  n,
+  size,
+  aspectRatio,
+  quality,
+  previewUrl,
+  listRef,
+  refThumbMap,
+  lightboxShow,
+  lightboxSrc,
+  lightboxTitle,
+  lightboxPayload,
+  session,
+  supportsQuality,
+  supportsN,
+  showSize,
+  useAspectRatio,
+  isGeneratingCurrent,
+  canGenerate,
+  timelineItems,
+  sizeOptions: sizeOptionsDesktop,
+  aspectOptions,
+  qualityOptions: qualityOptionsDesktop,
+  paramsSummary,
+  drawerHeight,
+  sendTooltip,
+  itemStatus,
+  paramSummary,
+  onUpload,
+  clearUpload,
+  displaySrc,
+  isTemporary,
+  openLightbox,
+  openRefLightbox,
+  closeLightbox,
+  useAsReference,
+  useLightboxAsReference,
+  resolveImageSrc,
+  generate,
+  stopGenerate,
+  selectSession,
+  createSession,
+  removeSession,
+  copyPrompt,
+  copyErrorText,
+  clearItems,
+  onComposerFocus,
+} = useImageSession()
+
+const paramsDrawerShow = ref(false)
+
 const {
   show: ctxShow,
   x: ctxX,
@@ -49,328 +91,6 @@ const {
   handleClickOutside: onCtxClickOutside,
 } = useManualDropdown()
 
-const mode = ref('txt2img')
-const prompt = ref('')
-const n = ref(1)
-const size = ref('1024x1024')
-const aspectRatio = ref('1:1')
-const quality = ref('medium')
-const imageFile = ref(null)
-const previewUrl = ref('')
-
-const listRef = ref(null)
-const {scheduleScrollToBottom} = useScrollToBottom(listRef)
-const mounted = ref(true)
-
-/** itemId -> imageIndex -> objectURL，用于 idb 图片展示 */
-const resolvedMap = ref({})
-const createdObjectUrls = new Set()
-let resolveToken = 0
-
-/** 当前会话内图生图参考缩略图（不持久化，避免撑爆 localStorage） */
-const refThumbMap = ref({})
-
-/** 大图预览 */
-const lightboxShow = ref(false)
-const lightboxSrc = ref('')
-const lightboxTitle = ref('')
-const lightboxPayload = ref(null)
-
-/** 移动端参数抽屉 */
-const paramsDrawerShow = ref(false)
-
-const session = computed(() => imageStore.activeSession)
-const provider = computed(() => settings.activeProvider)
-const caps = computed(() => getCapabilities(provider.value))
-const imageCaps = computed(() => caps.value?.image || {})
-const supportsQuality = computed(() => !!imageCaps.value.supportsQuality)
-const supportsN = computed(() => imageCaps.value.supportsN !== false)
-const showSize = computed(() => imageCaps.value.sizeMode !== 'aspectOnly')
-const useAspectRatio = computed(() => {
-  const ratios = imageCaps.value.ratios
-  return Array.isArray(ratios) && ratios.length > 0
-})
-const isGeneratingCurrent = computed(() => gen.isCurrent(session.value?.id))
-
-const canGenerate = computed(() => {
-  if (!prompt.value.trim() || isGeneratingCurrent.value) return false
-  if (mode.value === 'img2img' && !imageFile.value) return false
-  return true
-})
-
-const timelineItems = computed(() => {
-  const items = session.value?.items || []
-  return [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
-})
-
-const sizeOptionsDefault = [
-  {label: '1920×1080', value: '1920x1080'},
-  {label: '1080×1920', value: '1080x1920'},
-  {label: '2560×1440', value: '2560x1440'},
-  {label: '1440×2560', value: '1440x2560'},
-  {label: '3840×2160', value: '3840x2160'},
-  {label: '2160×3840', value: '2160x3840'},
-]
-
-function formatSizeLabel(v) {
-  const s = String(v || '')
-  if (/^\d+x\d+$/i.test(s)) return s.replace(/x/i, '×')
-  return s
-}
-
-const sizeOptionsDesktop = computed(() => {
-  const list = imageCaps.value.sizes
-  if (Array.isArray(list) && list.length) {
-    return list.map((v) => ({label: formatSizeLabel(v), value: v}))
-  }
-  return sizeOptionsDefault
-})
-
-const aspectOptions = computed(() => {
-  const list = imageCaps.value.ratios
-  if (Array.isArray(list) && list.length) {
-    return list.map((v) => ({label: v, value: v}))
-  }
-  return [
-    {label: '1:1', value: '1:1'},
-    {label: '16:9', value: '16:9'},
-    {label: '9:16', value: '9:16'},
-    {label: '4:3', value: '4:3'},
-    {label: '3:4', value: '3:4'},
-    {label: '3:2', value: '3:2'},
-    {label: '2:3', value: '2:3'},
-    {label: '21:9', value: '21:9'},
-  ]
-})
-
-const qualityOptionsDesktop = [
-  {label: '低质量', value: 'low'},
-  {label: '标准', value: 'medium'},
-  {label: '高质量', value: 'high'},
-]
-
-const modeLabel = computed(() => (mode.value === 'img2img' ? '图生图' : '文生图'))
-
-const sizeLabel = computed(() => {
-  if (useAspectRatio.value) {
-    const ratio =
-      aspectOptions.value.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
-    if (showSize.value) {
-      const tier = sizeOptionsDesktop.value.find((o) => o.value === size.value)?.label || size.value
-      return `${tier} · ${ratio}`
-    }
-    return ratio
-  }
-  return sizeOptionsDesktop.value.find((o) => o.value === size.value)?.label || size.value
-})
-
-const qualityLabel = computed(() => {
-  return qualityOptionsDesktop.find((o) => o.value === quality.value)?.label || quality.value
-})
-
-const paramsSummary = computed(() => {
-  const parts = [modeLabel.value]
-  if (supportsN.value) parts.push(`${n.value}张`)
-  parts.push(sizeLabel.value)
-  if (supportsQuality.value) parts.push(qualityLabel.value)
-  if (mode.value === 'img2img') {
-    parts.push(previewUrl.value ? '已选参考图' : '未选参考图')
-  }
-  return parts.join(' · ')
-})
-
-const drawerHeight = computed(() => (mode.value === 'img2img' ? '78%' : '62%'))
-
-function itemStatus(item) {
-  return item?.status || 'done'
-}
-
-function paramSummary(item) {
-  const parts = []
-  if (item?.n && item.n > 1) parts.push(`${item.n} 张`)
-  if (item?.size) parts.push(String(item.size).replace('x', '×'))
-  if (item?.aspectRatio) parts.push(item.aspectRatio)
-  if (item?.quality) {
-    const q = qualityOptionsDesktop.find((o) => o.value === item.quality)
-    parts.push(q?.label || item.quality)
-  }
-  return parts.join(' · ')
-}
-
-function ensureProvider() {
-  if (!provider.value?.baseUrl || !provider.value?.apiKey) {
-    message.warning('请先在设置中填写 Base URL 和 API Key')
-    return false
-  }
-  if (!provider.value?.imageModel) {
-    message.warning('请先设置生图模型')
-    return false
-  }
-  return true
-}
-
-async function setReferenceFromFile(file, {notify = true} = {}) {
-  if (!file || !String(file.type || '').startsWith('image/')) {
-    if (notify) message.warning('请提供图片文件')
-    return false
-  }
-  imageFile.value = file
-  previewUrl.value = await fileToPreview(file)
-  mode.value = 'img2img'
-  if (notify) message.success('已设为参考图，可继续图生图')
-  return true
-}
-
-async function onUpload({file}) {
-  await setReferenceFromFile(file.file, {notify: false})
-  return false
-}
-
-function clearUpload() {
-  imageFile.value = null
-  previewUrl.value = ''
-}
-
-const {onPaste} = useClipboardImage(
-  (file) => setReferenceFromFile(file),
-  {onError: () => message.error('粘贴参考图失败')},
-)
-
-function revokeAllObjectUrls() {
-  createdObjectUrls.forEach((url) => {
-    try {
-      URL.revokeObjectURL(url)
-    } catch {
-      // ignore
-    }
-  })
-  createdObjectUrls.clear()
-  resolvedMap.value = {}
-}
-
-function displaySrc(itemId, idx, img) {
-  if (img?.type === 'idb') {
-    return resolvedMap.value[itemId]?.[idx] || ''
-  }
-  return img?.src || ''
-}
-
-function isTemporary(img) {
-  return img?.temporary === true || img?.type === 'url'
-}
-
-async function resolveSessionImages(items = [], sessionId = null) {
-  const token = ++resolveToken
-  const targetSessionId = sessionId ?? imageStore.activeId
-  const next = {}
-  const used = new Set()
-
-  for (const item of items) {
-    const images = item.images || []
-    next[item.id] = {}
-    for (let idx = 0; idx < images.length; idx += 1) {
-      const img = images[idx]
-      if (img?.type !== 'idb' || !img.id) continue
-
-      const prev = resolvedMap.value[item.id]?.[idx]
-      if (prev) {
-        next[item.id][idx] = prev
-        used.add(prev)
-        continue
-      }
-
-      try {
-        const url = await getImageObjectUrl(img.id)
-        if (token !== resolveToken || imageStore.activeId !== targetSessionId) return
-        if (url) {
-          createdObjectUrls.add(url)
-          used.add(url)
-          next[item.id][idx] = url
-        }
-      } catch {
-        // 缓存缺失时留空，模板侧可回退 remoteUrl
-      }
-    }
-  }
-
-  if (token !== resolveToken || imageStore.activeId !== targetSessionId) return
-  ;[...createdObjectUrls].forEach((url) => {
-    if (!used.has(url)) {
-      try {
-        URL.revokeObjectURL(url)
-      } catch {
-        // ignore
-      }
-      createdObjectUrls.delete(url)
-    }
-  })
-
-  resolvedMap.value = next
-}
-
-watch(
-    () => {
-      const s = session.value
-      if (!s) return {id: null, keys: ''}
-      const items = s.items || []
-      return {
-        id: s.id,
-        keys: items
-            .map((it) => `${it.id}:${(it.images || []).length}:${it.status || 'done'}`)
-            .join('|'),
-      }
-    },
-    () => {
-      resolveSessionImages(session.value?.items || [], session.value?.id)
-    },
-    {immediate: true},
-)
-
-watch(
-    () => session.value?.id,
-    () => {
-      refThumbMap.value = {}
-      // 切会话时滚到底；停留当前页生成时不自动拽底
-      scheduleScrollToBottom({force: true})
-    },
-)
-
-watch(
-  sizeOptionsDesktop,
-  (opts) => {
-    if (!opts.some((o) => o.value === size.value)) {
-      size.value = opts[0]?.value || '1024x1024'
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  aspectOptions,
-  (opts) => {
-    if (!opts.some((o) => o.value === aspectRatio.value)) {
-      aspectRatio.value = opts[0]?.value || '1:1'
-    }
-  },
-  { immediate: true },
-)
-
-onMounted(() => {
-  window.addEventListener('paste', onPaste)
-  scheduleScrollToBottom({force: true})
-})
-
-onActivated(() => {
-  // 仅切回本页时滚到底
-  scheduleScrollToBottom({force: true})
-})
-
-onBeforeUnmount(() => {
-  mounted.value = false
-  window.removeEventListener('paste', onPaste)
-  revokeAllObjectUrls()
-})
-
 function onKeydown(e) {
   if (isMobile.value) return
   if (e.isComposing) return
@@ -378,196 +98,6 @@ function onKeydown(e) {
     e.preventDefault()
     generate()
   }
-}
-
-function onComposerFocus() {
-  // 生图页不因输入框聚焦自动滚底
-}
-
-async function generate() {
-  const text = prompt.value.trim()
-  if (!text) {
-    message.warning('请输入提示词')
-    return
-  }
-  if (!session.value || gen.busy) return
-  if (!ensureProvider()) return
-  if (mode.value === 'img2img' && !imageFile.value) {
-    message.warning('图生图请先上传参考图')
-    return
-  }
-
-  const sessionId = session.value.id
-  gen.abort()
-  const controller = new AbortController()
-  gen.begin(sessionId, controller)
-
-  prompt.value = ''
-
-  const pending = imageStore.addItem(sessionId, {
-    mode: mode.value,
-    prompt: text,
-    model: provider.value.imageModel,
-    providerName: provider.value.name,
-    images: [],
-    refPreview: '',
-    n: n.value,
-    size: showSize.value ? size.value : undefined,
-    aspectRatio: useAspectRatio.value ? aspectRatio.value : undefined,
-    quality: supportsQuality.value ? quality.value : undefined,
-    status: 'loading',
-    errorMessage: '',
-  })
-
-  if (!pending?.id) {
-    gen.end(sessionId)
-    return
-  }
-
-  if (mode.value === 'img2img' && previewUrl.value) {
-    refThumbMap.value = {...refThumbMap.value, [pending.id]: previewUrl.value}
-  }
-
-  await nextTick()
-
-  try {
-    const rawImages =
-        mode.value === 'txt2img'
-            ? await generateImage(provider.value, {
-              prompt: text,
-              n: n.value,
-              size: size.value,
-              aspectRatio: aspectRatio.value,
-              quality: supportsQuality.value ? quality.value : undefined,
-              signal: controller.signal,
-            })
-            : await editImage(provider.value, {
-              prompt: text,
-              imageFile: imageFile.value,
-              n: n.value,
-              size: size.value,
-              aspectRatio: aspectRatio.value,
-              quality: supportsQuality.value ? quality.value : undefined,
-              signal: controller.signal,
-            })
-
-    if (!sessionStillHasItem(sessionId, pending.id)) return
-    if (controller.signal.aborted) return
-
-    const images = await cacheGeneratedImages(rawImages)
-
-    if (!sessionStillHasItem(sessionId, pending.id)) return
-    if (controller.signal.aborted) return
-
-    const tempCount = images.filter((img) => img.temporary).length
-
-    imageStore.updateItem(sessionId, pending.id, {
-      images,
-      status: 'done',
-      errorMessage: '',
-    })
-
-    if (mounted.value && imageStore.activeId === sessionId) {
-      if (tempCount > 0) {
-        message.warning(`生成成功，但有 ${tempCount} 张未缓存（临时链接，可能过期）`)
-      } else {
-        message.success(`生成成功，共 ${images.length} 张`)
-      }
-    }
-  } catch (err) {
-    if (!sessionStillHasItem(sessionId, pending.id)) return
-    const current = imageStore.sessions.find((s) => s.id === sessionId)?.items?.find((i) => i.id === pending.id)
-    if (current?.errorMessage === '已取消') return
-    if (
-      err?.name === 'AbortError' ||
-      err?.message === 'canceled' ||
-      /cancel+ed|已取消/i.test(String(err?.message || '')) ||
-      controller.signal.aborted
-    ) {
-      imageStore.updateItem(sessionId, pending.id, {
-        status: 'error',
-        errorMessage: '已取消',
-      })
-      return
-    }
-    const errText = toErrorMessage(err, '生成失败')
-    imageStore.updateItem(sessionId, pending.id, {
-      status: 'error',
-      errorMessage: errText,
-    })
-    if (mounted.value && imageStore.activeId === sessionId) {
-      message.error(errText)
-    }
-  } finally {
-    gen.end(sessionId, controller)
-  }
-}
-
-function selectSession(id) {
-  imageStore.setActive(id)
-}
-
-function createSession() {
-  imageStore.createSession()
-}
-
-function removeSession(id) {
-  gen.abortIfSession(id)
-  imageStore.removeSession(id)
-}
-
-function sessionStillHasItem(sessionId, itemId) {
-  const s = imageStore.sessions.find((x) => x.id === sessionId)
-  return Boolean(s?.items?.some((i) => i.id === itemId))
-}
-
-async function resolveImageSrc(itemId, idx, img) {
-  let src = displaySrc(itemId, idx, img)
-  if (!src && img?.type === 'idb' && img.id) {
-    try {
-      src = await getImageObjectUrl(img.id)
-      if (src) {
-        createdObjectUrls.add(src)
-        if (!resolvedMap.value[itemId]) resolvedMap.value[itemId] = {}
-        resolvedMap.value[itemId][idx] = src
-      }
-    } catch {
-      // ignore
-    }
-  }
-  if (!src && img?.remoteUrl) src = img.remoteUrl
-  if (!src && img?.src) src = img.src
-  return src || ''
-}
-
-async function openLightbox(item, idx, img) {
-  const src = await resolveImageSrc(item.id, idx, img)
-  if (!src) {
-    message.warning('图片不可用')
-    return
-  }
-  lightboxSrc.value = src
-  lightboxTitle.value = item.prompt || '生成图片'
-  lightboxPayload.value = {itemId: item.id, idx, img, name: `gen-${item.id}-${idx}.png`}
-  lightboxShow.value = true
-}
-
-function openRefLightbox(src) {
-  if (!src) {
-    message.warning('图片不可用')
-    return
-  }
-  lightboxSrc.value = src
-  lightboxTitle.value = '参考图'
-  lightboxPayload.value = null
-  lightboxShow.value = true
-}
-
-function closeLightbox() {
-  lightboxShow.value = false
-  lightboxSrc.value = ''
-  lightboxTitle.value = ''
-  lightboxPayload.value = null
 }
 
 async function downloadImage(itemId, idx, img, name = 'image.png') {
@@ -589,65 +119,11 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   })
 }
 
-async function useAsReference(item, idx, img) {
-  const src = await resolveImageSrc(item.id, idx, img)
-  if (!src) {
-    message.warning('图片不可用')
-    return
-  }
-  try {
-    const blob = await srcToBlob(src)
-    const file = new File([blob], `ref-${item.id}-${idx}.png`, {
-      type: blob.type || 'image/png',
-    })
-    await setReferenceFromFile(file)
-  } catch {
-    message.error('设置参考图失败')
-  }
-}
-
-async function useLightboxAsReference() {
-  if (!lightboxPayload.value) return
-  const {itemId, idx, img} = lightboxPayload.value
-  const item = session.value?.items?.find((i) => i.id === itemId)
-  if (!item) {
-    message.warning('图片不可用')
-    return
-  }
-  await useAsReference(item, idx, img)
-  lightboxShow.value = false
-}
-
-function stopGenerate() {
-  const sessionId = session.value?.id
-  if (!sessionId || !gen.isCurrent(sessionId)) return
-  const loadingItem = session.value?.items?.find((i) => i.status === 'loading')
-  if (loadingItem) {
-    imageStore.updateItem(sessionId, loadingItem.id, {
-      status: 'error',
-      errorMessage: '已取消',
-    })
-  }
-  gen.abort()
-  gen.end(sessionId)
-}
-
-async function copyPrompt(item) {
-  const ok = await copyText(item?.id, item?.prompt)
-  if (!ok) message.error('复制失败')
-}
-
 function onUserBubbleContextMenu(e, item) {
   if (!String(item?.prompt || '').trim()) return
   openCtxMenu(e, [{label: '复制提示词', key: 'copy'}], (key) => {
     if (key === 'copy') copyPrompt(item)
   })
-}
-
-async function copyErrorText(item) {
-  const text = String(item?.errorMessage || '生成失败').trim()
-  const ok = await copyText(`${item?.id || 'err'}-error`, text)
-  if (!ok) message.error('复制失败')
 }
 
 function onAiBubbleContextMenu(e, item) {
@@ -678,21 +154,6 @@ function onAiBubbleContextMenu(e, item) {
     },
   )
 }
-
-function clearItems() {
-  if (!session.value?.items?.length) return
-  dialog.warning({
-    title: '清空时间线',
-    content: '确定清空当前会话的全部生成记录？',
-    positiveText: '清空',
-    negativeText: '取消',
-    onPositiveClick: () => imageStore.clearItems(session.value.id),
-  })
-}
-
-const sendTooltip = computed(() =>
-  mode.value === 'img2img' && !imageFile.value ? '请先上传参考图' : '生成',
-)
 </script>
 
 <template>
@@ -717,7 +178,7 @@ const sendTooltip = computed(() =>
         size="small"
         @update:value="settings.setActiveProvider"
       />
-      <ModelSelect kind="image"/>
+      <ModelSelect kind="image" />
       <n-button
         :disabled="!session?.items?.length"
         aria-label="清空时间线"
@@ -743,9 +204,7 @@ const sendTooltip = computed(() =>
             :param-summary="paramSummary(item)"
             :prompt="item.prompt"
             :ref-thumb-src="
-              item.mode === 'img2img'
-                ? (refThumbMap[item.id] || item.refPreview || null)
-                : null
+              item.mode === 'img2img' ? refThumbMap[item.id] || item.refPreview || null : null
             "
             ref-previewable
             :copied="copiedId === item.id"
@@ -754,14 +213,12 @@ const sendTooltip = computed(() =>
             @contextmenu="onUserBubbleContextMenu($event, item)"
           />
 
-          <div
-            :class="['msg', 'assistant', { error: itemStatus(item) === 'error' }]"
-          >
+          <div :class="['msg', 'assistant', {error: itemStatus(item) === 'error'}]">
             <div class="role">AI</div>
             <div class="msg-body">
               <div class="bubble ai-bubble" @contextmenu="onAiBubbleContextMenu($event, item)">
                 <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
-                  <n-spin size="small"/>
+                  <n-spin size="small" />
                   <span>生成中…</span>
                 </div>
                 <div v-else-if="itemStatus(item) === 'error'" class="ai-error">
@@ -769,11 +226,7 @@ const sendTooltip = computed(() =>
                 </div>
                 <div v-else-if="!item.images?.length" class="ai-error">暂无图片</div>
                 <div v-else class="imgs">
-                  <div
-                    v-for="(img, idx) in item.images"
-                    :key="img.id || idx"
-                    class="img-wrap"
-                  >
+                  <div v-for="(img, idx) in item.images" :key="img.id || idx" class="img-wrap">
                     <div class="img-actions">
                       <n-tooltip :trigger="tooltipTrigger" placement="bottom">
                         <template #trigger>
@@ -783,10 +236,12 @@ const sendTooltip = computed(() =>
                             size="tiny"
                             aria-label="下载图片"
                             class="touch-target"
-                            @click.stop="downloadImage(item.id, idx, img, `gen-${item.id}-${idx}.png`)"
+                            @click.stop="
+                              downloadImage(item.id, idx, img, `gen-${item.id}-${idx}.png`)
+                            "
                           >
                             <template #icon>
-                              <n-icon :component="DownloadOutline" :size="14"/>
+                              <n-icon :component="DownloadOutline" :size="14" />
                             </template>
                           </n-button>
                         </template>
@@ -803,7 +258,7 @@ const sendTooltip = computed(() =>
                             @click.stop="useAsReference(item, idx, img)"
                           >
                             <template #icon>
-                              <n-icon :component="ImageOutline" :size="14"/>
+                              <n-icon :component="ImageOutline" :size="14" />
                             </template>
                           </n-button>
                         </template>
@@ -844,7 +299,7 @@ const sendTooltip = computed(() =>
         <template #toolbar>
           <div class="mode-switch">
             <button
-              :class="{ active: mode === 'txt2img' }"
+              :class="{active: mode === 'txt2img'}"
               class="mode-item"
               type="button"
               @click="mode = 'txt2img'"
@@ -852,7 +307,7 @@ const sendTooltip = computed(() =>
               文生图
             </button>
             <button
-              :class="{ active: mode === 'img2img' }"
+              :class="{active: mode === 'img2img'}"
               class="mode-item"
               type="button"
               @click="mode = 'img2img'"
@@ -864,7 +319,7 @@ const sendTooltip = computed(() =>
           <div class="opt-group">
             <label v-if="supportsN" class="opt-item opt-count" title="数量">
               <span class="opt-label">数量</span>
-              <n-input-number v-model:value="n" :max="4" :min="1" size="small"/>
+              <n-input-number v-model:value="n" :max="4" :min="1" size="small" />
             </label>
             <label v-if="showSize" class="opt-item opt-size" title="尺寸">
               <span class="opt-label">尺寸</span>
@@ -897,12 +352,8 @@ const sendTooltip = computed(() =>
         </template>
 
         <template #params-summary>
-          <button
-            class="params-summary"
-            type="button"
-            @click="paramsDrawerShow = true"
-          >
-            <n-icon :component="OptionsOutline" :size="16" class="params-summary-icon"/>
+          <button class="params-summary" type="button" @click="paramsDrawerShow = true">
+            <n-icon :component="OptionsOutline" :size="16" class="params-summary-icon" />
             <span class="params-summary-text">{{ paramsSummary }}</span>
             <span class="params-summary-action">设置</span>
           </button>
@@ -918,13 +369,13 @@ const sendTooltip = computed(() =>
             >
               <n-button dashed size="small">
                 <template #icon>
-                  <n-icon :component="ImageOutline"/>
+                  <n-icon :component="ImageOutline" />
                 </template>
                 上传 / 粘贴参考图
               </n-button>
             </n-upload>
             <div v-else class="ref-chip">
-              <img :src="previewUrl" alt="reference"/>
+              <img :src="previewUrl" alt="reference" />
               <span class="ref-name">参考图已选</span>
               <n-button
                 aria-label="清除参考图"
@@ -934,7 +385,7 @@ const sendTooltip = computed(() =>
                 @click="clearUpload"
               >
                 <template #icon>
-                  <n-icon :component="TrashOutline"/>
+                  <n-icon :component="TrashOutline" />
                 </template>
               </n-button>
             </div>
@@ -946,22 +397,19 @@ const sendTooltip = computed(() =>
             type="button"
             @click="paramsDrawerShow = true"
           >
-            <img :src="previewUrl" alt="reference"/>
+            <img :src="previewUrl" alt="reference" />
             <span class="ref-name">参考图已选，点击可更换</span>
           </button>
         </template>
       </GenerateComposerCard>
     </div>
 
-    <GenerateParamsDrawer
-      v-model:show="paramsDrawerShow"
-      :height="drawerHeight"
-    >
+    <GenerateParamsDrawer v-model:show="paramsDrawerShow" :height="drawerHeight">
       <div class="params-section">
         <div class="params-label">模式</div>
         <div class="mode-switch mode-switch-full">
           <button
-            :class="{ active: mode === 'txt2img' }"
+            :class="{active: mode === 'txt2img'}"
             class="mode-item"
             type="button"
             @click="mode = 'txt2img'"
@@ -969,7 +417,7 @@ const sendTooltip = computed(() =>
             文生图
           </button>
           <button
-            :class="{ active: mode === 'img2img' }"
+            :class="{active: mode === 'img2img'}"
             class="mode-item"
             type="button"
             @click="mode = 'img2img'"
@@ -990,13 +438,13 @@ const sendTooltip = computed(() =>
           >
             <n-button block class="params-upload-btn" dashed>
               <template #icon>
-                <n-icon :component="ImageOutline"/>
+                <n-icon :component="ImageOutline" />
               </template>
               从相册选择参考图
             </n-button>
           </n-upload>
           <div v-else class="ref-chip ref-chip-drawer">
-            <img :src="previewUrl" alt="reference"/>
+            <img :src="previewUrl" alt="reference" />
             <div class="ref-chip-meta">
               <span class="ref-name">参考图已选</span>
               <span class="ref-hint">可清除后重新选择</span>
@@ -1009,7 +457,7 @@ const sendTooltip = computed(() =>
               @click="clearUpload"
             >
               <template #icon>
-                <n-icon :component="TrashOutline"/>
+                <n-icon :component="TrashOutline" />
               </template>
             </n-button>
           </div>
@@ -1019,7 +467,13 @@ const sendTooltip = computed(() =>
       <div class="params-grid">
         <div v-if="supportsN" class="params-section">
           <div class="params-label">数量</div>
-          <n-input-number v-model:value="n" :max="4" :min="1" class="params-control" size="medium"/>
+          <n-input-number
+            v-model:value="n"
+            :max="4"
+            :min="1"
+            class="params-control"
+            size="medium"
+          />
         </div>
 
         <div v-if="supportsQuality" class="params-section">
@@ -1067,28 +521,25 @@ const sendTooltip = computed(() =>
       @after-leave="closeLightbox"
     >
       <div class="lightbox-body" title="点击关闭预览" @click="lightboxShow = false">
-        <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview"/>
+        <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview" />
       </div>
       <template v-if="lightboxPayload" #footer>
         <div class="lightbox-footer">
-          <n-button
-            class="lightbox-action"
-            secondary
-            size="small"
-            @click="useLightboxAsReference"
-          >
+          <n-button class="lightbox-action" secondary size="small" @click="useLightboxAsReference">
             设为参考图
           </n-button>
           <n-button
             class="lightbox-action"
             secondary
             size="small"
-            @click="downloadImage(
-              lightboxPayload.itemId,
-              lightboxPayload.idx,
-              lightboxPayload.img,
-              lightboxPayload.name,
-            )"
+            @click="
+              downloadImage(
+                lightboxPayload.itemId,
+                lightboxPayload.idx,
+                lightboxPayload.img,
+                lightboxPayload.name,
+              )
+            "
           >
             下载原图
           </n-button>

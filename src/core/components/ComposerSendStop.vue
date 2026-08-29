@@ -30,7 +30,7 @@ const {tooltipTrigger} = useTooltipTrigger()
           @click="$emit('stop')"
         >
           <template #icon>
-            <n-icon :component="StopOutline"/>
+            <n-icon :component="StopOutline" />
           </template>
         </n-button>
       </template>
@@ -48,7 +48,7 @@ const {tooltipTrigger} = useTooltipTrigger()
           @click="$emit('send')"
         >
           <template #icon>
-            <n-icon :component="sendIcon"/>
+            <n-icon :component="sendIcon" />
           </template>
         </n-button>
       </template>
@@ -66,7 +66,7 @@ const {tooltipTrigger} = useTooltipTrigger()
       @click="$emit('stop')"
     >
       <template #icon>
-        <n-icon :component="StopOutline"/>
+        <n-icon :component="StopOutline" />
       </template>
     </n-button>
     <n-button
@@ -80,7 +80,7 @@ const {tooltipTrigger} = useTooltipTrigger()
       @click="$emit('send')"
     >
       <template #icon>
-        <n-icon :component="sendIcon"/>
+        <n-icon :component="sendIcon" />
       </template>
     </n-button>
   </template>

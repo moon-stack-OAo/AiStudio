@@ -63,7 +63,7 @@ export function resolveBaseUrl(baseUrl, useCorsProxy) {
  * @returns {Record<string, string>}
  */
 export function proxyHeaders(baseUrl, useCorsProxy, extra = {}) {
-  const headers = { ...extra }
+  const headers = {...extra}
   if (shouldUseCorsProxy(useCorsProxy)) {
     headers['X-Proxy-Target'] = String(baseUrl || '').replace(/\/+$/, '')
   }
@@ -120,11 +120,7 @@ export function formatNetworkError(error, useCorsProxy) {
   if (code === 'ERR_CANCELED' || /cancel+ed|已取消/i.test(msg)) {
     return msg || '已取消'
   }
-  if (
-    code === 'ECONNABORTED' ||
-    code === 'ETIMEDOUT' ||
-    /timeout/i.test(msg)
-  ) {
+  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT' || /timeout/i.test(msg)) {
     return '请求超时：生图可能需数秒到数分钟，请稍后重试；Agnes 建议客户端超时 60s–360s'
   }
   const detail =

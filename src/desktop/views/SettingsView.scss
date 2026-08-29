@@ -11,7 +11,8 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) calc(18px + var(--safe-right)) var(--space-3) calc(18px + var(--safe-left));
+  padding: var(--space-3) calc(18px + var(--safe-right)) var(--space-3)
+    calc(18px + var(--safe-left));
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
@@ -150,7 +151,8 @@
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-2);
-    padding: var(--space-3) calc(14px + var(--safe-right)) var(--space-3) calc(14px + var(--safe-left));
+    padding: var(--space-3) calc(14px + var(--safe-right)) var(--space-3)
+      calc(14px + var(--safe-left));
   }
 
   .actions {

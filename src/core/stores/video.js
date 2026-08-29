@@ -23,7 +23,7 @@ const MAX_REF_PREVIEW = 256
 
 function sanitizeItem(item) {
   if (!item || typeof item !== 'object') return item
-  const next = { ...item }
+  const next = {...item}
   const ref = next.refPreview
   if (typeof ref === 'string' && ref.length > MAX_REF_PREVIEW) {
     next.refPreview = ''
@@ -80,9 +80,9 @@ export const useVideoStore = defineStore('video', {
         (s.items || []).some((i) => i?.status === 'loading'),
       )
       if (changed) {
-        saveJSON('video_sessions', { sessions, activeId })
+        saveJSON('video_sessions', {sessions, activeId})
       }
-      return { sessions, activeId }
+      return {sessions, activeId}
     }
     const session = createSession()
     return {
@@ -102,7 +102,7 @@ export const useVideoStore = defineStore('video', {
       for (const session of state.sessions) {
         for (const item of session.items || []) {
           if (item?.needsResume && item?.jobId) {
-            list.push({ sessionId: session.id, item })
+            list.push({sessionId: session.id, item})
           }
         }
       }
@@ -167,12 +167,12 @@ export const useVideoStore = defineStore('video', {
       return record
     },
     updateItem(sessionId, itemId, patch, options = {}) {
-      const { persist = true } = options
+      const {persist = true} = options
       const session = this.sessions.find((s) => s.id === sessionId)
       if (!session) return
       const target = session.items.find((i) => i.id === itemId)
       if (!target) return
-      const safe = sanitizeItem({ ...target, ...patch })
+      const safe = sanitizeItem({...target, ...patch})
       Object.assign(target, safe)
       session.updatedAt = Date.now()
       if (persist) this.persist()
@@ -201,16 +201,14 @@ export const useVideoStore = defineStore('video', {
      * @returns {Promise<Array<{ sessionId: string, itemId: string, job?: object, error?: unknown }>>}
      */
     async resumePendingJobs(getProviderById, options = {}) {
-      const { signal, onProgress, intervalMs } = options
+      const {signal, onProgress, intervalMs} = options
       const pending = this.pendingResumeItems
       if (!pending.length) return []
 
       const results = []
-      for (const { sessionId, item } of pending) {
+      for (const {sessionId, item} of pending) {
         const provider =
-          typeof getProviderById === 'function'
-            ? getProviderById(item.providerId)
-            : null
+          typeof getProviderById === 'function' ? getProviderById(item.providerId) : null
         if (!provider?.baseUrl || !item.jobId) {
           this.updateItem(sessionId, item.id, {
             status: 'error',
@@ -236,7 +234,7 @@ export const useVideoStore = defineStore('video', {
                   progress: j.progress,
                   jobId: j.jobId || item.jobId,
                 },
-                { persist: false },
+                {persist: false},
               )
               onProgress?.(sessionId, item.id, j)
             },
@@ -256,7 +254,7 @@ export const useVideoStore = defineStore('video', {
               needsResume: false,
             })
           }
-          results.push({ sessionId, itemId: item.id, job })
+          results.push({sessionId, itemId: item.id, job})
         } catch (e) {
           if (e?.name === 'AbortError') {
             this.updateItem(sessionId, item.id, {
@@ -271,7 +269,7 @@ export const useVideoStore = defineStore('video', {
             needsResume: false,
             errorMessage: toErrorMessage(e, '恢复任务失败'),
           })
-          results.push({ sessionId, itemId: item.id, error: e })
+          results.push({sessionId, itemId: item.id, error: e})
         }
       }
       return results

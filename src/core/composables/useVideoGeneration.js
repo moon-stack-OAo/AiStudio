@@ -84,13 +84,13 @@ export function useVideoGeneration() {
               progress: j.progress,
               jobId: j.jobId || item.jobId,
             },
-            { persist: Boolean(j.jobId) },
+            {persist: Boolean(j.jobId)},
           )
         },
       })
 
       if (job.jobId) {
-        videoStore.updateItem(sessionId, item.id, { jobId: job.jobId }, { persist: true })
+        videoStore.updateItem(sessionId, item.id, {jobId: job.jobId}, {persist: true})
       }
 
       if (job.status === 'completed' && job.videoUrl) {
@@ -111,7 +111,7 @@ export function useVideoGeneration() {
         lastError.value = msg
         throw new Error(msg)
       }
-      return { itemId: item.id, job }
+      return {itemId: item.id, job}
     } catch (e) {
       const current = videoStore.sessions
         .find((s) => s.id === sessionId)

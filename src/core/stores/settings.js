@@ -107,9 +107,7 @@ export const useSettingsStore = defineStore('settings', {
   getters: {
     activeProvider(state) {
       return (
-        state.providers.find((p) => p.id === state.activeProviderId) ||
-        state.providers[0] ||
-        null
+        state.providers.find((p) => p.id === state.activeProviderId) || state.providers[0] || null
       )
     },
     providerOptions(state) {
@@ -120,8 +118,7 @@ export const useSettingsStore = defineStore('settings', {
     },
     hasAvailableUpdate(state) {
       return Boolean(
-        state.availableUpdateVersion &&
-          state.availableUpdateVersion !== state.skippedUpdateVersion,
+        state.availableUpdateVersion && state.availableUpdateVersion !== state.skippedUpdateVersion,
       )
     },
   },
@@ -186,7 +183,7 @@ export const useSettingsStore = defineStore('settings', {
      * @param {{ persist?: boolean }} [options]
      */
     updateProvider(id, patch, options = {}) {
-      const { persist = true } = options
+      const {persist = true} = options
       const target = this.providers.find((p) => p.id === id)
       if (!target) return
       Object.assign(target, patch)

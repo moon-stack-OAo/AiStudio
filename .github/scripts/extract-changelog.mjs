@@ -25,9 +25,7 @@ if (!fs.existsSync(changelogPath)) {
 const text = fs.readFileSync(changelogPath, 'utf8')
 const lines = text.split(/\r?\n/)
 
-const headerRe = new RegExp(
-  `^## \\[v?${version.replace(/\./g, '\\.')}\\](?:\\s|$)`,
-)
+const headerRe = new RegExp(`^## \\[v?${version.replace(/\./g, '\\.')}\\](?:\\s|$)`)
 const nextHeaderRe = /^## /
 
 let start = -1
@@ -52,11 +50,7 @@ for (let i = start + 1; i < lines.length; i += 1) {
 }
 
 const sectionLines = lines.slice(start, end)
-const body = sectionLines
-  .slice(1)
-  .join('\n')
-  .replace(/^\s+/, '')
-  .replace(/\s+$/, '')
+const body = sectionLines.slice(1).join('\n').replace(/^\s+/, '').replace(/\s+$/, '')
 
 const notes = [
   `## AI Studio v${version}`,

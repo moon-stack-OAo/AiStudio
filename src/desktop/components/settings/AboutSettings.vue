@@ -30,9 +30,9 @@ const closePref = ref('ask')
 const savingClosePref = ref(false)
 
 const closePrefOptions = [
-  { label: '每次询问', value: 'ask' },
-  { label: '直接退出', value: 'quit' },
-  { label: '最小化到托盘', value: 'tray' },
+  {label: '每次询问', value: 'ask'},
+  {label: '直接退出', value: 'quit'},
+  {label: '最小化到托盘', value: 'tray'},
 ]
 
 const maxTurnsOptions = computed(() =>
@@ -46,7 +46,7 @@ onMounted(async () => {
   appVersion.value = await getAppVersion()
   if (inTauri) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core')
+      const {invoke} = await import('@tauri-apps/api/core')
       closePref.value = await invoke('get_close_action_pref')
     } catch {
       closePref.value = 'ask'
@@ -58,8 +58,8 @@ async function onClosePrefChange(value) {
   if (!inTauri || savingClosePref.value) return
   savingClosePref.value = true
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('set_close_action_pref', { action: value })
+    const {invoke} = await import('@tauri-apps/api/core')
+    await invoke('set_close_action_pref', {action: value})
     closePref.value = value
     message.success('已更新关闭行为')
   } catch (e) {
@@ -241,9 +241,7 @@ function onClearLocalData() {
           </div>
         </div>
         <div class="data-row">
-          <div class="hint">
-            仅清除浏览器 / WebView 中的本地缓存数据。
-          </div>
+          <div class="hint">仅清除浏览器 / WebView 中的本地缓存数据。</div>
           <n-button
             :loading="clearing"
             secondary

@@ -40,12 +40,7 @@ defineExpose({openHistory})
 
 <template>
   <div class="page">
-    <n-drawer
-      v-model:show="historyShow"
-      class="history-drawer"
-      placement="left"
-      width="86%"
-    >
+    <n-drawer v-model:show="historyShow" class="history-drawer" placement="left" width="86%">
       <n-drawer-content :title="historyTitle" closable>
         <SessionList
           :active-id="activeId"
@@ -62,12 +57,12 @@ defineExpose({openHistory})
 
     <div class="workspace-main">
       <div class="page-toolbar">
-        <slot :open-history="openHistory" name="toolbar"/>
+        <slot :open-history="openHistory" name="toolbar" />
       </div>
 
-      <slot/>
+      <slot />
 
-      <slot name="composer"/>
+      <slot name="composer" />
     </div>
   </div>
 </template>

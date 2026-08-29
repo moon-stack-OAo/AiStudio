@@ -4,11 +4,11 @@ import {NInput, useDialog, useMessage} from 'naive-ui'
 import {AddOutline, EllipsisHorizontalOutline} from '@vicons/ionicons5'
 
 const props = defineProps({
-  title: { type: String, default: '会话' },
-  sessions: { type: Array, default: () => [] },
-  activeId: { type: String, default: '' },
+  title: {type: String, default: '会话'},
+  sessions: {type: Array, default: () => []},
+  activeId: {type: String, default: ''},
   /** 嵌入抽屉时铺满宽度 */
-  embedded: { type: Boolean, default: false },
+  embedded: {type: Boolean, default: false},
 })
 
 const emit = defineEmits(['create', 'select', 'rename', 'remove'])
@@ -18,8 +18,8 @@ const message = useMessage()
 const renameValue = ref('')
 
 const rowActionOptions = [
-  { label: '重命名', key: 'rename' },
-  { label: '删除', key: 'remove' },
+  {label: '重命名', key: 'rename'},
+  {label: '删除', key: 'remove'},
 ]
 
 function onSelect(id) {
@@ -78,7 +78,7 @@ function onRemove(id) {
 </script>
 
 <template>
-  <div :class="{ embedded }" class="session-panel">
+  <div :class="{embedded}" class="session-panel">
     <div class="session-header">
       <div class="session-title">{{ title }}</div>
       <div class="actions">
@@ -102,7 +102,7 @@ function onRemove(id) {
         v-for="s in sessions"
         :key="s.id"
         :aria-current="s.id === activeId ? 'true' : undefined"
-        :class="{ active: s.id === activeId }"
+        :class="{active: s.id === activeId}"
         class="session-item"
         role="menuitem"
         tabindex="0"

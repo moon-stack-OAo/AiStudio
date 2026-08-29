@@ -34,7 +34,7 @@ function addCustom() {
           @click="reset"
         >
           <template #icon>
-            <n-icon :component="RefreshOutline"/>
+            <n-icon :component="RefreshOutline" />
           </template>
         </n-button>
         <n-button
@@ -46,7 +46,7 @@ function addCustom() {
           @click="addCustom"
         >
           <template #icon>
-            <n-icon :component="AddOutline"/>
+            <n-icon :component="AddOutline" />
           </template>
         </n-button>
         <n-button
@@ -57,7 +57,7 @@ function addCustom() {
           @click="settings.toggleTheme()"
         >
           <template #icon>
-            <n-icon :component="settings.theme === 'light' ? MoonOutline : SunnyOutline"/>
+            <n-icon :component="settings.theme === 'light' ? MoonOutline : SunnyOutline" />
           </template>
         </n-button>
       </div>
@@ -72,11 +72,11 @@ function addCustom() {
         type="segment"
       >
         <n-tab-pane display-directive="show" name="providers" tab="提供商">
-          <ProvidersSettings ref="providersRef"/>
+          <ProvidersSettings ref="providersRef" />
         </n-tab-pane>
 
         <n-tab-pane display-directive="show" name="about" tab="关于">
-          <AboutSettings/>
+          <AboutSettings />
         </n-tab-pane>
       </n-tabs>
     </div>

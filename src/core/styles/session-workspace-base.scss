@@ -1,4 +1,37 @@
-/* Chat / Image 共享基础：气泡状态、composer 输入态（端侧再覆盖布局密度） */
+/* Chat / Image 共享基础：气泡状态、composer 输入态；密度数值由 --* 变量控制（端侧覆写） */
+
+.provider-select {
+  flex-shrink: 0;
+}
+
+.empty {
+  margin-top: var(--empty-offset-y);
+  padding: 0 var(--empty-pad-x);
+  text-align: center;
+  color: var(--text-3);
+}
+
+.empty-title {
+  font-size: var(--empty-title-size);
+  font-weight: 600;
+  margin-bottom: var(--empty-title-gap);
+  color: var(--text-1);
+}
+
+.empty-desc {
+  font-size: var(--text-sm);
+  line-height: var(--line-empty-desc);
+}
+
+.msg {
+  display: flex;
+  gap: var(--gap-msg);
+  margin-bottom: var(--space-msg-y);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
 
 .msg.user {
   margin-left: auto;
@@ -18,6 +51,46 @@
   border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
+.role {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+  background: var(--role-ai-bg);
+  color: var(--role-ai-fg);
+}
+
+.msg.user .role {
+  background: var(--role-user-bg);
+  color: var(--role-user-fg);
+}
+
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-msg-body);
+  min-width: 0;
+  flex: 1;
+  max-width: var(--msg-body-max);
+}
+
+.bubble {
+  padding: var(--pad-bubble-y) var(--pad-bubble-x);
+  border-radius: var(--radius-bubble);
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+  max-width: 80%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: var(--line-bubble);
+}
+
 .msg-status {
   margin-top: 2px;
   font-size: 11px;
@@ -32,12 +105,74 @@
   color: var(--color-danger);
 }
 
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--mt-msg-actions);
+  color: var(--text-4);
+  opacity: 1;
+}
+
 .msg-actions :deep(.n-button) {
   color: var(--text-4);
 }
 
 .msg-actions :deep(.n-button:hover) {
   color: var(--text-2);
+}
+
+.composer {
+  padding: var(--pad-composer-y) calc(var(--pad-composer-x) + var(--safe-right))
+    var(--pad-composer-bottom) calc(var(--pad-composer-x) + var(--safe-left));
+  background: transparent;
+}
+
+.composer-card {
+  display: flex;
+  gap: var(--gap-composer);
+  align-items: flex-end;
+  padding: var(--pad-composer-card);
+  border-radius: var(--radius-composer-card);
+  border: 1px solid var(--composer-border);
+  background: var(--composer-bg);
+  box-shadow: var(--composer-shadow);
+  backdrop-filter: blur(12px);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:focus-within {
+    border-color: var(--composer-focus-border);
+    box-shadow: var(--composer-focus-shadow);
+  }
+}
+
+.composer-actions {
+  display: flex;
+  gap: var(--gap-composer);
+  flex-shrink: 0;
+  align-items: center;
+  min-width: 0;
+}
+
+.send-btn {
+  width: var(--size-send);
+  height: var(--size-send);
+  min-width: var(--size-send);
+  min-height: var(--size-send);
+  box-shadow: var(--shadow-send);
+}
+
+.composer-hint {
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) 14px;
+  font-size: var(--text-xs);
+  color: var(--text-4);
 }
 
 .composer-field {

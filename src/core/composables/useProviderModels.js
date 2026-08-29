@@ -38,13 +38,11 @@ export function useProviderModels(getProvider, options = {}) {
           ? provider.value?.videoModel
           : kind === 'chat'
             ? provider.value?.chatModel
-            : provider.value?.chatModel ||
-              provider.value?.imageModel ||
-              provider.value?.videoModel
-    return toSelectOptions(filtered, { current })
+            : provider.value?.chatModel || provider.value?.imageModel || provider.value?.videoModel
+    return toSelectOptions(filtered, {current})
   })
 
-  async function refresh({ force = false } = {}) {
+  async function refresh({force = false} = {}) {
     const p = provider.value
     const key = cacheKey(p)
     if (!p?.baseUrl || !p?.apiKey) {
@@ -67,14 +65,14 @@ export function useProviderModels(getProvider, options = {}) {
       const list = await listProviderModels(p)
       if (seq !== requestSeq) return models.value
       models.value = list
-      cache.set(key, { models: list, fetchedAt: Date.now(), error: '' })
+      cache.set(key, {models: list, fetchedAt: Date.now(), error: ''})
       return list
     } catch (e) {
       if (seq !== requestSeq) return models.value
       const msg = e?.message || '拉取模型失败'
       error.value = msg
       models.value = []
-      cache.set(key, { models: [], fetchedAt: Date.now(), error: msg })
+      cache.set(key, {models: [], fetchedAt: Date.now(), error: msg})
       throw e
     } finally {
       if (seq === requestSeq) loading.value = false
@@ -86,7 +84,7 @@ export function useProviderModels(getProvider, options = {}) {
     () => {
       refresh().catch(() => {})
     },
-    { immediate: true },
+    {immediate: true},
   )
 
   return {

@@ -28,23 +28,15 @@ defineEmits(['copy', 'preview-ref', 'contextmenu'])
           <n-tag :bordered="false" size="tiny">
             {{ modeLabel }}
           </n-tag>
-          <n-tag
-            v-if="paramSummary"
-            :bordered="false"
-            size="tiny"
-            type="info"
-          >
+          <n-tag v-if="paramSummary" :bordered="false" size="tiny" type="info">
             {{ paramSummary }}
           </n-tag>
         </div>
-        <div
-          v-if="refThumbSrc"
-          class="ref-thumb"
-        >
+        <div v-if="refThumbSrc" class="ref-thumb">
           <img
             :src="refThumbSrc"
             alt="reference"
-            :class="{ 'is-previewable': refPreviewable }"
+            :class="{'is-previewable': refPreviewable}"
             :title="refPreviewable ? '点击预览' : undefined"
             @click="refPreviewable && $emit('preview-ref', refThumbSrc)"
           />
@@ -52,11 +44,7 @@ defineEmits(['copy', 'preview-ref', 'contextmenu'])
         <div class="prompt-text">{{ prompt }}</div>
       </div>
       <div v-if="prompt" class="msg-actions">
-        <CopyIconButton
-          :active="copied"
-          tooltip="复制提示词"
-          @click="$emit('copy')"
-        />
+        <CopyIconButton :active="copied" tooltip="复制提示词" @click="$emit('copy')" />
       </div>
     </div>
   </div>

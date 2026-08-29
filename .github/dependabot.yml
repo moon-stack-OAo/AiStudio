@@ -14,17 +14,17 @@ updates:
       # 具体工具链优先匹配，避免落入下方通用组
       eslint:
         patterns:
-          - "eslint*"
-          - "@eslint/*"
-          - "globals"
+          - 'eslint*'
+          - '@eslint/*'
+          - 'globals'
         update-types:
           - minor
           - patch
       vite:
         patterns:
-          - "vite"
-          - "@vitejs/*"
-          - "vitest"
+          - 'vite'
+          - '@vitejs/*'
+          - 'vitest'
         update-types:
           - minor
           - patch

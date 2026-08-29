@@ -30,15 +30,13 @@ watch(
   },
 )
 
-const current = computed(() =>
-  settings.providers.find((p) => p.id === selectedId.value),
-)
+const current = computed(() => settings.providers.find((p) => p.id === selectedId.value))
 
 const {
   loading: modelsLoading,
   models: providerModels,
   refresh: refreshModels,
-} = useProviderModels(() => current.value, { kind: 'all' })
+} = useProviderModels(() => current.value, {kind: 'all'})
 
 function modelOptionsByKind(kind, currentModel) {
   let filtered = filterModelsByKind(providerModels.value, kind)
@@ -46,36 +44,28 @@ function modelOptionsByKind(kind, currentModel) {
   if (!filtered.length && providerModels.value.length) {
     filtered = providerModels.value
   }
-  return toSelectOptions(filtered, { current: currentModel })
+  return toSelectOptions(filtered, {current: currentModel})
 }
 
-const chatModelOptions = computed(() =>
-  modelOptionsByKind('chat', current.value?.chatModel),
-)
-const imageModelOptions = computed(() =>
-  modelOptionsByKind('image', current.value?.imageModel),
-)
-const videoModelOptions = computed(() =>
-  modelOptionsByKind('video', current.value?.videoModel),
-)
+const chatModelOptions = computed(() => modelOptionsByKind('chat', current.value?.chatModel))
+const imageModelOptions = computed(() => modelOptionsByKind('image', current.value?.imageModel))
+const videoModelOptions = computed(() => modelOptionsByKind('video', current.value?.videoModel))
 
 async function refreshModelLists() {
   try {
-    await refreshModels({ force: true })
+    await refreshModels({force: true})
     message.success('模型列表已刷新')
   } catch (e) {
     message.error(e?.message || '刷新模型失败')
   }
 }
 
-const canRemoveCurrent = computed(
-  () => Boolean(current.value) && !isBuiltinProvider(current.value),
-)
+const canRemoveCurrent = computed(() => Boolean(current.value) && !isBuiltinProvider(current.value))
 
 const providerTypeOptions = [
-  { label: 'OpenAI / 兼容接口', value: 'openai' },
-  { label: 'OpenAI Compatible', value: 'openai-compatible' },
-  { label: 'xAI Grok', value: 'xai' },
+  {label: 'OpenAI / 兼容接口', value: 'openai'},
+  {label: 'OpenAI Compatible', value: 'openai-compatible'},
+  {label: 'xAI Grok', value: 'xai'},
 ]
 
 function providerTypeLabel(type) {
@@ -104,7 +94,7 @@ function flushPersist() {
 
 function patch(field, value) {
   if (!current.value) return
-  settings.updateProvider(current.value.id, { [field]: value }, { persist: false })
+  settings.updateProvider(current.value.id, {[field]: value}, {persist: false})
   schedulePersist()
 }
 
@@ -168,7 +158,7 @@ async function testConnection() {
   try {
     const result = await testProviderConnection(current.value)
     message.success(result.detail || '连接成功')
-    refreshModels({ force: true }).catch(() => {})
+    refreshModels({force: true}).catch(() => {})
   } catch (e) {
     message.error(e?.message || '连接失败')
   } finally {
@@ -176,7 +166,7 @@ async function testConnection() {
   }
 }
 
-defineExpose({ addCustom, reset })
+defineExpose({addCustom, reset})
 </script>
 
 <template>
@@ -188,7 +178,7 @@ defineExpose({ addCustom, reset })
           <button
             v-for="p in settings.providers"
             :key="p.id"
-            :class="{ active: p.id === selectedId }"
+            :class="{active: p.id === selectedId}"
             class="item"
             type="button"
             @click="onSelect(p.id)"
@@ -220,12 +210,7 @@ defineExpose({ addCustom, reset })
               trigger="click"
             >
               <template #trigger>
-                <n-button
-                  aria-label="使用说明"
-                  quaternary
-                  size="small"
-                  title="使用说明"
-                >
+                <n-button aria-label="使用说明" quaternary size="small" title="使用说明">
                   <template #icon>
                     <n-icon :component="HelpCircleOutline" />
                   </template>
@@ -308,11 +293,7 @@ defineExpose({ addCustom, reset })
                 <div class="field field-full">
                   <div class="field-label">连通性</div>
                   <div class="inline-row">
-                    <n-button
-                      :loading="testing"
-                      size="small"
-                      @click="testConnection"
-                    >
+                    <n-button :loading="testing" size="small" @click="testConnection">
                       <template #icon>
                         <n-icon :component="FlashOutline" />
                       </template>
@@ -324,7 +305,8 @@ defineExpose({ addCustom, reset })
               </div>
               <div v-if="showViteCorsProxy" class="tip-bar tip-warn tip-in-collapse">
                 若出现 net::ERR_FAILED，多为浏览器 CORS。请开启上方「开发代理」并重启
-                <code>npm run dev</code>。桌面端（<code>tauri:dev</code> / 安装包）已走 Rust HTTP，无需此开关。
+                <code>npm run dev</code>。桌面端（<code>tauri:dev</code> / 安装包）已走 Rust
+                HTTP，无需此开关。
               </div>
             </n-collapse-item>
 

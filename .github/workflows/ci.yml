@@ -39,10 +39,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # format:check 脚本已就绪；现有代码风格混杂，全量 check 会大面积失败，
-      # 待后续单独做格式化 PR 后再启用（见 package.json format / format:check）
-      # - name: Format check
-      #   run: npm run format:check
+      - name: Format check
+        # 纯格式校验（与 npm run format 对称）
+        run: npm run format:check
 
       - name: Test
         run: npm run test

@@ -19,6 +19,6 @@ export function renderSelectLabel(option) {
         },
       },
     },
-    { default: () => text },
+    {default: () => text},
   )
 }

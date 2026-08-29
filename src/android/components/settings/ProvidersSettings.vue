@@ -27,9 +27,7 @@ watch(
   },
 )
 
-const current = computed(() =>
-  settings.providers.find((p) => p.id === selectedId.value),
-)
+const current = computed(() => settings.providers.find((p) => p.id === selectedId.value))
 
 const providerOptions = computed(() =>
   settings.providers.map((p) => ({
@@ -42,7 +40,7 @@ const {
   loading: modelsLoading,
   models: providerModels,
   refresh: refreshModels,
-} = useProviderModels(() => current.value, { kind: 'all' })
+} = useProviderModels(() => current.value, {kind: 'all'})
 
 function modelOptionsByKind(kind, currentModel) {
   let filtered = filterModelsByKind(providerModels.value, kind)
@@ -50,36 +48,28 @@ function modelOptionsByKind(kind, currentModel) {
   if (!filtered.length && providerModels.value.length) {
     filtered = providerModels.value
   }
-  return toSelectOptions(filtered, { current: currentModel })
+  return toSelectOptions(filtered, {current: currentModel})
 }
 
-const chatModelOptions = computed(() =>
-  modelOptionsByKind('chat', current.value?.chatModel),
-)
-const imageModelOptions = computed(() =>
-  modelOptionsByKind('image', current.value?.imageModel),
-)
-const videoModelOptions = computed(() =>
-  modelOptionsByKind('video', current.value?.videoModel),
-)
+const chatModelOptions = computed(() => modelOptionsByKind('chat', current.value?.chatModel))
+const imageModelOptions = computed(() => modelOptionsByKind('image', current.value?.imageModel))
+const videoModelOptions = computed(() => modelOptionsByKind('video', current.value?.videoModel))
 
 async function refreshModelLists() {
   try {
-    await refreshModels({ force: true })
+    await refreshModels({force: true})
     message.success('模型列表已刷新')
   } catch (e) {
     message.error(e?.message || '刷新模型失败')
   }
 }
 
-const canRemoveCurrent = computed(
-  () => Boolean(current.value) && !isBuiltinProvider(current.value),
-)
+const canRemoveCurrent = computed(() => Boolean(current.value) && !isBuiltinProvider(current.value))
 
 const providerTypeOptions = [
-  { label: 'OpenAI / 兼容接口', value: 'openai' },
-  { label: 'OpenAI Compatible', value: 'openai-compatible' },
-  { label: 'xAI Grok', value: 'xai' },
+  {label: 'OpenAI / 兼容接口', value: 'openai'},
+  {label: 'OpenAI Compatible', value: 'openai-compatible'},
+  {label: 'xAI Grok', value: 'xai'},
 ]
 
 function onSelect(id) {
@@ -104,7 +94,7 @@ function flushPersist() {
 
 function patch(field, value) {
   if (!current.value) return
-  settings.updateProvider(current.value.id, { [field]: value }, { persist: false })
+  settings.updateProvider(current.value.id, {[field]: value}, {persist: false})
   schedulePersist()
 }
 
@@ -168,7 +158,7 @@ async function testConnection() {
   try {
     const result = await testProviderConnection(current.value)
     message.success(result.detail || '连接成功')
-    refreshModels({ force: true }).catch(() => {})
+    refreshModels({force: true}).catch(() => {})
   } catch (e) {
     message.error(e?.message || '连接失败')
   } finally {
@@ -176,7 +166,7 @@ async function testConnection() {
   }
 }
 
-defineExpose({ addCustom, reset })
+defineExpose({addCustom, reset})
 </script>
 
 <template>
@@ -190,7 +180,9 @@ defineExpose({ addCustom, reset })
         @update:value="onSelect"
       />
       <div v-if="current" class="picker-meta">
-        <span class="type-tag">{{ providerTypeOptions.find((o) => o.value === current.provider)?.label || current.provider }}</span>
+        <span class="type-tag">{{
+          providerTypeOptions.find((o) => o.value === current.provider)?.label || current.provider
+        }}</span>
         <span class="url">{{ current.baseUrl || '未填写 Base URL' }}</span>
       </div>
     </div>
@@ -247,14 +239,9 @@ defineExpose({ addCustom, reset })
             <span class="hint">浏览器开发时访问中转站请开启</span>
           </div>
         </div>
-        <n-button
-          :loading="testing"
-          block
-          class="action-btn"
-          @click="testConnection"
-        >
+        <n-button :loading="testing" block class="action-btn" @click="testConnection">
           <template #icon>
-            <n-icon :component="FlashOutline"/>
+            <n-icon :component="FlashOutline" />
           </template>
           测试连接
         </n-button>
@@ -263,14 +250,9 @@ defineExpose({ addCustom, reset })
       <div class="group">
         <div class="group-title">
           <span>模型</span>
-          <n-button
-            :loading="modelsLoading"
-            quaternary
-            size="small"
-            @click="refreshModelLists"
-          >
+          <n-button :loading="modelsLoading" quaternary size="small" @click="refreshModelLists">
             <template #icon>
-              <n-icon :component="RefreshOutline"/>
+              <n-icon :component="RefreshOutline" />
             </template>
             刷新
           </n-button>
@@ -336,14 +318,12 @@ defineExpose({ addCustom, reset })
       <div v-if="canRemoveCurrent" class="danger">
         <n-button block quaternary type="error" @click="removeCurrent">
           <template #icon>
-            <n-icon :component="TrashOutline"/>
+            <n-icon :component="TrashOutline" />
           </template>
           删除自定义提供商
         </n-button>
       </div>
-      <div v-else class="builtin-hint">
-        内置提供商不可删除，可用右上角恢复预设。
-      </div>
+      <div v-else class="builtin-hint">内置提供商不可删除，可用右上角恢复预设。</div>
     </div>
   </div>
 </template>

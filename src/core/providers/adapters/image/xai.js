@@ -4,13 +4,7 @@ import {supportsImageQuality} from '../../capabilities'
 
 /** xAI 文生图：aspect_ratio，不传 size */
 export async function prepareGenerate(provider, options) {
-  const {
-    prompt,
-    n = 1,
-    aspectRatio,
-    quality,
-    responseFormat,
-  } = options
+  const {prompt, n = 1, aspectRatio, quality, responseFormat} = options
 
   const caps = getXaiCapabilities(provider).image
   const format = responseFormat || caps.preferResponseFormat || 'b64_json'
@@ -33,14 +27,7 @@ export async function prepareGenerate(provider, options) {
 
 /** xAI 图生图：JSON /images/edits */
 export async function prepareEdit(provider, options, deps) {
-  const {
-    prompt,
-    imageFile,
-    n = 1,
-    aspectRatio,
-    quality,
-    responseFormat,
-  } = options
+  const {prompt, imageFile, n = 1, aspectRatio, quality, responseFormat} = options
   const {compressImageFile, fileToDataUrl} = deps
 
   const format = responseFormat || 'b64_json'

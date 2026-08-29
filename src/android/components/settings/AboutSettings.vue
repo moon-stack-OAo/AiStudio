@@ -85,9 +85,7 @@ async function onInstallUpdate() {
       } else if (info.phase === 'download') {
         const done = formatBytes(info.downloaded)
         const total = formatBytes(info.total)
-        updateProgress.value = total
-          ? `正在下载 ${done} / ${total}…`
-          : `正在下载 ${done || '…'}…`
+        updateProgress.value = total ? `正在下载 ${done} / ${total}…` : `正在下载 ${done || '…'}…`
       } else if (info.phase === 'install') {
         updateProgress.value = '下载完成，正在调起系统安装器…'
       }
@@ -196,20 +194,10 @@ function onClearLocalData() {
               {{ updateResult.latest.body }}
             </div>
             <div class="inline-actions">
-              <n-button
-                :loading="installingUpdate"
-                block
-                type="primary"
-                @click="onInstallUpdate"
-              >
+              <n-button :loading="installingUpdate" block type="primary" @click="onInstallUpdate">
                 下载并安装
               </n-button>
-              <n-button
-                :disabled="installingUpdate"
-                block
-                secondary
-                @click="onOpenApkLink"
-              >
+              <n-button :disabled="installingUpdate" block secondary @click="onOpenApkLink">
                 浏览器打开 APK
               </n-button>
             </div>
@@ -263,16 +251,8 @@ function onClearLocalData() {
           </div>
         </div>
         <div class="data-row">
-          <div class="hint">
-            仅清除浏览器 / WebView 中的本地缓存数据。
-          </div>
-          <n-button
-            :loading="clearing"
-            block
-            secondary
-            type="error"
-            @click="onClearLocalData"
-          >
+          <div class="hint">仅清除浏览器 / WebView 中的本地缓存数据。</div>
+          <n-button :loading="clearing" block secondary type="error" @click="onClearLocalData">
             清除本地数据
           </n-button>
         </div>

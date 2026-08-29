@@ -1,12 +1,9 @@
 import axios from 'axios'
 import {appFetch} from '@core/utils/http'
 import {compressImageFile} from '@core/utils/imageCompress'
-import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl,} from '@core/utils/request'
+import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl} from '@core/utils/request'
 import {API_TIMEOUT_MS, DEFAULT_TEMPERATURE} from '@core/utils/constants'
-import {
-  prepareEditImage,
-  prepareGenerateImage,
-} from '@core/providers/adapters/image'
+import {prepareEditImage, prepareGenerateImage} from '@core/providers/adapters/image'
 import {
   prepareCreateVideoJob,
   preparePollVideoJob,
@@ -61,8 +58,7 @@ export {
   buildAgnesImageSizeFields,
 } from '@core/providers'
 
-const HTTP_413_HINT =
-  '上传内容过大（HTTP 413）。请换更小的参考图，或已自动压缩仍失败则换图重试。'
+const HTTP_413_HINT = '上传内容过大（HTTP 413）。请换更小的参考图，或已自动压缩仍失败则换图重试。'
 
 const MAX_ERROR_TEXT_LEN = 240
 
@@ -133,7 +129,11 @@ function extractApiErrorMessage(data) {
 function httpStatusErrorMessage(status, bodyMessage = '') {
   if (status === 413) return HTTP_413_HINT
   const fromBody = sanitizeErrorText(bodyMessage, '')
-  if (fromBody && !/^HTTP\s*413\b/i.test(fromBody) && !/payload too large|request entity too large/i.test(fromBody)) {
+  if (
+    fromBody &&
+    !/^HTTP\s*413\b/i.test(fromBody) &&
+    !/payload too large|request entity too large/i.test(fromBody)
+  ) {
     return fromBody
   }
   if (status === 413 || /payload too large|request entity too large/i.test(fromBody)) {
@@ -187,7 +187,7 @@ export function toErrorMessage(error, fallback = '未知错误') {
 
 function authHeaders(apiKey, extra = {}) {
   const key = String(apiKey || '').trim()
-  const headers = { ...extra }
+  const headers = {...extra}
   if (key) {
     headers.Authorization = `Bearer ${key}`
     // 部分中转站只认 x-api-key；与 Bearer 一并带上提高兼容性
@@ -242,9 +242,7 @@ export function createApiClient(provider) {
       }
       const status = error.response?.status
       const data = error.response?.data
-      const fromBody =
-        extractApiErrorMessage(data) ||
-        (typeof data === 'string' ? data : '')
+      const fromBody = extractApiErrorMessage(data) || (typeof data === 'string' ? data : '')
       let msg = ''
       if (status) {
         msg = httpStatusErrorMessage(status, fromBody) || fromBody
@@ -273,11 +271,11 @@ export async function listProviderModels(provider) {
     throw new Error('请先填写 Base URL')
   }
   const client = createApiClient(provider)
-  const { data } = await client.get('/models', { timeout: 20000 })
+  const {data} = await client.get('/models', {timeout: 20000})
   const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
   return list
     .map((item) => {
-      if (typeof item === 'string') return { id: item }
+      if (typeof item === 'string') return {id: item}
       const id = item?.id || item?.name
       if (!id) return null
       return {
@@ -292,7 +290,11 @@ export async function listProviderModels(provider) {
 function describeHttpProbeError(err, fallback) {
   const status = err?.status || err?.response?.status
   const raw = toErrorMessage(err, '')
-  if (status === 401 || status === 403 || /unauthorized|invalid.?api.?key|incorrect.?api/i.test(raw)) {
+  if (
+    status === 401 ||
+    status === 403 ||
+    /unauthorized|invalid.?api.?key|incorrect.?api/i.test(raw)
+  ) {
     return '鉴权失败（401/403），请检查 API Key'
   }
   if (status === 404 || /\b404\b|not\s*found/i.test(raw)) {
@@ -327,10 +329,7 @@ export async function testProviderConnection(provider) {
     const chatModel = String(provider?.chatModel || '').trim()
     if (!chatModel) {
       throw new Error(
-        describeHttpProbeError(
-          modelsErr,
-          '模型列表不可达；未配置对话模型，无法回退探测 chat',
-        ),
+        describeHttpProbeError(modelsErr, '模型列表不可达；未配置对话模型，无法回退探测 chat'),
       )
     }
     try {
@@ -339,13 +338,13 @@ export async function testProviderConnection(provider) {
         '/chat/completions',
         {
           model: chatModel,
-          messages: [{ role: 'user', content: 'ping' }],
+          messages: [{role: 'user', content: 'ping'}],
           max_tokens: 1,
           stream: false,
         },
-        { timeout: 30000 },
+        {timeout: 30000},
       )
-      return { ok: true, detail: '对话接口可达（模型列表不可用，已用 chat 探测）' }
+      return {ok: true, detail: '对话接口可达（模型列表不可用，已用 chat 探测）'}
     } catch (chatErr) {
       const modelsHint = describeHttpProbeError(modelsErr, '模型列表失败')
       const chatHint = describeHttpProbeError(chatErr, '对话接口失败')
@@ -363,9 +362,9 @@ export async function testProviderConnection(provider) {
  * @param {AbortSignal} [options.signal]
  * @returns {Promise<object>} 上游原始响应（含 choices 等）
  */
-export async function chatCompletions(provider, { messages, stream = false, signal }) {
+export async function chatCompletions(provider, {messages, stream = false, signal}) {
   const client = createApiClient(provider)
-  const { data } = await client.post(
+  const {data} = await client.post(
     '/chat/completions',
     {
       model: provider.chatModel,
@@ -373,7 +372,7 @@ export async function chatCompletions(provider, { messages, stream = false, sign
       stream,
       temperature: DEFAULT_TEMPERATURE,
     },
-    { signal },
+    {signal},
   )
   return data
 }
@@ -387,7 +386,7 @@ export async function chatCompletions(provider, { messages, stream = false, sign
  * @param {AbortSignal} [options.signal]
  * @returns {Promise<string>} 拼接后的完整助手文本
  */
-export async function streamChatCompletions(provider, { messages, onDelta, signal }) {
+export async function streamChatCompletions(provider, {messages, onDelta, signal}) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
   const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
   if (!provider?.chatModel) {
@@ -448,7 +447,7 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
       // ignore
     }
   }
-  signal?.addEventListener?.('abort', onAbort, { once: true })
+  signal?.addEventListener?.('abort', onAbort, {once: true})
   if (signal?.aborted) onAbort()
 
   const consumeSseLine = (line) => {
@@ -491,11 +490,11 @@ export async function streamChatCompletions(provider, { messages, onDelta, signa
         if (isAbortLike(error, signal)) throw toAbortError()
         throw error
       }
-      const { done, value } = chunk
+      const {done, value} = chunk
       // Tauri plugin-http 取消后常以 done:true 正常结束，必须主动当成 Abort
       if (signal?.aborted) throw toAbortError()
       if (done) break
-      buffer += decoder.decode(value, { stream: true })
+      buffer += decoder.decode(value, {stream: true})
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
       for (const line of lines) {
@@ -541,11 +540,7 @@ async function postMultipart(provider, path, form, signal, timeout = API_TIMEOUT
   try {
     res = await appFetch(`${baseUrl}${path}`, {
       method: 'POST',
-      headers: proxyHeaders(
-        provider.baseUrl,
-        useCorsProxy,
-        authHeaders(provider.apiKey),
-      ),
+      headers: proxyHeaders(provider.baseUrl, useCorsProxy, authHeaders(provider.apiKey)),
       body: form,
       signal,
       connectTimeout: timeout,
@@ -575,11 +570,7 @@ async function getJsonByUrl(provider, url, signal) {
   try {
     res = await appFetch(url, {
       method: 'GET',
-      headers: proxyHeaders(
-        provider.baseUrl,
-        useCorsProxy,
-        authHeaders(provider.apiKey),
-      ),
+      headers: proxyHeaders(provider.baseUrl, useCorsProxy, authHeaders(provider.apiKey)),
       signal,
       connectTimeout: API_TIMEOUT_MS,
     })
@@ -705,7 +696,7 @@ function sleep(ms, signal) {
       err.name = 'AbortError'
       reject(err)
     }
-    signal?.addEventListener?.('abort', onAbort, { once: true })
+    signal?.addEventListener?.('abort', onAbort, {once: true})
   })
 }
 
@@ -759,9 +750,7 @@ function buildNormalizedVideoJob(data, fallbackId = '') {
   const status = normalizeVideoJobStatus(data?.status)
   const progressRaw = data?.progress ?? data?.percent ?? data?.percentage
   const progress =
-    typeof progressRaw === 'number' && Number.isFinite(progressRaw)
-      ? progressRaw
-      : undefined
+    typeof progressRaw === 'number' && Number.isFinite(progressRaw) ? progressRaw : undefined
   const videoUrl = extractVideoUrl(data)
   let errorMessage = ''
   if (status === 'failed') {
@@ -788,11 +777,7 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
   try {
     res = await appFetch(`${baseUrl}/videos/${encodeURIComponent(jobId)}/content`, {
       method: 'GET',
-      headers: proxyHeaders(
-        provider.baseUrl,
-        useCorsProxy,
-        authHeaders(provider.apiKey),
-      ),
+      headers: proxyHeaders(provider.baseUrl, useCorsProxy, authHeaders(provider.apiKey)),
       signal,
       connectTimeout: API_TIMEOUT_MS,
     })
@@ -845,13 +830,7 @@ export async function createVideoJob(provider, options = {}) {
 
   let data
   if (prepared.transport === 'multipart') {
-    data = await postMultipart(
-      provider,
-      prepared.path,
-      prepared.form,
-      signal,
-      API_TIMEOUT_MS,
-    )
+    data = await postMultipart(provider, prepared.path, prepared.form, signal, API_TIMEOUT_MS)
   } else {
     const client = createApiClient(provider)
     ;({data} = await client.post(prepared.path, prepared.body, {signal}))
@@ -894,10 +873,7 @@ export async function getVideoJob(provider, jobId, options = {}) {
 
   const job = buildNormalizedVideoJob(data, id)
 
-  const allowContent =
-    fetchContent &&
-    prepared.fetchContent &&
-    shouldFetchVideoContent(provider)
+  const allowContent = fetchContent && prepared.fetchContent && shouldFetchVideoContent(provider)
 
   if (allowContent && job.status === 'completed' && !job.videoUrl) {
     try {
@@ -923,12 +899,7 @@ export async function getVideoJob(provider, jobId, options = {}) {
  * @returns {Promise<VideoJob>}
  */
 export async function waitVideoJob(provider, jobId, options = {}) {
-  const {
-    signal,
-    onProgress,
-    intervalMs = 5000,
-    fetchContent = true,
-  } = options
+  const {signal, onProgress, intervalMs = 5000, fetchContent = true} = options
   const interval = Math.max(1000, Number(intervalMs) || 5000)
 
   while (true) {
@@ -937,7 +908,7 @@ export async function waitVideoJob(provider, jobId, options = {}) {
       err.name = 'AbortError'
       throw err
     }
-    const job = await getVideoJob(provider, jobId, { signal, fetchContent })
+    const job = await getVideoJob(provider, jobId, {signal, fetchContent})
     onProgress?.(job)
     if (job.status === 'completed' || job.status === 'failed') {
       return job
@@ -960,11 +931,7 @@ export async function generateVideo(provider, options = {}) {
   const created = await createVideoJob(provider, {...createOpts, signal})
   onProgress?.(created)
   if (created.status === 'completed' || created.status === 'failed') {
-    if (
-      created.status === 'completed' &&
-      !created.videoUrl &&
-      shouldFetchVideoContent(provider)
-    ) {
+    if (created.status === 'completed' && !created.videoUrl && shouldFetchVideoContent(provider)) {
       return waitVideoJob(provider, created.jobId, {signal, onProgress, intervalMs})
     }
     return created

@@ -1,17 +1,9 @@
 import {IMAGE_TIMEOUT_MS} from '@core/utils/constants'
-import {
-  buildAgnesImageSizeFields,
-  getAgnesCapabilities,
-} from '../../profiles/agnes'
+import {buildAgnesImageSizeFields, getAgnesCapabilities} from '../../profiles/agnes'
 
 /** Agnes 文生图：/images/generations；禁顶层 n/response_format */
 export async function prepareGenerate(provider, options) {
-  const {
-    prompt,
-    size = '1024x1024',
-    aspectRatio,
-    responseFormat,
-  } = options
+  const {prompt, size = '1024x1024', aspectRatio, responseFormat} = options
 
   const caps = getAgnesCapabilities(provider).image
   const format = responseFormat || caps.preferResponseFormat || 'url'
@@ -33,13 +25,7 @@ export async function prepareGenerate(provider, options) {
 
 /** Agnes 图生图：仍走 /images/generations + extra_body.image */
 export async function prepareEdit(provider, options, deps) {
-  const {
-    prompt,
-    imageFile,
-    size = '1024x1024',
-    aspectRatio,
-    responseFormat,
-  } = options
+  const {prompt, imageFile, size = '1024x1024', aspectRatio, responseFormat} = options
   const {compressImageFile, fileToDataUrl} = deps
 
   const format = responseFormat || 'url'

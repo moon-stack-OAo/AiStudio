@@ -17,8 +17,7 @@
   padding: 16px 14px;
   text-align: center;
   background:
-    radial-gradient(600px 180px at 50% 0%, var(--glow-primary), transparent 70%),
-    var(--surface-1);
+    radial-gradient(600px 180px at 50% 0%, var(--glow-primary), transparent 70%), var(--surface-1);
   border: 1px solid var(--border-subtle);
 }
 
@@ -108,4 +107,3 @@
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
-

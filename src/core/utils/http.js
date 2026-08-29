@@ -32,7 +32,7 @@ function withClearedOrigin(input, init = {}) {
   }
 
   headers.set('Origin', '')
-  return { ...init, headers }
+  return {...init, headers}
 }
 
 function resolveRequestUrl(input) {
@@ -61,11 +61,7 @@ export function assertSafeFetchUrl(input) {
     throw new Error('仅允许 http/https 请求')
   }
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  if (
-    host === '169.254.169.254' ||
-    host === 'metadata.google.internal' ||
-    host === 'metadata'
-  ) {
+  if (host === '169.254.169.254' || host === 'metadata.google.internal' || host === 'metadata') {
     throw new Error('拒绝访问云元数据地址')
   }
 }

@@ -28,5 +28,5 @@ export function useCopyFeedback() {
     if (timer) clearTimeout(timer)
   })
 
-  return { copiedId, copyText }
+  return {copiedId, copyText}
 }

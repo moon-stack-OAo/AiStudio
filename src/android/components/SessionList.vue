@@ -72,7 +72,7 @@ function onRemove() {
 </script>
 
 <template>
-  <div :class="{ embedded }" class="session-panel">
+  <div :class="{embedded}" class="session-panel">
     <div class="session-header">
       <div v-if="!embedded" class="session-title">{{ title }}</div>
       <div class="actions">
@@ -85,7 +85,7 @@ function onRemove() {
           @click="onCreate"
         >
           <template #icon>
-            <n-icon :component="AddOutline"/>
+            <n-icon :component="AddOutline" />
           </template>
         </n-button>
         <n-button
@@ -97,7 +97,7 @@ function onRemove() {
           @click="onRename"
         >
           <template #icon>
-            <n-icon :component="CreateOutline"/>
+            <n-icon :component="CreateOutline" />
           </template>
         </n-button>
         <n-button
@@ -109,18 +109,14 @@ function onRemove() {
           @click="onRemove"
         >
           <template #icon>
-            <n-icon :component="TrashOutline"/>
+            <n-icon :component="TrashOutline" />
           </template>
         </n-button>
       </div>
     </div>
 
     <div class="session-list">
-      <n-menu
-        :options="options"
-        :value="activeId"
-        @update:value="onSelect"
-      />
+      <n-menu :options="options" :value="activeId" @update:value="onSelect" />
     </div>
   </div>
 </template>

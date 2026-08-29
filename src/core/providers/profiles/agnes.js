@@ -134,9 +134,7 @@ export function getAgnesCapabilities(provider) {
     },
     image: {
       sizeMode: image21 ? 'tier' : 'pixels',
-      sizes: image21
-        ? ['1K', '2K', '3K', '4K']
-        : [...AGNES_LEGACY_SIZES],
+      sizes: image21 ? ['1K', '2K', '3K', '4K'] : [...AGNES_LEGACY_SIZES],
       ratios: image21 ? [...AGNES_RATIOS] : undefined,
       supportsN: false,
       supportsQuality: false,

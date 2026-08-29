@@ -7,7 +7,7 @@ import {useBreakpoints} from '@core/composables/useBreakpoints'
 import ProvidersSettings from '@/components/settings/ProvidersSettings.vue'
 import AboutSettings from '@/components/settings/AboutSettings.vue'
 
-const { isCompact } = useBreakpoints()
+const {isCompact} = useBreakpoints()
 const tabsPlacement = computed(() => (isCompact.value ? 'top' : 'left'))
 const activeTab = ref('providers')
 const providersRef = ref(null)

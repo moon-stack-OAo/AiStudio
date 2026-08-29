@@ -70,7 +70,7 @@ if (!fs.existsSync(javaDestDir)) {
   process.exit(1)
 }
 
-for (const { src, dest, label } of copies) {
+for (const {src, dest, label} of copies) {
   if (!fs.existsSync(src)) {
     console.error(`未找到 ${src}`)
     process.exit(1)
@@ -87,7 +87,7 @@ for (const { src, dest, label } of copies) {
 const patch = spawnSync(
   process.execPath,
   [path.join(root, '.github', 'scripts', 'patch-android-updater-manifest.mjs')],
-  { stdio: 'inherit' },
+  {stdio: 'inherit'},
 )
 if (patch.status !== 0) {
   process.exit(patch.status || 1)

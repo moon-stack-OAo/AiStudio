@@ -1,7 +1,4 @@
-import {
-  clampAgnesVideoSeconds,
-  normalizeAgnesVideoSize,
-} from '../../profiles/agnes'
+import {clampAgnesVideoSeconds, normalizeAgnesVideoSize} from '../../profiles/agnes'
 
 /** Agnes 查询接口在网关根路径 /agnesapi，不在 /v1 下 */
 export function resolveAgnesApiHubRoot(resolvedBaseUrl) {
@@ -12,15 +9,7 @@ export function resolveAgnesApiHubRoot(resolvedBaseUrl) {
 
 /** Agnes：POST /videos；Flash 强制 720P；秒数 4–12 */
 export async function prepareCreate(provider, options, deps) {
-  const {
-    prompt,
-    mode = 'txt2video',
-    imageFile,
-    seconds,
-    duration,
-    size,
-    aspectRatio,
-  } = options
+  const {prompt, mode = 'txt2video', imageFile, seconds, duration, size, aspectRatio} = options
   const {compressImageFile, fileToDataUrl} = deps
 
   const model = String(provider.videoModel || '').trim()
