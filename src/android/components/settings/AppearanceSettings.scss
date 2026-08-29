@@ -1,0 +1,40 @@
+@use './settings-shared.scss';
+
+.appearance-pane {
+  align-items: stretch;
+}
+
+.appearance-wrap {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.data-card .data-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.density-row {
+  margin-top: 4px;
+}
+
+.select-pref {
+  width: 100%;
+}
+
+.context-extra-hint {
+  margin-top: 8px;
+}
+
+.shortcut-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  line-height: 1.7;
+}

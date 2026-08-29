@@ -46,6 +46,7 @@ export function usePromptEnhance() {
         mode,
         provider: settings.activeProvider,
         temperature: settings.chatTemperature,
+        timeout: settings.apiTimeoutMs,
         signal: controller.signal,
       })
     } finally {

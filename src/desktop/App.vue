@@ -1,5 +1,5 @@
 <script setup>
-import {computed, h, onMounted, provide, ref, watch} from 'vue'
+import {computed, h, onBeforeUnmount, onMounted, provide, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
 import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline} from '@vicons/ionicons5'
@@ -7,7 +7,12 @@ import {useSettingsStore} from '@core/stores/settings'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useVisualViewport} from '@core/composables/useVisualViewport'
 import {isDesktopTauri} from '@core/utils/request'
-import {applyDocumentTheme, THEME_OVERRIDES} from '@core/utils/theme'
+import {
+  applyDocumentTheme,
+  applyDocumentUiPrefs,
+  THEME_OVERRIDES,
+  watchSystemTheme,
+} from '@core/utils/theme'
 import TitleBar from '@/components/TitleBar.vue'
 import UpdateChecker from '@/components/UpdateChecker.vue'
 import CloseConfirm from '@/components/CloseConfirm.vue'
@@ -22,6 +27,7 @@ const desktopFrame = isDesktopTauri()
 if (!desktopFrame) useVisualViewport()
 
 const mobileChromeRef = ref(null)
+let stopWatchSystem = null
 const isWorkspaceRoute = computed(() => {
   const name = String(route.name || '')
   return name === 'chat' || name === 'image' || name === 'video'
@@ -34,8 +40,21 @@ function openMobileNav() {
 
 provide('openMobileNav', openMobileNav)
 
-const naiveTheme = computed(() => (settings.theme === 'dark' ? darkTheme : null))
-const themeOverrides = computed(() => THEME_OVERRIDES[settings.theme] || THEME_OVERRIDES.dark)
+const resolvedTheme = computed(() => settings.resolvedTheme)
+const naiveTheme = computed(() => (resolvedTheme.value === 'dark' ? darkTheme : null))
+const themeOverrides = computed(() => THEME_OVERRIDES[resolvedTheme.value] || THEME_OVERRIDES.dark)
+
+function syncSystemThemeWatch() {
+  if (stopWatchSystem) {
+    stopWatchSystem()
+    stopWatchSystem = null
+  }
+  if (settings.theme !== 'system') return
+  settings.syncSystemTheme()
+  stopWatchSystem = watchSystemTheme((t) => {
+    settings.syncSystemTheme(t)
+  })
+}
 
 function renderIcon(icon) {
   return () => h(NIcon, null, {default: () => h(icon)})
@@ -67,13 +86,34 @@ const activeKey = computed(() => String(route.name || 'chat'))
 const collapsed = computed(() => isCompact.value && !isMobile.value)
 
 watch(
-  () => settings.theme,
+  resolvedTheme,
   (theme) => applyDocumentTheme(theme),
   {immediate: true},
 )
 
+watch(
+  () => settings.theme,
+  () => syncSystemThemeWatch(),
+  {immediate: true},
+)
+
+watch(
+  () => [settings.uiFontScale, settings.uiDensity],
+  ([fontScale, density]) => applyDocumentUiPrefs({fontScale, density}),
+  {immediate: true},
+)
+
 onMounted(() => {
-  applyDocumentTheme(settings.theme)
+  applyDocumentTheme(resolvedTheme.value)
+  applyDocumentUiPrefs({fontScale: settings.uiFontScale, density: settings.uiDensity})
+  syncSystemThemeWatch()
+})
+
+onBeforeUnmount(() => {
+  if (stopWatchSystem) {
+    stopWatchSystem()
+    stopWatchSystem = null
+  }
 })
 
 function onMenuUpdate(key) {

@@ -1,16 +1,29 @@
 <script setup>
 defineOptions({name: 'SettingsView'})
 
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {AddOutline, MoonOutline, RefreshOutline, SunnyOutline} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import ProvidersSettings from '@/components/settings/ProvidersSettings.vue'
 import ChatSettings from '@/components/settings/ChatSettings.vue'
+import AppearanceSettings from '@/components/settings/AppearanceSettings.vue'
 import AboutSettings from '@/components/settings/AboutSettings.vue'
 
 const settings = useSettingsStore()
 const activeTab = ref('providers')
 const providersRef = ref(null)
+const themeIcon = computed(() =>
+  settings.resolvedTheme === 'light' ? MoonOutline : SunnyOutline,
+)
+const themeLabel = computed(() =>
+  settings.theme === 'system'
+    ? settings.resolvedTheme === 'light'
+      ? '跟随系统（浅色）· 切换为深色'
+      : '跟随系统（深色）· 切换为浅色'
+    : settings.resolvedTheme === 'light'
+      ? '切换为深色'
+      : '切换为浅色',
+)
 
 function reset() {
   providersRef.value?.reset()
@@ -51,14 +64,14 @@ function addCustom() {
           </template>
         </n-button>
         <n-button
-          :aria-label="settings.theme === 'light' ? '切换为深色' : '切换为浅色'"
+          :aria-label="themeLabel"
           circle
           class="touch-target"
           quaternary
           @click="settings.toggleTheme()"
         >
           <template #icon>
-            <n-icon :component="settings.theme === 'light' ? MoonOutline : SunnyOutline" />
+            <n-icon :component="themeIcon" />
           </template>
         </n-button>
       </div>
@@ -78,6 +91,10 @@ function addCustom() {
 
         <n-tab-pane display-directive="show" name="chat" tab="对话">
           <ChatSettings />
+        </n-tab-pane>
+
+        <n-tab-pane display-directive="show" name="appearance" tab="外观">
+          <AppearanceSettings />
         </n-tab-pane>
 
         <n-tab-pane display-directive="show" name="about" tab="关于">

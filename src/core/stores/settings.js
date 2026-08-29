@@ -6,12 +6,18 @@ import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
 import {
+  API_TIMEOUT_MS,
+  API_TIMEOUT_MS_MAX,
+  API_TIMEOUT_MS_MIN,
   DEFAULT_CHAT_CONTEXT_MAX_CHARS,
   DEFAULT_CHAT_CONTEXT_MAX_TURNS,
+  DEFAULT_CHAT_MAX_TOKENS,
   DEFAULT_TEMPERATURE,
+  UI_FONT_SCALE_OPTIONS,
 } from '@core/utils/constants'
 import {decryptSecret, encryptSecret} from '@core/utils/secret'
 import {notifyStorageError} from '@core/utils/toast'
+import {getSystemTheme} from '@core/utils/theme'
 
 const PRESETS = [
   {
@@ -89,6 +95,36 @@ function normalizeMaxChars(value) {
   return n
 }
 
+function normalizeTheme(value) {
+  if (value === 'light' || value === 'dark' || value === 'system') return value
+  return 'dark'
+}
+
+function normalizeFontScale(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 1
+  const nearest = UI_FONT_SCALE_OPTIONS.reduce((best, cur) =>
+    Math.abs(cur - n) < Math.abs(best - n) ? cur : best,
+  )
+  return nearest
+}
+
+function normalizeDensity(value) {
+  return value === 'compact' ? 'compact' : 'comfortable'
+}
+
+function normalizeMaxTokens(value) {
+  const n = Math.floor(Number(value))
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_CHAT_MAX_TOKENS
+  return n
+}
+
+function normalizeApiTimeoutMs(value) {
+  const n = Math.floor(Number(value))
+  if (!Number.isFinite(n)) return API_TIMEOUT_MS
+  return Math.min(API_TIMEOUT_MS_MAX, Math.max(API_TIMEOUT_MS_MIN, n))
+}
+
 function buildChatDefaults(saved = {}) {
   return {
     chatContextTrimEnabled: saved.chatContextTrimEnabled !== false,
@@ -104,14 +140,26 @@ function buildChatDefaults(saved = {}) {
       saved.chatContextMaxChars != null
         ? normalizeMaxChars(saved.chatContextMaxChars)
         : DEFAULT_CHAT_CONTEXT_MAX_CHARS,
+    chatMaxTokens:
+      saved.chatMaxTokens != null ? normalizeMaxTokens(saved.chatMaxTokens) : DEFAULT_CHAT_MAX_TOKENS,
+    apiTimeoutMs:
+      saved.apiTimeoutMs != null ? normalizeApiTimeoutMs(saved.apiTimeoutMs) : API_TIMEOUT_MS,
+  }
+}
+
+function buildUiDefaults(saved = {}) {
+  return {
+    uiFontScale: normalizeFontScale(saved.uiFontScale ?? 1),
+    uiDensity: normalizeDensity(saved.uiDensity),
   }
 }
 
 export const useSettingsStore = defineStore('settings', {
   state: () => {
     const saved = loadJSON('settings', null)
-    const theme = saved?.theme === 'light' ? 'light' : 'dark'
+    const theme = normalizeTheme(saved?.theme)
     const chat = buildChatDefaults(saved || {})
+    const ui = buildUiDefaults(saved || {})
     if (saved?.providers?.length) {
       return {
         providers: saved.providers.map(normalizeProvider),
@@ -119,7 +167,10 @@ export const useSettingsStore = defineStore('settings', {
         autoCheckUpdate: saved.autoCheckUpdate !== false,
         skippedUpdateVersion: saved.skippedUpdateVersion || '',
         availableUpdateVersion: '',
+        /** 不持久化：缓存系统偏好，供 system 主题响应式更新 */
+        _systemTheme: getSystemTheme(),
         ...chat,
+        ...ui,
         theme,
       }
     }
@@ -130,7 +181,9 @@ export const useSettingsStore = defineStore('settings', {
       autoCheckUpdate: true,
       skippedUpdateVersion: '',
       availableUpdateVersion: '',
+      _systemTheme: getSystemTheme(),
       ...chat,
+      ...ui,
       theme,
     }
   },
@@ -151,6 +204,13 @@ export const useSettingsStore = defineStore('settings', {
         state.availableUpdateVersion && state.availableUpdateVersion !== state.skippedUpdateVersion,
       )
     },
+    /** 解析后的 light/dark（system 时跟随 OS） */
+    resolvedTheme(state) {
+      if (state.theme === 'system') {
+        return state._systemTheme === 'light' ? 'light' : 'dark'
+      }
+      return state.theme === 'light' ? 'light' : 'dark'
+    },
   },
   actions: {
     persist() {
@@ -165,6 +225,10 @@ export const useSettingsStore = defineStore('settings', {
         chatSystemPrompt: this.chatSystemPrompt,
         chatContextMaxCharsEnabled: this.chatContextMaxCharsEnabled,
         chatContextMaxChars: this.chatContextMaxChars,
+        chatMaxTokens: this.chatMaxTokens,
+        apiTimeoutMs: this.apiTimeoutMs,
+        uiFontScale: this.uiFontScale,
+        uiDensity: this.uiDensity,
         theme: this.theme,
       })
       if (!ok) notifyStorageError('设置写入本地失败，刷新后可能丢失')
@@ -176,12 +240,33 @@ export const useSettingsStore = defineStore('settings', {
     clearAvailableUpdate() {
       this.availableUpdateVersion = ''
     },
+    /** 同步系统浅/深色缓存（不落盘） */
+    syncSystemTheme(theme) {
+      const next = theme === 'light' || theme === 'dark' ? theme : getSystemTheme()
+      this._systemTheme = next
+    },
     setTheme(theme) {
-      this.theme = theme === 'light' ? 'light' : 'dark'
+      this.theme = normalizeTheme(theme)
+      if (this.theme === 'system') this.syncSystemTheme()
       this.persist()
     },
+    /**
+     * 快捷切换：仅 light↔dark；若当前为 system，则落到与 resolved 相反的手动主题。
+     */
     toggleTheme() {
+      if (this.theme === 'system') {
+        this.setTheme(this.resolvedTheme === 'light' ? 'dark' : 'light')
+        return
+      }
       this.setTheme(this.theme === 'light' ? 'dark' : 'light')
+    },
+    setUiFontScale(value) {
+      this.uiFontScale = normalizeFontScale(value)
+      this.persist()
+    },
+    setUiDensity(value) {
+      this.uiDensity = normalizeDensity(value)
+      this.persist()
     },
 
     setAutoCheckUpdate(value) {
@@ -211,6 +296,14 @@ export const useSettingsStore = defineStore('settings', {
     },
     setChatContextMaxChars(value) {
       this.chatContextMaxChars = normalizeMaxChars(value)
+      this.persist()
+    },
+    setChatMaxTokens(value) {
+      this.chatMaxTokens = normalizeMaxTokens(value)
+      this.persist()
+    },
+    setApiTimeoutMs(value) {
+      this.apiTimeoutMs = normalizeApiTimeoutMs(value)
       this.persist()
     },
     /** 仅清空各提供商 API Key 并持久化 */

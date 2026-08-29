@@ -8,6 +8,7 @@ import {
   EllipsisHorizontalOutline,
   SendOutline,
 } from '@vicons/ionicons5'
+import {useMessage} from 'naive-ui'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import SessionHistoryButton from '@/components/SessionHistoryButton.vue'
@@ -15,12 +16,14 @@ import MarkdownRenderer from '@core/components/MarkdownRenderer.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@core/components/ComposerSendStop.vue'
+import SessionOverridesPanel from '@core/components/SessionOverridesPanel.vue'
 import {useChatSession} from '@core/composables/useChatSession'
 import {countChatTurns} from '@core/utils/chatContext'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
 
 const {tooltipTrigger} = useTooltipTrigger()
+const uiMessage = useMessage()
 const {
   chatStore,
   settings,
@@ -47,11 +50,23 @@ const {
 })
 
 const moreShow = ref(false)
+const overridesShow = ref(false)
 useBackCloseLayer(moreShow)
+useBackCloseLayer(overridesShow)
 
 function clearMessages() {
   moreShow.value = false
   clearMessagesCore()
+}
+
+function openOverrides() {
+  moreShow.value = false
+  overridesShow.value = true
+}
+
+function onOverridesSaved() {
+  overridesShow.value = false
+  uiMessage.success('已保存本会话参数')
 }
 </script>
 
@@ -207,6 +222,7 @@ function clearMessages() {
           <div class="more-label">模型</div>
           <ModelSelect kind="chat" sheet size="medium" />
         </div>
+        <n-button block secondary @click="openOverrides">本会话参数</n-button>
         <n-button
           :disabled="!session?.messages?.length"
           block
@@ -217,6 +233,21 @@ function clearMessages() {
           清空当前会话
         </n-button>
         <div class="more-hint">接口密钥请到「设置」页管理</div>
+      </div>
+    </n-drawer-content>
+  </n-drawer>
+
+  <n-drawer
+    v-model:show="overridesShow"
+    class="more-drawer"
+    display-directive="show"
+    height="auto"
+    placement="bottom"
+  >
+    <n-drawer-content closable title="本会话参数">
+      <div class="more-sheet">
+        <div class="more-hint">仅影响当前会话；未开启自定义时跟随全局设置</div>
+        <SessionOverridesPanel :session-id="session?.id || ''" @saved="onOverridesSaved" />
       </div>
     </n-drawer-content>
   </n-drawer>

@@ -62,6 +62,42 @@ export const THEME_OVERRIDES = {
   light: buildOverrides('light'),
 }
 
+/** 读取系统浅/深色偏好 */
+export function getSystemTheme() {
+  try {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+  } catch {
+    // ignore
+  }
+  return 'dark'
+}
+
+/**
+ * 监听系统主题变化。
+ * @param {(theme: 'light'|'dark') => void} cb
+ * @returns {() => void} 取消订阅
+ */
+export function watchSystemTheme(cb) {
+  if (typeof window === 'undefined' || !window.matchMedia) {
+    return () => {}
+  }
+  const mq = window.matchMedia('(prefers-color-scheme: dark)')
+  const handler = () => {
+    cb(mq.matches ? 'dark' : 'light')
+  }
+  if (typeof mq.addEventListener === 'function') {
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }
+  if (typeof mq.addListener === 'function') {
+    mq.addListener(handler)
+    return () => mq.removeListener(handler)
+  }
+  return () => {}
+}
+
 /** 同步 Android 系统栏图标明暗，与 App theme 绑定 */
 function syncAndroidSystemBars(theme) {
   try {
@@ -93,8 +129,27 @@ export async function syncNativeBackground(theme) {
   syncAndroidSystemBars(theme)
 }
 
+/**
+ * 应用已解析的 light/dark 到 document（勿传 system）。
+ * @param {'light'|'dark'} theme
+ */
 export function applyDocumentTheme(theme) {
   const next = theme === 'light' ? 'light' : 'dark'
   document.documentElement.dataset.theme = next
   void syncNativeBackground(next)
+}
+
+/**
+ * 应用界面字号比例与密度。
+ * @param {{ fontScale?: number, density?: 'comfortable'|'compact' }} options
+ */
+export function applyDocumentUiPrefs(options = {}) {
+  const root = document.documentElement
+  const scale = Number(options.fontScale)
+  if (Number.isFinite(scale) && scale > 0) {
+    root.style.setProperty('--ui-font-scale', String(scale))
+  }
+  if (options.density === 'compact' || options.density === 'comfortable') {
+    root.dataset.density = options.density
+  }
 }

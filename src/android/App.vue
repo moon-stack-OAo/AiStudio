@@ -5,7 +5,12 @@ import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
 import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import {KEYBOARD_OPEN_DELTA_PX, useVisualViewport} from '@core/composables/useVisualViewport'
-import {applyDocumentTheme, THEME_OVERRIDES} from '@core/utils/theme'
+import {
+  applyDocumentTheme,
+  applyDocumentUiPrefs,
+  THEME_OVERRIDES,
+  watchSystemTheme,
+} from '@core/utils/theme'
 import UpdateChecker from '@/components/UpdateChecker.vue'
 import {dismissAllBackLayers} from '@/composables/useBackCloseLayer'
 
@@ -16,9 +21,23 @@ useVisualViewport()
 
 const keyboardOpen = ref(false)
 let baselineHeight = 0
+let stopWatchSystem = null
 
-const naiveTheme = computed(() => (settings.theme === 'dark' ? darkTheme : null))
-const themeOverrides = computed(() => THEME_OVERRIDES[settings.theme] || THEME_OVERRIDES.dark)
+const resolvedTheme = computed(() => settings.resolvedTheme)
+const naiveTheme = computed(() => (resolvedTheme.value === 'dark' ? darkTheme : null))
+const themeOverrides = computed(() => THEME_OVERRIDES[resolvedTheme.value] || THEME_OVERRIDES.dark)
+
+function syncSystemThemeWatch() {
+  if (stopWatchSystem) {
+    stopWatchSystem()
+    stopWatchSystem = null
+  }
+  if (settings.theme !== 'system') return
+  settings.syncSystemTheme()
+  stopWatchSystem = watchSystemTheme((t) => {
+    settings.syncSystemTheme(t)
+  })
+}
 
 const tabs = [
   {key: 'chat', label: '对话', icon: ChatbubblesOutline, path: '/chat'},
@@ -31,8 +50,20 @@ const activeKey = computed(() => String(route.name || 'chat'))
 const showUpdateBadge = computed(() => settings.hasAvailableUpdate)
 
 watch(
-  () => settings.theme,
+  resolvedTheme,
   (theme) => applyDocumentTheme(theme),
+  {immediate: true},
+)
+
+watch(
+  () => settings.theme,
+  () => syncSystemThemeWatch(),
+  {immediate: true},
+)
+
+watch(
+  () => [settings.uiFontScale, settings.uiDensity],
+  ([fontScale, density]) => applyDocumentUiPrefs({fontScale, density}),
   {immediate: true},
 )
 
@@ -47,7 +78,9 @@ function syncKeyboard() {
 }
 
 onMounted(() => {
-  applyDocumentTheme(settings.theme)
+  applyDocumentTheme(resolvedTheme.value)
+  applyDocumentUiPrefs({fontScale: settings.uiFontScale, density: settings.uiDensity})
+  syncSystemThemeWatch()
   syncKeyboard()
   const vv = window.visualViewport
   if (vv) {
@@ -58,6 +91,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (stopWatchSystem) {
+    stopWatchSystem()
+    stopWatchSystem = null
+  }
   const vv = window.visualViewport
   if (vv) {
     vv.removeEventListener('resize', syncKeyboard)

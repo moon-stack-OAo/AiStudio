@@ -16,8 +16,16 @@ defineProps({
 const settings = useSettingsStore()
 const {tooltipTrigger} = useTooltipTrigger()
 
-const icon = computed(() => (settings.theme === 'light' ? MoonOutline : SunnyOutline))
-const tip = computed(() => (settings.theme === 'light' ? '切换为深色' : '切换为浅色'))
+const icon = computed(() => (settings.resolvedTheme === 'light' ? MoonOutline : SunnyOutline))
+const tip = computed(() =>
+  settings.theme === 'system'
+    ? settings.resolvedTheme === 'light'
+      ? '跟随系统（浅色）· 点击切换为深色'
+      : '跟随系统（深色）· 点击切换为浅色'
+    : settings.resolvedTheme === 'light'
+      ? '切换为深色'
+      : '切换为浅色',
+)
 
 function onToggle() {
   settings.toggleTheme()

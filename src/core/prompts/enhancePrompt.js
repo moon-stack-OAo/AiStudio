@@ -65,7 +65,7 @@ export async function enhancePrompt(text, options = {}) {
     throw new Error('请先输入或填入提示词再优化')
   }
 
-  const {domain, mode, provider, temperature, signal} = options
+  const {domain, mode, provider, temperature, signal, timeout} = options
   if (!provider?.chatModel) {
     throw new Error('请先在设置中配置对话模型')
   }
@@ -81,6 +81,7 @@ export async function enhancePrompt(text, options = {}) {
     stream: false,
     signal,
     temperature,
+    timeout,
   })
 
   const content = stripEnhancedPrompt(data?.choices?.[0]?.message?.content)

@@ -16,6 +16,13 @@
   color: var(--text-3);
 }
 
+.overrides-modal-desc {
+  margin: -4px 0 12px;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
 @media (max-width: 1279.98px) {
   .message-list {
     padding: 14px calc(16px + var(--safe-right)) 14px calc(16px + var(--safe-left));

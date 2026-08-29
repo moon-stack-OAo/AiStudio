@@ -9,7 +9,14 @@ const CHAT_KEYS = [
   'chatSystemPrompt',
   'chatContextMaxCharsEnabled',
   'chatContextMaxChars',
+  'chatMaxTokens',
+  'apiTimeoutMs',
 ]
+
+function normalizeExportTheme(theme) {
+  if (theme === 'light' || theme === 'dark' || theme === 'system') return theme
+  return 'dark'
+}
 
 function pickProvider(p, {includeSecrets}) {
   const apiKey = p?.apiKey ? (includeSecrets ? String(p.apiKey) : '***') : ''
@@ -36,7 +43,9 @@ export function buildSettingsExport(state, options = {}) {
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
-    theme: state.theme === 'light' ? 'light' : 'dark',
+    theme: normalizeExportTheme(state.theme),
+    uiFontScale: state.uiFontScale ?? 1,
+    uiDensity: state.uiDensity === 'compact' ? 'compact' : 'comfortable',
     autoCheckUpdate: state.autoCheckUpdate !== false,
     activeProviderId: state.activeProviderId || '',
     chatContextTrimEnabled: state.chatContextTrimEnabled !== false,
@@ -45,6 +54,8 @@ export function buildSettingsExport(state, options = {}) {
     chatSystemPrompt: state.chatSystemPrompt ?? '',
     chatContextMaxCharsEnabled: Boolean(state.chatContextMaxCharsEnabled),
     chatContextMaxChars: state.chatContextMaxChars,
+    chatMaxTokens: state.chatMaxTokens ?? 0,
+    apiTimeoutMs: state.apiTimeoutMs,
     providers: (state.providers || []).map((p) => pickProvider(p, {includeSecrets})),
   }
 }
@@ -110,8 +121,20 @@ export function applySettingsImport(store, data, options = {}) {
   if (data.chatContextMaxChars != null) {
     store.setChatContextMaxChars(data.chatContextMaxChars)
   }
-  if (data.theme === 'light' || data.theme === 'dark') {
+  if (data.chatMaxTokens != null) {
+    store.setChatMaxTokens(data.chatMaxTokens)
+  }
+  if (data.apiTimeoutMs != null) {
+    store.setApiTimeoutMs(data.apiTimeoutMs)
+  }
+  if (data.theme === 'light' || data.theme === 'dark' || data.theme === 'system') {
     store.setTheme(data.theme)
+  }
+  if (data.uiFontScale != null) {
+    store.setUiFontScale(data.uiFontScale)
+  }
+  if (data.uiDensity === 'compact' || data.uiDensity === 'comfortable') {
+    store.setUiDensity(data.uiDensity)
   }
   if (typeof data.autoCheckUpdate === 'boolean') {
     store.setAutoCheckUpdate(data.autoCheckUpdate)

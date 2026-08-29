@@ -2,7 +2,7 @@
 import {computed, ref} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {useSettingsStore} from '@core/stores/settings'
-import {CHAT_CONTEXT_MAX_TURNS_OPTIONS} from '@core/utils/constants'
+import {API_TIMEOUT_MS, CHAT_CONTEXT_MAX_TURNS_OPTIONS} from '@core/utils/constants'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {
   applySettingsImport,
@@ -57,6 +57,26 @@ function onMaxCharsUpdate(v) {
   const n = Math.max(1, Math.floor(Number(v) || 1))
   settings.setChatContextMaxChars(n)
 }
+
+function onMaxTokensUpdate(v) {
+  const n = Math.max(0, Math.floor(Number(v) || 0))
+  settings.setChatMaxTokens(n)
+}
+
+const apiTimeoutSec = computed(() => Math.round((settings.apiTimeoutMs || API_TIMEOUT_MS) / 1000))
+
+function onTimeoutSecUpdate(v) {
+  const sec = Math.max(5, Math.floor(Number(v) || 180))
+  settings.setApiTimeoutMs(sec * 1000)
+}
+
+const maxTokensOptions = [
+  {label: '不限制', value: 0},
+  {label: '1024', value: 1024},
+  {label: '2048', value: 2048},
+  {label: '4096', value: 4096},
+  {label: '8192', value: 8192},
+]
 
 function downloadJson(filename, data) {
   const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'})
@@ -228,6 +248,43 @@ async function onImportFile(e) {
             @update:value="(v) => settings.setChatSystemPrompt(v)"
           />
           <div class="hint">不会写入本地会话气泡，仅附加到 API 请求</div>
+        </div>
+        <div class="param-block">
+          <div class="param-label-row">
+            <span class="field-label">Max Tokens</span>
+            <span class="param-value">{{
+              settings.chatMaxTokens > 0 ? settings.chatMaxTokens : '不限制'
+            }}</span>
+          </div>
+          <n-select
+            :filterable="true"
+            :options="maxTokensOptions"
+            :render-label="renderSelectLabel"
+            :tag="true"
+            :value="settings.chatMaxTokens"
+            class="select-turns"
+            placeholder="0 = 不限制"
+            size="small"
+            @update:value="onMaxTokensUpdate"
+          />
+          <div class="hint">0 表示不传 max_tokens；可输入自定义正整数</div>
+        </div>
+        <div class="param-block">
+          <div class="param-label-row">
+            <span class="field-label">请求超时</span>
+            <span class="param-value">{{ apiTimeoutSec }} 秒</span>
+          </div>
+          <n-input-number
+            :max="600"
+            :min="5"
+            :show-button="true"
+            :step="10"
+            :value="apiTimeoutSec"
+            class="input-chars"
+            size="small"
+            @update:value="onTimeoutSecUpdate"
+          />
+          <div class="hint">默认 180 秒；范围 5–600 秒。连接与非流式请求均使用此超时</div>
         </div>
       </div>
 

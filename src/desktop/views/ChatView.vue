@@ -1,13 +1,16 @@
 <script setup>
 defineOptions({name: 'ChatView'})
 
-import {ArrowUndoOutline, SendOutline} from '@vicons/ionicons5'
+import {ref} from 'vue'
+import {ArrowUndoOutline, OptionsOutline, SendOutline} from '@vicons/ionicons5'
+import {useMessage} from 'naive-ui'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import MarkdownRenderer from '@core/components/MarkdownRenderer.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@core/components/ComposerSendStop.vue'
+import SessionOverridesPanel from '@core/components/SessionOverridesPanel.vue'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useChatSession} from '@core/composables/useChatSession'
 import {useManualDropdown} from '@/composables/useManualDropdown'
@@ -16,6 +19,8 @@ import {renderSelectLabel} from '@core/utils/selectRender'
 
 const {isMobile, isCompact} = useBreakpoints()
 const {tooltipTrigger} = useTooltipTrigger()
+const uiMessage = useMessage()
+const overridesShow = ref(false)
 const {
   chatStore,
   settings,
@@ -37,6 +42,11 @@ const {
   clearMessages,
   onComposerFocus,
 } = useChatSession({contextHintVariant: 'full'})
+
+function onOverridesSaved() {
+  overridesShow.value = false
+  uiMessage.success('已保存本会话参数')
+}
 
 const {
   show: ctxShow,
@@ -102,6 +112,23 @@ function onKeydown(e) {
         @update:value="settings.setActiveProvider"
       />
       <ModelSelect kind="chat" />
+      <n-tooltip :trigger="tooltipTrigger" placement="bottom">
+        <template #trigger>
+          <n-button
+            aria-label="本会话参数"
+            circle
+            class="touch-target"
+            quaternary
+            size="small"
+            @click="overridesShow = true"
+          >
+            <template #icon>
+              <n-icon :component="OptionsOutline" />
+            </template>
+          </n-button>
+        </template>
+        本会话参数
+      </n-tooltip>
       <n-button
         :disabled="!session?.messages?.length"
         aria-label="清空消息"
@@ -224,6 +251,17 @@ function onKeydown(e) {
     @select="onCtxSelect"
     @update:show="onCtxUpdateShow"
   />
+
+  <n-modal
+    v-model:show="overridesShow"
+    :mask-closable="true"
+    preset="card"
+    style="width: min(480px, 92vw)"
+    title="本会话参数"
+  >
+    <div class="overrides-modal-desc">仅影响当前会话；未开启自定义时跟随全局设置</div>
+    <SessionOverridesPanel :session-id="session?.id || ''" @saved="onOverridesSaved" />
+  </n-modal>
 </template>
 
 <style lang="scss" scoped src="./ChatView.scss"></style>

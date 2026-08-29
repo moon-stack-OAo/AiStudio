@@ -15,7 +15,16 @@
           var raw = localStorage.getItem('ai_studio_settings')
           if (raw) {
             var parsed = JSON.parse(raw)
-            if (parsed && parsed.theme === 'light') theme = 'light'
+            if (parsed) {
+              if (parsed.theme === 'light') theme = 'light'
+              else if (parsed.theme === 'dark') theme = 'dark'
+              else if (parsed.theme === 'system') {
+                theme =
+                  window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                    ? 'dark'
+                    : 'light'
+              }
+            }
           }
         } catch (e) {}
         var color = BG[theme]

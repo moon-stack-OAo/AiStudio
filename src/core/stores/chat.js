@@ -7,6 +7,23 @@ import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
 import {notifyStorageError} from '@core/utils/toast'
 
+function normalizeOverrides(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const next = {}
+  if (Object.prototype.hasOwnProperty.call(raw, 'systemPrompt')) {
+    next.systemPrompt = raw.systemPrompt == null ? null : String(raw.systemPrompt)
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, 'temperature')) {
+    if (raw.temperature == null) {
+      next.temperature = null
+    } else {
+      const n = Number(raw.temperature)
+      if (Number.isFinite(n)) next.temperature = Math.min(2, Math.max(0, Math.round(n * 10) / 10))
+    }
+  }
+  return next
+}
+
 function createSession(title = '新对话') {
   return {
     id: createId('chat'),
@@ -15,6 +32,14 @@ function createSession(title = '新对话') {
     createdAt: Date.now(),
     updatedAt: Date.now(),
     messages: [],
+    overrides: {},
+  }
+}
+
+function hydrateSession(s) {
+  return {
+    ...s,
+    overrides: normalizeOverrides(s?.overrides),
   }
 }
 
@@ -22,9 +47,10 @@ export const useChatStore = defineStore('chat', {
   state: () => {
     const saved = loadJSON('chat_sessions', null)
     if (saved?.sessions?.length) {
+      const sessions = saved.sessions.map(hydrateSession)
       return {
-        sessions: saved.sessions,
-        activeId: saved.activeId || saved.sessions[0].id,
+        sessions,
+        activeId: saved.activeId || sessions[0].id,
       }
     }
     const session = createSession()
@@ -65,6 +91,52 @@ export const useChatStore = defineStore('chat', {
       const session = this.sessions.find((s) => s.id === id)
       if (!session) return
       session.title = title
+      session.updatedAt = Date.now()
+      this.persist()
+    },
+    /**
+     * 合并更新会话字段（如 overrides）
+     * @param {string} id
+     * @param {object} patch
+     */
+    updateSession(id, patch) {
+      const session = this.sessions.find((s) => s.id === id)
+      if (!session || !patch || typeof patch !== 'object') return
+      if (Object.prototype.hasOwnProperty.call(patch, 'overrides')) {
+        session.overrides = normalizeOverrides(patch.overrides)
+        const rest = {...patch}
+        delete rest.overrides
+        Object.assign(session, rest)
+      } else {
+        Object.assign(session, patch)
+      }
+      session.updatedAt = Date.now()
+      this.persist()
+    },
+    /**
+     * 设置会话级覆盖（null 表示清除该键、跟随全局）
+     * @param {string} id
+     * @param {{ systemPrompt?: string|null, temperature?: number|null }} patch
+     */
+    setSessionOverrides(id, patch = {}) {
+      const session = this.sessions.find((s) => s.id === id)
+      if (!session) return
+      const current = normalizeOverrides(session.overrides)
+      const next = {...current}
+      if (Object.prototype.hasOwnProperty.call(patch, 'systemPrompt')) {
+        if (patch.systemPrompt == null) delete next.systemPrompt
+        else next.systemPrompt = String(patch.systemPrompt)
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, 'temperature')) {
+        if (patch.temperature == null) delete next.temperature
+        else {
+          const n = Number(patch.temperature)
+          if (Number.isFinite(n)) {
+            next.temperature = Math.min(2, Math.max(0, Math.round(n * 10) / 10))
+          }
+        }
+      }
+      session.overrides = next
       session.updatedAt = Date.now()
       this.persist()
     },

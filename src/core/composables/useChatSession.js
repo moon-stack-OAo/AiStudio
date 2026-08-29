@@ -139,11 +139,31 @@ export function useChatSession(options = {}) {
   const provider = computed(() => settings.activeProvider)
   const isStreamingCurrent = computed(() => gen.isCurrent(session.value?.id))
 
+  function resolveEffectiveSystemPrompt(sess) {
+    const ov = sess?.overrides
+    if (ov && Object.prototype.hasOwnProperty.call(ov, 'systemPrompt') && ov.systemPrompt != null) {
+      return String(ov.systemPrompt).trim()
+    }
+    return String(settings.chatSystemPrompt || '').trim()
+  }
+
+  function resolveEffectiveTemperature(sess) {
+    const ov = sess?.overrides
+    if (ov && Object.prototype.hasOwnProperty.call(ov, 'temperature') && ov.temperature != null) {
+      const n = Number(ov.temperature)
+      if (Number.isFinite(n)) return n
+    }
+    return settings.chatTemperature
+  }
+
+  const effectiveSystemPrompt = computed(() => resolveEffectiveSystemPrompt(session.value))
+  const effectiveTemperature = computed(() => resolveEffectiveTemperature(session.value))
+
   const contextInfo = computed(() => {
     const msgs = (session.value?.messages || [])
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({role: m.role, content: m.content}))
-    const systemPrompt = String(settings.chatSystemPrompt || '').trim()
+    const systemPrompt = effectiveSystemPrompt.value
     const withSystem = systemPrompt
       ? [{role: 'system', content: systemPrompt}, ...msgs]
       : msgs
@@ -209,7 +229,7 @@ export function useChatSession(options = {}) {
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({role: m.role, content: m.content}))
 
-    const systemPrompt = String(settings.chatSystemPrompt || '').trim()
+    const systemPrompt = resolveEffectiveSystemPrompt(session.value)
     const withSystem = systemPrompt
       ? [{role: 'system', content: systemPrompt}, ...rawHistory]
       : rawHistory
@@ -257,7 +277,9 @@ export function useChatSession(options = {}) {
     try {
       await streamChatCompletions(provider.value, {
         messages: payloadMessages,
-        temperature: settings.chatTemperature,
+        temperature: resolveEffectiveTemperature(session.value),
+        max_tokens: settings.chatMaxTokens,
+        timeout: settings.apiTimeoutMs,
         signal: controller.signal,
         onDelta: (_delta, full) => {
           if (controller.signal.aborted) return
@@ -408,6 +430,8 @@ export function useChatSession(options = {}) {
     contextInfo,
     contextHint,
     sessionTitle,
+    effectiveSystemPrompt,
+    effectiveTemperature,
     send,
     stop,
     selectSession,

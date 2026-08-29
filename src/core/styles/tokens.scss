@@ -77,10 +77,13 @@
   --space-5: 20px;
   --space-6: 24px;
 
+  /* 界面字号比例（AppearanceSettings / App 同步） */
+  --ui-font-scale: 1;
+
   /* 字号语义：桌面热点样式渐进替换（仅精确匹配 11/13/15px） */
-  --text-xs: 11px;
-  --text-sm: 13px;
-  --text-md: 15px;
+  --text-xs: calc(11px * var(--ui-font-scale));
+  --text-sm: calc(13px * var(--ui-font-scale));
+  --text-md: calc(15px * var(--ui-font-scale));
 
   /*
    * 布局密度（默认 = Desktop 偏松）。
@@ -149,6 +152,22 @@
   --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
   --app-height: 100%;
+}
+
+[data-density='compact'] {
+  --gap-msg: 8px;
+  --space-msg-y: var(--space-3);
+  --pad-bubble-y: 8px;
+  --pad-bubble-x: 10px;
+  --pad-composer-y: 8px;
+  --pad-composer-x: 14px;
+  --pad-composer-bottom: 10px;
+  --pad-composer-card: 8px 8px 8px 10px;
+  --gap-composer: 6px;
+  --size-send: 36px;
+  --pad-gallery-y: 12px;
+  --pad-gallery-x: 14px;
+  --empty-offset-y: 14vh;
 }
 
 [data-theme='light'] {

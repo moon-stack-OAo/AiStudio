@@ -360,24 +360,35 @@ export async function testProviderConnection(provider) {
  * @param {ChatMessage[]} options.messages
  * @param {boolean} [options.stream=false] 应为 false；流式请用 streamChatCompletions
  * @param {AbortSignal} [options.signal]
+ * @param {number} [options.temperature]
+ * @param {number} [options.max_tokens] >0 时写入请求体
+ * @param {number} [options.timeout] 毫秒；缺省 API_TIMEOUT_MS
  * @returns {Promise<object>} 上游原始响应（含 choices 等）
  */
-export async function chatCompletions(provider, {messages, stream = false, signal, temperature}) {
+export async function chatCompletions(
+  provider,
+  {messages, stream = false, signal, temperature, max_tokens, timeout},
+) {
   const client = createApiClient(provider)
   const temp =
     temperature != null && Number.isFinite(Number(temperature))
       ? Number(temperature)
       : DEFAULT_TEMPERATURE
-  const {data} = await client.post(
-    '/chat/completions',
-    {
-      model: provider.chatModel,
-      messages,
-      stream,
-      temperature: temp,
-    },
-    {signal},
-  )
+  const body = {
+    model: provider.chatModel,
+    messages,
+    stream,
+    temperature: temp,
+  }
+  const maxTokens = Math.floor(Number(max_tokens))
+  if (Number.isFinite(maxTokens) && maxTokens > 0) {
+    body.max_tokens = maxTokens
+  }
+  const reqTimeout =
+    timeout != null && Number.isFinite(Number(timeout)) && Number(timeout) > 0
+      ? Number(timeout)
+      : API_TIMEOUT_MS
+  const {data} = await client.post('/chat/completions', body, {signal, timeout: reqTimeout})
   return data
 }
 
@@ -388,9 +399,15 @@ export async function chatCompletions(provider, {messages, stream = false, signa
  * @param {ChatMessage[]} options.messages
  * @param {(delta: string, fullText: string) => void} [options.onDelta]
  * @param {AbortSignal} [options.signal]
+ * @param {number} [options.temperature]
+ * @param {number} [options.max_tokens] >0 时写入请求体
+ * @param {number} [options.timeout] 毫秒；缺省 API_TIMEOUT_MS
  * @returns {Promise<string>} 拼接后的完整助手文本
  */
-export async function streamChatCompletions(provider, {messages, onDelta, signal, temperature}) {
+export async function streamChatCompletions(
+  provider,
+  {messages, onDelta, signal, temperature, max_tokens, timeout},
+) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
   const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
   if (!provider?.chatModel) {
@@ -400,6 +417,20 @@ export async function streamChatCompletions(provider, {messages, onDelta, signal
     temperature != null && Number.isFinite(Number(temperature))
       ? Number(temperature)
       : DEFAULT_TEMPERATURE
+  const body = {
+    model: provider.chatModel,
+    messages,
+    stream: true,
+    temperature: temp,
+  }
+  const maxTokens = Math.floor(Number(max_tokens))
+  if (Number.isFinite(maxTokens) && maxTokens > 0) {
+    body.max_tokens = maxTokens
+  }
+  const connectTimeout =
+    timeout != null && Number.isFinite(Number(timeout)) && Number(timeout) > 0
+      ? Number(timeout)
+      : API_TIMEOUT_MS
 
   let res
   try {
@@ -412,14 +443,9 @@ export async function streamChatCompletions(provider, {messages, onDelta, signal
           'Content-Type': 'application/json',
         }),
       ),
-      body: JSON.stringify({
-        model: provider.chatModel,
-        messages,
-        stream: true,
-        temperature: temp,
-      }),
+      body: JSON.stringify(body),
       signal,
-      connectTimeout: API_TIMEOUT_MS,
+      connectTimeout,
     })
   } catch (error) {
     if (isAbortLike(error, signal)) throw toAbortError()
