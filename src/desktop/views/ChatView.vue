@@ -24,6 +24,7 @@ const {
   listRef,
   session,
   isStreamingCurrent,
+  contextInfo,
   contextHint,
   send,
   stop,
@@ -181,6 +182,9 @@ function onKeydown(e) {
           <span v-else-if="!isMobile && settings.chatContextTrimEnabled" class="context-meta">
             上下文 {{ countChatTurns(session?.messages || []) }} /
             {{ settings.chatContextMaxTurns }} 轮
+            <template v-if="settings.chatContextMaxCharsEnabled">
+              · {{ contextInfo.keptChars }}/{{ settings.chatContextMaxChars }} 字
+            </template>
           </span>
         </div>
         <div class="composer-card">

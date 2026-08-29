@@ -1,12 +1,11 @@
 <script setup>
-import {computed, onMounted, ref} from 'vue'
+import {onMounted, ref} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {useSettingsStore} from '@core/stores/settings'
-import {clearAppStorage} from '@core/utils/storage'
+import {clearAppStorage, removeKey} from '@core/utils/storage'
 import {clearImageCache} from '@core/utils/imageCache'
 import {isDesktopTauri} from '@core/utils/request'
 import {getAppVersion} from '@core/utils/version'
-import {CHAT_CONTEXT_MAX_TURNS_OPTIONS} from '@core/utils/constants'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useAppUpdater} from '@/composables/useAppUpdater'
 
@@ -35,12 +34,7 @@ const closePrefOptions = [
   {label: '最小化到托盘', value: 'tray'},
 ]
 
-const maxTurnsOptions = computed(() =>
-  CHAT_CONTEXT_MAX_TURNS_OPTIONS.map((n) => ({
-    label: `${n} 轮`,
-    value: n,
-  })),
-)
+const SESSION_KEYS = ['chat_sessions', 'image_sessions', 'video_sessions']
 
 onMounted(async () => {
   appVersion.value = await getAppVersion()
@@ -80,23 +74,72 @@ function onInstallUpdate() {
   return installUpdate()
 }
 
-function onClearLocalData() {
+async function clearSessionData() {
+  for (const key of SESSION_KEYS) {
+    removeKey(key)
+  }
+  try {
+    await clearImageCache()
+  } catch {
+    /* ignore */
+  }
+}
+
+async function clearAllLocalData() {
+  clearAppStorage()
+  try {
+    await clearImageCache()
+  } catch {
+    /* ignore */
+  }
+}
+
+function onClearSessions() {
   if (clearing.value) return
   dialog.warning({
-    title: '清除本地数据',
+    title: '仅清除会话数据',
     content:
-      '将清除本机保存的提供商配置、对话 / 生图 / 生视频记录（含 API Key 与图片缓存）。清除后页面会刷新。',
+      '将清除对话 / 生图 / 生视频本地记录与图片缓存，保留提供商与 API Key。清除后页面会刷新。',
     positiveText: '确认清除',
     negativeText: '取消',
     onPositiveClick: async () => {
       clearing.value = true
       try {
-        clearAppStorage()
-        try {
-          await clearImageCache()
-        } catch {
-          /* ignore */
-        }
+        await clearSessionData()
+        window.location.reload()
+      } catch (e) {
+        message.error(e?.message || '清除失败')
+        clearing.value = false
+      }
+    },
+  })
+}
+
+function onClearApiKeys() {
+  dialog.warning({
+    title: '仅清除 API Key',
+    content: '将清空所有提供商的 API Key 并保存，会话与其它配置保留。',
+    positiveText: '确认清除',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      settings.clearAllApiKeys()
+      message.success('已清除全部 API Key')
+    },
+  })
+}
+
+function onClearAll() {
+  if (clearing.value) return
+  dialog.warning({
+    title: '全部清除',
+    content:
+      '将清除提供商配置、对话 / 生图 / 生视频记录（含 API Key 与图片缓存）。清除后页面会刷新。桌面关闭偏好保存在 window_prefs.json，不会被重置。',
+    positiveText: '确认清除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      clearing.value = true
+      try {
+        await clearAllLocalData()
         window.location.reload()
       } catch (e) {
         message.error(e?.message || '清除失败')
@@ -179,39 +222,6 @@ function onClearLocalData() {
         </div>
       </div>
 
-      <div class="section-card data-card">
-        <div class="section-head">
-          <div>
-            <div class="section-title">对话上下文</div>
-            <div class="section-desc">
-              发送请求时仅携带最近若干轮，避免超长历史撞上模型上限；本地会话记录仍完整保留
-            </div>
-          </div>
-        </div>
-        <div class="data-row">
-          <div class="inline-row">
-            <n-switch
-              :value="settings.chatContextTrimEnabled"
-              size="small"
-              @update:value="(v) => settings.setChatContextTrimEnabled(v)"
-            />
-            <span class="field-label tight">自动裁剪上下文</span>
-          </div>
-          <n-select
-            :disabled="!settings.chatContextTrimEnabled"
-            :options="maxTurnsOptions"
-            :render-label="renderSelectLabel"
-            :value="settings.chatContextMaxTurns"
-            class="select-turns"
-            size="small"
-            @update:value="(v) => settings.setChatContextMaxTurns(v)"
-          />
-        </div>
-        <div class="hint context-extra-hint">
-          1 轮 = 一次用户提问及其后回复；接近上限时对话页会提示
-        </div>
-      </div>
-
       <div v-if="inTauri" class="section-card data-card">
         <div class="section-head">
           <div>
@@ -237,19 +247,20 @@ function onClearLocalData() {
         <div class="section-head">
           <div>
             <div class="section-title">本地数据</div>
-            <div class="section-desc">清除提供商、对话、生图、生视频等前端缓存</div>
+            <div class="section-desc">
+              可仅清会话、仅清 API Key，或全部清除。桌面关闭偏好在 window_prefs.json，不会被清除。
+            </div>
           </div>
         </div>
-        <div class="data-row">
-          <div class="hint">仅清除浏览器 / WebView 中的本地缓存数据。</div>
-          <n-button
-            :loading="clearing"
-            secondary
-            size="small"
-            type="error"
-            @click="onClearLocalData"
-          >
-            清除本地数据
+        <div class="data-row clear-actions">
+          <n-button :loading="clearing" secondary size="small" @click="onClearSessions">
+            仅清除会话
+          </n-button>
+          <n-button :disabled="clearing" secondary size="small" @click="onClearApiKeys">
+            仅清除 API Key
+          </n-button>
+          <n-button :loading="clearing" secondary size="small" type="error" @click="onClearAll">
+            全部清除
           </n-button>
         </div>
       </div>

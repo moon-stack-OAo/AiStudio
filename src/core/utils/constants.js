@@ -15,3 +15,6 @@ export const CHAT_CONTEXT_WARN_RATIO = 0.8
 
 /** 对话上下文：可选保留轮数 */
 export const CHAT_CONTEXT_MAX_TURNS_OPTIONS = [10, 20, 30, 50, 100]
+
+/** 对话上下文：默认字符预算上限（粗估，非 Token） */
+export const DEFAULT_CHAT_CONTEXT_MAX_CHARS = 32000

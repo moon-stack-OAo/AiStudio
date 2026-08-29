@@ -64,6 +64,10 @@
     gap: 12px;
     flex-wrap: wrap;
   }
+
+  .clear-actions {
+    justify-content: flex-start;
+  }
 }
 
 .context-extra-hint {

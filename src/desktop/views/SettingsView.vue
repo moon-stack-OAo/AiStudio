@@ -5,6 +5,7 @@ import {computed, ref} from 'vue'
 import {AddOutline, RefreshOutline} from '@vicons/ionicons5'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import ProvidersSettings from '@/components/settings/ProvidersSettings.vue'
+import ChatSettings from '@/components/settings/ChatSettings.vue'
 import AboutSettings from '@/components/settings/AboutSettings.vue'
 
 const {isCompact} = useBreakpoints()
@@ -54,6 +55,10 @@ function addCustom() {
       >
         <n-tab-pane display-directive="show" name="providers" tab="提供商">
           <ProvidersSettings ref="providersRef" />
+        </n-tab-pane>
+
+        <n-tab-pane display-directive="show" name="chat" tab="对话">
+          <ChatSettings />
         </n-tab-pane>
 
         <n-tab-pane display-directive="show" name="about" tab="关于与更新">

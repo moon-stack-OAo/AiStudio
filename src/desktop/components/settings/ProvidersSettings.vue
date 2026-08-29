@@ -64,7 +64,7 @@ const canRemoveCurrent = computed(() => Boolean(current.value) && !isBuiltinProv
 
 const providerTypeOptions = [
   {label: 'OpenAI / 兼容接口', value: 'openai'},
-  {label: 'OpenAI Compatible', value: 'openai-compatible'},
+  {label: 'OpenAI 兼容（自定义）', value: 'openai-compatible'},
   {label: 'xAI Grok', value: 'xai'},
 ]
 
@@ -253,6 +253,7 @@ defineExpose({addCustom, reset})
                     size="small"
                     @update:value="(v) => patch('provider', v)"
                   />
+                  <div class="hint">Agnes 等会按 URL / 模型名自动识别，不必强选专用类型</div>
                 </div>
               </div>
             </n-collapse-item>

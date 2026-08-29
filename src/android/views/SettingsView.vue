@@ -5,6 +5,7 @@ import {ref} from 'vue'
 import {AddOutline, MoonOutline, RefreshOutline, SunnyOutline} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
 import ProvidersSettings from '@/components/settings/ProvidersSettings.vue'
+import ChatSettings from '@/components/settings/ChatSettings.vue'
 import AboutSettings from '@/components/settings/AboutSettings.vue'
 
 const settings = useSettingsStore()
@@ -73,6 +74,10 @@ function addCustom() {
       >
         <n-tab-pane display-directive="show" name="providers" tab="提供商">
           <ProvidersSettings ref="providersRef" />
+        </n-tab-pane>
+
+        <n-tab-pane display-directive="show" name="chat" tab="对话">
+          <ChatSettings />
         </n-tab-pane>
 
         <n-tab-pane display-directive="show" name="about" tab="关于">

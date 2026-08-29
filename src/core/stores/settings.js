@@ -5,7 +5,11 @@
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
-import {DEFAULT_CHAT_CONTEXT_MAX_TURNS} from '@core/utils/constants'
+import {
+  DEFAULT_CHAT_CONTEXT_MAX_CHARS,
+  DEFAULT_CHAT_CONTEXT_MAX_TURNS,
+  DEFAULT_TEMPERATURE,
+} from '@core/utils/constants'
 import {decryptSecret, encryptSecret} from '@core/utils/secret'
 import {notifyStorageError} from '@core/utils/toast'
 
@@ -73,10 +77,41 @@ function serializeProviders(providers) {
   }))
 }
 
+function clampTemperature(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return DEFAULT_TEMPERATURE
+  return Math.min(2, Math.max(0, Math.round(n * 10) / 10))
+}
+
+function normalizeMaxChars(value) {
+  const n = Math.floor(Number(value))
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_CHAT_CONTEXT_MAX_CHARS
+  return n
+}
+
+function buildChatDefaults(saved = {}) {
+  return {
+    chatContextTrimEnabled: saved.chatContextTrimEnabled !== false,
+    chatContextMaxTurns:
+      Number(saved.chatContextMaxTurns) > 0
+        ? Number(saved.chatContextMaxTurns)
+        : DEFAULT_CHAT_CONTEXT_MAX_TURNS,
+    chatTemperature:
+      saved.chatTemperature != null ? clampTemperature(saved.chatTemperature) : DEFAULT_TEMPERATURE,
+    chatSystemPrompt: typeof saved.chatSystemPrompt === 'string' ? saved.chatSystemPrompt : '',
+    chatContextMaxCharsEnabled: Boolean(saved.chatContextMaxCharsEnabled),
+    chatContextMaxChars:
+      saved.chatContextMaxChars != null
+        ? normalizeMaxChars(saved.chatContextMaxChars)
+        : DEFAULT_CHAT_CONTEXT_MAX_CHARS,
+  }
+}
+
 export const useSettingsStore = defineStore('settings', {
   state: () => {
     const saved = loadJSON('settings', null)
     const theme = saved?.theme === 'light' ? 'light' : 'dark'
+    const chat = buildChatDefaults(saved || {})
     if (saved?.providers?.length) {
       return {
         providers: saved.providers.map(normalizeProvider),
@@ -84,11 +119,7 @@ export const useSettingsStore = defineStore('settings', {
         autoCheckUpdate: saved.autoCheckUpdate !== false,
         skippedUpdateVersion: saved.skippedUpdateVersion || '',
         availableUpdateVersion: '',
-        chatContextTrimEnabled: saved.chatContextTrimEnabled !== false,
-        chatContextMaxTurns:
-          Number(saved.chatContextMaxTurns) > 0
-            ? Number(saved.chatContextMaxTurns)
-            : DEFAULT_CHAT_CONTEXT_MAX_TURNS,
+        ...chat,
         theme,
       }
     }
@@ -99,8 +130,7 @@ export const useSettingsStore = defineStore('settings', {
       autoCheckUpdate: true,
       skippedUpdateVersion: '',
       availableUpdateVersion: '',
-      chatContextTrimEnabled: true,
-      chatContextMaxTurns: DEFAULT_CHAT_CONTEXT_MAX_TURNS,
+      ...chat,
       theme,
     }
   },
@@ -131,6 +161,10 @@ export const useSettingsStore = defineStore('settings', {
         skippedUpdateVersion: this.skippedUpdateVersion,
         chatContextTrimEnabled: this.chatContextTrimEnabled,
         chatContextMaxTurns: this.chatContextMaxTurns,
+        chatTemperature: this.chatTemperature,
+        chatSystemPrompt: this.chatSystemPrompt,
+        chatContextMaxCharsEnabled: this.chatContextMaxCharsEnabled,
+        chatContextMaxChars: this.chatContextMaxChars,
         theme: this.theme,
       })
       if (!ok) notifyStorageError('设置写入本地失败，刷新后可能丢失')
@@ -161,6 +195,29 @@ export const useSettingsStore = defineStore('settings', {
     setChatContextMaxTurns(value) {
       const n = Math.max(1, Math.floor(Number(value) || DEFAULT_CHAT_CONTEXT_MAX_TURNS))
       this.chatContextMaxTurns = n
+      this.persist()
+    },
+    setChatTemperature(value) {
+      this.chatTemperature = clampTemperature(value)
+      this.persist()
+    },
+    setChatSystemPrompt(value) {
+      this.chatSystemPrompt = value == null ? '' : String(value)
+      this.persist()
+    },
+    setChatContextMaxCharsEnabled(value) {
+      this.chatContextMaxCharsEnabled = Boolean(value)
+      this.persist()
+    },
+    setChatContextMaxChars(value) {
+      this.chatContextMaxChars = normalizeMaxChars(value)
+      this.persist()
+    },
+    /** 仅清空各提供商 API Key 并持久化 */
+    clearAllApiKeys() {
+      for (const p of this.providers) {
+        p.apiKey = ''
+      }
       this.persist()
     },
     skipUpdateVersion(version) {

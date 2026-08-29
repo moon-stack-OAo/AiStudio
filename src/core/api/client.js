@@ -362,15 +362,19 @@ export async function testProviderConnection(provider) {
  * @param {AbortSignal} [options.signal]
  * @returns {Promise<object>} 上游原始响应（含 choices 等）
  */
-export async function chatCompletions(provider, {messages, stream = false, signal}) {
+export async function chatCompletions(provider, {messages, stream = false, signal, temperature}) {
   const client = createApiClient(provider)
+  const temp =
+    temperature != null && Number.isFinite(Number(temperature))
+      ? Number(temperature)
+      : DEFAULT_TEMPERATURE
   const {data} = await client.post(
     '/chat/completions',
     {
       model: provider.chatModel,
       messages,
       stream,
-      temperature: DEFAULT_TEMPERATURE,
+      temperature: temp,
     },
     {signal},
   )
@@ -386,12 +390,16 @@ export async function chatCompletions(provider, {messages, stream = false, signa
  * @param {AbortSignal} [options.signal]
  * @returns {Promise<string>} 拼接后的完整助手文本
  */
-export async function streamChatCompletions(provider, {messages, onDelta, signal}) {
+export async function streamChatCompletions(provider, {messages, onDelta, signal, temperature}) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
   const baseUrl = resolveBaseUrl(provider.baseUrl, useCorsProxy)
   if (!provider?.chatModel) {
     throw new Error('请先设置对话模型')
   }
+  const temp =
+    temperature != null && Number.isFinite(Number(temperature))
+      ? Number(temperature)
+      : DEFAULT_TEMPERATURE
 
   let res
   try {
@@ -408,7 +416,7 @@ export async function streamChatCompletions(provider, {messages, onDelta, signal
         model: provider.chatModel,
         messages,
         stream: true,
-        temperature: DEFAULT_TEMPERATURE,
+        temperature: temp,
       }),
       signal,
       connectTimeout: API_TIMEOUT_MS,

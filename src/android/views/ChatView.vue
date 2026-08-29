@@ -16,6 +16,7 @@ import ModelSelect from '@core/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@core/components/ComposerSendStop.vue'
 import {useChatSession} from '@core/composables/useChatSession'
+import {countChatTurns} from '@core/utils/chatContext'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
 
@@ -28,6 +29,7 @@ const {
   listRef,
   session,
   isStreamingCurrent,
+  contextInfo,
   contextHint,
   sessionTitle,
   send,
@@ -143,9 +145,20 @@ function clearMessages() {
 
     <template #composer>
       <div class="composer">
-        <div v-if="contextHint || isStreamingCurrent" class="composer-hint is-critical">
+        <div
+          v-if="contextHint || isStreamingCurrent || settings.chatContextTrimEnabled"
+          :class="{'is-critical': !!contextHint || isStreamingCurrent}"
+          class="composer-hint"
+        >
           <span v-if="isStreamingCurrent">生成中可点击停止</span>
           <span v-if="contextHint" class="context-hint">{{ contextHint }}</span>
+          <span v-else-if="settings.chatContextTrimEnabled" class="context-meta">
+            {{ countChatTurns(session?.messages || []) }} /
+            {{ settings.chatContextMaxTurns }}
+            <template v-if="settings.chatContextMaxCharsEnabled">
+              · {{ contextInfo.keptChars }}/{{ settings.chatContextMaxChars }}
+            </template>
+          </span>
         </div>
         <div class="composer-card">
           <n-input

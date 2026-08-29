@@ -30,6 +30,11 @@
   overscroll-behavior: contain;
 }
 
+.context-meta {
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+
 .context-hint {
   color: var(--color-warning);
 }

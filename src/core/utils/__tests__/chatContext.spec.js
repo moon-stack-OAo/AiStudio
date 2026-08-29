@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest'
-import {countChatTurns, trimChatMessages} from '@core/utils/chatContext'
+import {countChatTurns, estimateChatChars, trimChatMessages} from '@core/utils/chatContext'
 
 describe('countChatTurns', () => {
   it('按 user 消息条数计轮', () => {
@@ -12,6 +12,21 @@ describe('countChatTurns', () => {
         {role: 'user', content: 'u2'},
       ]),
     ).toBe(2)
+  })
+})
+
+describe('estimateChatChars', () => {
+  it('累加字符串 content 长度', () => {
+    expect(
+      estimateChatChars([
+        {role: 'user', content: 'ab'},
+        {role: 'assistant', content: 'cde'},
+      ]),
+    ).toBe(5)
+  })
+
+  it('非字符串 content 用 JSON.stringify', () => {
+    expect(estimateChatChars([{role: 'user', content: {a: 1}}])).toBe(JSON.stringify({a: 1}).length)
   })
 })
 
@@ -33,6 +48,7 @@ describe('trimChatMessages', () => {
     expect(result.messages).toEqual(msgs)
     expect(result.totalTurns).toBe(3)
     expect(result.keptTurns).toBe(3)
+    expect(result.truncatedByChars).toBe(false)
   })
 
   it('超限保留 system + 最近 N 轮', () => {
@@ -67,5 +83,57 @@ describe('trimChatMessages', () => {
     expect(result.droppedTurns).toBe(0)
     expect(result.messages).toEqual(msgs)
     expect(result.nearLimit).toBe(false)
+  })
+
+  it('字符预算：从最旧轮丢弃直到不超过上限', () => {
+    const long = [
+      {role: 'system', content: 'S'},
+      {role: 'user', content: 'AAAA'},
+      {role: 'assistant', content: 'BBBB'},
+      {role: 'user', content: 'CCCC'},
+      {role: 'assistant', content: 'DDDD'},
+      {role: 'user', content: 'EEEE'},
+      {role: 'assistant', content: 'FFFF'},
+    ]
+    // 全量含 system：1+4*6=25；限制 17 → 应丢掉第一轮后剩 sys+2轮=1+16=17
+    const result = trimChatMessages(long, {
+      enabled: false,
+      maxTurns: 10,
+      maxCharsEnabled: true,
+      maxChars: 17,
+    })
+    expect(result.truncatedByChars).toBe(true)
+    expect(result.truncated).toBe(true)
+    expect(result.keptTurns).toBe(2)
+    expect(result.messages.map((m) => m.content)).toEqual(['S', 'CCCC', 'DDDD', 'EEEE', 'FFFF'])
+    expect(result.keptChars).toBe(17)
+    expect(result.totalChars).toBeGreaterThan(17)
+  })
+
+  it('字符预算：先按轮再按字符', () => {
+    const many = []
+    for (let i = 1; i <= 5; i += 1) {
+      many.push({role: 'user', content: `U${i}xxx`})
+      many.push({role: 'assistant', content: `A${i}xxx`})
+    }
+    const result = trimChatMessages(many, {
+      enabled: true,
+      maxTurns: 3,
+      maxCharsEnabled: true,
+      maxChars: 20,
+    })
+    expect(result.keptTurns).toBeLessThanOrEqual(3)
+    expect(result.keptChars).toBeLessThanOrEqual(20)
+    expect(result.truncated || result.truncatedByChars).toBe(true)
+  })
+
+  it('字符预算关闭时不按字符裁剪', () => {
+    const result = trimChatMessages(msgs, {
+      maxTurns: 5,
+      maxCharsEnabled: false,
+      maxChars: 1,
+    })
+    expect(result.truncatedByChars).toBe(false)
+    expect(result.messages).toEqual(msgs)
   })
 })

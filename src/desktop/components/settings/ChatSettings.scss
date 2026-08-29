@@ -1,0 +1,100 @@
+@use './settings-shared.scss';
+
+.chat-pane {
+  align-items: center;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.chat-wrap {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.data-card {
+  .data-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+}
+
+.chars-row {
+  margin-top: 12px;
+}
+
+.context-extra-hint {
+  margin-top: 10px;
+}
+
+.param-block {
+  & + & {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.param-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.param-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary-hover);
+  font-variant-numeric: tabular-nums;
+}
+
+.select-turns {
+  width: 140px;
+}
+
+.input-chars {
+  width: 140px;
+}
+
+.file-hidden {
+  display: none;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1023.98px) {
+  .chat-wrap {
+    max-width: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .chat-wrap {
+    gap: 14px;
+  }
+
+  .data-card .data-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .select-turns,
+  .input-chars {
+    width: 100%;
+  }
+
+  .data-card .data-row :deep(.n-button) {
+    min-height: var(--touch-min);
+  }
+}

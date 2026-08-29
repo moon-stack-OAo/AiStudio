@@ -11,21 +11,72 @@ import {chatGeneration} from '@core/runtime/generationRuntime'
 
 /**
  * 格式化上下文裁剪提示文案。
- * @param {{ truncated: boolean, nearLimit: boolean, totalTurns: number, maxTurns: number }} info
+ * @param {{
+ *   truncated: boolean,
+ *   truncatedByChars?: boolean,
+ *   nearLimit: boolean,
+ *   nearCharLimit?: boolean,
+ *   totalTurns: number,
+ *   keptTurns?: number,
+ *   maxTurns: number,
+ *   keptChars?: number,
+ *   totalChars?: number,
+ *   maxChars?: number,
+ * }} info
  * @param {'full' | 'short'} variant
  * @returns {string}
  */
 export function formatChatContextHint(info, variant = 'full') {
-  const {totalTurns, maxTurns, nearLimit, truncated} = info
+  const {
+    totalTurns,
+    maxTurns,
+    nearLimit,
+    nearCharLimit,
+    truncated,
+    truncatedByChars,
+    keptTurns,
+    keptChars,
+    maxChars,
+  } = info
+  const kept = keptTurns != null ? keptTurns : maxTurns
   if (truncated) {
+    let text = `已裁剪：本次发送最近 ${kept} 轮（共 ${totalTurns} 轮）`
+    if (truncatedByChars) {
+      text += variant === 'short' ? ' · 已按字符预算裁剪' : '，已按字符预算裁剪'
+      if (
+        variant === 'full' &&
+        keptChars != null &&
+        maxChars != null &&
+        Number.isFinite(keptChars) &&
+        Number.isFinite(maxChars)
+      ) {
+        text += `（${keptChars} / ${maxChars}）`
+      }
+    }
+    return text
+  }
+  if (nearLimit && nearCharLimit) {
+    const charsPart =
+      keptChars != null && maxChars != null ? `${keptChars} / ${maxChars}` : '字符预算'
     return variant === 'short'
-      ? `已裁剪：保留最近 ${maxTurns} 轮（当前 ${totalTurns} 轮）`
-      : `已启用上下文裁剪：保留最近 ${maxTurns} 轮（当前 ${totalTurns} 轮）`
+      ? `接近上限：${totalTurns} / ${maxTurns} 轮 · ${charsPart}`
+      : `上下文接近上限：轮数与字符预算（${totalTurns} / ${maxTurns} 轮，${charsPart}），建议新开会话或提高上限`
   }
   if (nearLimit) {
     return variant === 'short'
       ? `接近上限：${totalTurns} / ${maxTurns} 轮`
       : `上下文接近上限：${totalTurns} / ${maxTurns} 轮，建议新开会话或提高上限`
+  }
+  if (nearCharLimit) {
+    const charsPart =
+      keptChars != null && maxChars != null ? `${keptChars} / ${maxChars}` : ''
+    return variant === 'short'
+      ? charsPart
+        ? `接近字符预算：${charsPart}`
+        : '接近字符预算'
+      : charsPart
+        ? `上下文接近字符预算：${charsPart}，建议新开会话或提高上限`
+        : '上下文接近字符预算，建议新开会话或提高上限'
   }
   return ''
 }
@@ -92,14 +143,20 @@ export function useChatSession(options = {}) {
     const msgs = (session.value?.messages || [])
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({role: m.role, content: m.content}))
-    return trimChatMessages(msgs, {
+    const systemPrompt = String(settings.chatSystemPrompt || '').trim()
+    const withSystem = systemPrompt
+      ? [{role: 'system', content: systemPrompt}, ...msgs]
+      : msgs
+    return trimChatMessages(withSystem, {
       enabled: settings.chatContextTrimEnabled,
       maxTurns: settings.chatContextMaxTurns,
+      maxCharsEnabled: settings.chatContextMaxCharsEnabled,
+      maxChars: settings.chatContextMaxChars,
     })
   })
 
   const contextHint = computed(() => {
-    if (!settings.chatContextTrimEnabled) return ''
+    if (!settings.chatContextTrimEnabled && !settings.chatContextMaxCharsEnabled) return ''
     return formatChatContextHint(contextInfo.value, contextHintVariant)
   })
 
@@ -152,24 +209,41 @@ export function useChatSession(options = {}) {
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => ({role: m.role, content: m.content}))
 
-    const trimmed = trimChatMessages(rawHistory, {
+    const systemPrompt = String(settings.chatSystemPrompt || '').trim()
+    const withSystem = systemPrompt
+      ? [{role: 'system', content: systemPrompt}, ...rawHistory]
+      : rawHistory
+
+    const trimmed = trimChatMessages(withSystem, {
       enabled: settings.chatContextTrimEnabled,
       maxTurns: settings.chatContextMaxTurns,
+      maxCharsEnabled: settings.chatContextMaxCharsEnabled,
+      maxChars: settings.chatContextMaxChars,
     })
 
     if (trimmed.truncated && !contextHintShown.value) {
-      message.info(
-        `上下文已裁剪：仅发送最近 ${trimmed.keptTurns} 轮（共 ${trimmed.totalTurns} 轮），本地记录仍完整保留`,
-        {duration: 4000},
-      )
+      let info = `上下文已裁剪：仅发送最近 ${trimmed.keptTurns} 轮（共 ${trimmed.totalTurns} 轮），本地记录仍完整保留`
+      if (trimmed.truncatedByChars) info += '；已按字符预算裁剪'
+      message.info(info, {duration: 4000})
       contextHintShown.value = true
-    } else if (trimmed.nearLimit && !trimmed.truncated && !contextHintShown.value) {
-      message.warning(
-        `上下文接近上限（${trimmed.totalTurns} / ${trimmed.maxTurns} 轮），建议新开会话`,
-        {duration: 3500},
-      )
+    } else if (
+      (trimmed.nearLimit || trimmed.nearCharLimit) &&
+      !trimmed.truncated &&
+      !contextHintShown.value
+    ) {
+      let warnText
+      if (trimmed.nearLimit && trimmed.nearCharLimit) {
+        warnText = `上下文接近上限（${trimmed.totalTurns} / ${trimmed.maxTurns} 轮，字符 ${trimmed.keptChars} / ${trimmed.maxChars}），建议新开会话`
+      } else if (trimmed.nearLimit) {
+        warnText = `上下文接近上限（${trimmed.totalTurns} / ${trimmed.maxTurns} 轮），建议新开会话`
+      } else {
+        warnText = `上下文接近字符预算（${trimmed.keptChars} / ${trimmed.maxChars}），建议新开会话`
+      }
+      message.warning(warnText, {duration: 3500})
       contextHintShown.value = true
     }
+
+    const payloadMessages = trimmed.messages
 
     const assistant = chatStore.appendMessage(sessionId, {
       role: 'assistant',
@@ -182,7 +256,8 @@ export function useChatSession(options = {}) {
 
     try {
       await streamChatCompletions(provider.value, {
-        messages: trimmed.messages,
+        messages: payloadMessages,
+        temperature: settings.chatTemperature,
         signal: controller.signal,
         onDelta: (_delta, full) => {
           if (controller.signal.aborted) return
