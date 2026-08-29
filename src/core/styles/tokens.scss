@@ -28,8 +28,9 @@
   --text-4: rgba(255, 255, 255, 0.5);
 
   --scrollbar-size: 4px;
-  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 42%, transparent);
-  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 68%, transparent);
+  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 58%, transparent);
+  --scrollbar-thumb-active: color-mix(in srgb, var(--color-primary) 78%, transparent);
   --glow-primary: rgba(124, 156, 255, 0.16);
   --glow-accent: rgba(120, 80, 200, 0.12);
 
@@ -197,8 +198,9 @@
   --text-4: rgba(15, 23, 42, 0.5);
 
   --scrollbar-size: 4px;
-  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 38%, transparent);
-  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 62%, transparent);
+  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 26%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 52%, transparent);
+  --scrollbar-thumb-active: color-mix(in srgb, var(--color-primary) 72%, transparent);
   --glow-primary: rgba(91, 124, 250, 0.12);
   --glow-accent: rgba(124, 92, 191, 0.08);
 

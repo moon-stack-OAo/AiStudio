@@ -77,6 +77,10 @@ textarea,
   background: var(--scrollbar-thumb-hover);
 }
 
+::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active);
+}
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }

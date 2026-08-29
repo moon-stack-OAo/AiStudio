@@ -87,15 +87,24 @@ function applyRandom() {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
   -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar {
-    height: 3px;
+    height: var(--scrollbar-size);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--border-muted);
-    border-radius: 2px;
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  &::-webkit-scrollbar-thumb:active {
+    background: var(--scrollbar-thumb-active);
   }
 }
 
