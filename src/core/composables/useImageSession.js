@@ -595,9 +595,8 @@ export function useImageSession(options = {}) {
     }
     try {
       const blob = await srcToBlob(src)
-      const file = new File([blob], `ref-${item.id}-${idx}.png`, {
-        type: blob.type || 'image/png',
-      })
+      const mime = String(blob.type || '').startsWith('image/') ? blob.type : 'image/png'
+      const file = new File([blob], `ref-${item.id}-${idx}.png`, {type: mime})
       await setReferenceFromFile(file)
     } catch {
       message.error('设置参考图失败')
