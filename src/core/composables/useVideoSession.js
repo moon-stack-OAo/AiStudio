@@ -10,12 +10,18 @@ import {useClipboardImage} from '@core/composables/useClipboardImage'
 import {videoGeneration} from '@core/runtime/generationRuntime'
 import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
 
-const SIZE_OPTIONS = [
+const SIZE_OPTIONS_PIXELS = [
   {label: '1280×720', value: '1280x720'},
   {label: '720×1280', value: '720x1280'},
   {label: '1792×1024', value: '1792x1024'},
   {label: '1024×1792', value: '1024x1792'},
 ]
+
+function formatVideoSizeLabel(v) {
+  const s = String(v || '')
+  if (/^\d+x\d+$/i.test(s)) return s.replace(/x/i, '×')
+  return s
+}
 
 /**
  * 生视频会话状态机（与窗体无关）：参数默认值、能力派生选项、生成 / 停止 / 恢复、
@@ -60,8 +66,15 @@ export function useVideoSession(options = {}) {
   const provider = computed(() => settings.activeProvider)
   const caps = computed(() => getCapabilities(provider.value))
   const videoCaps = computed(() => caps.value?.video || {})
-  /** aspectOnly 仅选比例；其余（含 Agnes tier）UI 仍选 WxH */
+  /** aspectOnly：仅选比例；tier：档位(+可选比例)；pixels：WxH */
   const useAspectOnly = computed(() => videoCaps.value.sizeMode === 'aspectOnly')
+  const useSizeTier = computed(() => videoCaps.value.sizeMode === 'tier')
+  const showSize = computed(() => videoCaps.value.sizeMode !== 'aspectOnly')
+  const showAspectRatio = computed(() => {
+    if (useAspectOnly.value) return true
+    const ratios = videoCaps.value.ratios
+    return Array.isArray(ratios) && ratios.length > 0
+  })
   const isGeneratingCurrent = computed(() => gen.isCurrent(session.value?.id))
 
   const canGenerate = computed(() => {
@@ -75,7 +88,13 @@ export function useVideoSession(options = {}) {
     return [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
   })
 
-  const sizeOptions = SIZE_OPTIONS
+  const sizeOptions = computed(() => {
+    const list = videoCaps.value.sizes
+    if (Array.isArray(list) && list.length) {
+      return list.map((v) => ({label: formatVideoSizeLabel(v), value: v}))
+    }
+    return SIZE_OPTIONS_PIXELS
+  })
 
   const aspectOptions = computed(() => {
     const list = videoCaps.value.ratios
@@ -112,7 +131,13 @@ export function useVideoSession(options = {}) {
         aspectOptions.value.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
       )
     }
-    return sizeOptions.find((o) => o.value === size.value)?.label || size.value
+    const tier = sizeOptions.value.find((o) => o.value === size.value)?.label || size.value
+    if (showAspectRatio.value) {
+      const ratio =
+        aspectOptions.value.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
+      return `${tier} · ${ratio}`
+    }
+    return tier
   })
 
   const durationLabel = computed(() => `${seconds.value} 秒`)
@@ -149,7 +174,7 @@ export function useVideoSession(options = {}) {
     const p = item?.params || {}
     const sec = p.seconds ?? p.duration
     if (sec != null && sec !== '') parts.push(`${sec} 秒`)
-    if (p.size) parts.push(String(p.size).replace('x', '×'))
+    if (p.size) parts.push(formatVideoSizeLabel(p.size))
     if (p.aspectRatio) parts.push(p.aspectRatio)
     return parts.join(' · ')
   }
@@ -208,6 +233,16 @@ export function useVideoSession(options = {}) {
       if (!opts.some((o) => o.value === seconds.value)) {
         const def = videoCaps.value.durationDefault
         seconds.value = opts.some((o) => o.value === def) ? def : (opts[0]?.value ?? 8)
+      }
+    },
+    {immediate: true},
+  )
+
+  watch(
+    sizeOptions,
+    (opts) => {
+      if (!opts.some((o) => o.value === size.value)) {
+        size.value = opts[0]?.value || (useSizeTier.value ? '720P' : '1280x720')
       }
     },
     {immediate: true},
@@ -316,8 +351,8 @@ export function useVideoSession(options = {}) {
         imageFile: savedMode === 'img2video' ? savedFile : undefined,
         seconds: seconds.value,
         duration: seconds.value,
-        size: useAspectOnly.value ? undefined : size.value,
-        aspectRatio: useAspectOnly.value ? aspectRatio.value : undefined,
+        size: showSize.value ? size.value : undefined,
+        aspectRatio: showAspectRatio.value ? aspectRatio.value : undefined,
         signal: controller.signal,
         onTimelineUpdate: followTimeline,
       })
@@ -498,6 +533,9 @@ export function useVideoSession(options = {}) {
     caps,
     videoCaps,
     useAspectOnly,
+    useSizeTier,
+    showSize,
+    showAspectRatio,
     isGeneratingCurrent,
     canGenerate,
     timelineItems,

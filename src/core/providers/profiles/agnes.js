@@ -4,9 +4,21 @@ import {IMAGE_TIMEOUT_MS} from '@core/utils/constants'
 export const AGNES_VIDEO_SIZES = ['720P', '960P', '2K']
 
 /** Agnes Image 2.1：推荐档位；2.0：精确 WxH */
-export const AGNES_SIZE_TIERS = ['1k', '2k', '3k', '4k']
-export const AGNES_LEGACY_SIZES = ['1024x1024', '1024x768', '768x1024']
+export const AGNES_SIZE_TIERS = ['1K', '2K', '3K', '4K']
+/** 2.0 文档示例尺寸；实测亦支持常见显示分辨率 */
+export const AGNES_LEGACY_SIZES = [
+  '1024x1024',
+  '1024x768',
+  '768x1024',
+  '1920x1080',
+  '1080x1920',
+  '2560x1440',
+  '1440x2560',
+  '3840x2160',
+  '2160x3840',
+]
 export const AGNES_RATIOS = ['1:1', '3:4', '4:3', '16:9', '9:16', '2:3', '3:2', '21:9']
+export const AGNES_VIDEO_RATIOS = ['16:9', '9:16', '1:1', '4:3', '3:4']
 
 /** Agnes APIHub：特殊请求体（禁止顶层 response_format） */
 export function isAgnesProvider(provider) {
@@ -68,12 +80,14 @@ export function clampAgnesVideoSeconds(seconds, duration) {
   return String(clamped)
 }
 
-/** 2.0：映射为官方支持的精确尺寸 */
+/** 2.0：优先保留精确 WxH（含实测可用的显示分辨率）；档位回退到近似像素 */
 export function normalizeAgnesImageSize20(size) {
   const s = String(size || '').toLowerCase()
   if (AGNES_LEGACY_SIZES.includes(s)) return s
-  if (AGNES_SIZE_TIERS.includes(s)) {
-    if (s === '1k') return '1024x1024'
+  if (AGNES_SIZE_TIERS.map((t) => t.toLowerCase()).includes(s)) {
+    if (s === '4k') return '3840x2160'
+    if (s === '3k') return '2560x1440'
+    if (s === '2k') return '1920x1080'
     return '1024x1024'
   }
   const m = s.match(/^(\d+)\s*x\s*(\d+)$/)
@@ -81,10 +95,8 @@ export function normalizeAgnesImageSize20(size) {
   const w = Number(m[1])
   const h = Number(m[2])
   if (!w || !h) return '1024x1024'
-  const ratio = w / h
-  if (Math.abs(ratio - 1) < 0.08) return '1024x1024'
-  if (ratio > 1) return '1024x768'
-  return '768x1024'
+  // 实测 2.0 可接受常见 WxH，原样下发；避免把 1920x1080 误压成 1024x768
+  return `${w}x${h}`
 }
 
 /** 2.1+：优先档位 size（1K/2K/3K/4K），兼容历史 WxH */
@@ -92,7 +104,7 @@ export function normalizeAgnesImageSize(size) {
   const raw = String(size || '').trim()
   if (!raw) return '1K'
   const upper = raw.toUpperCase()
-  if (AGNES_SIZE_TIERS.includes(upper.toLowerCase())) return upper
+  if (AGNES_SIZE_TIERS.includes(upper)) return upper
   const legacy = raw.toLowerCase()
   if (AGNES_LEGACY_SIZES.includes(legacy)) return legacy
   const m = legacy.match(/^(\d+)\s*x\s*(\d+)$/)
@@ -145,9 +157,10 @@ export function getAgnesCapabilities(provider) {
       forbidTopLevelResponseFormat: true,
     },
     video: {
-      // UI 仍选 WxH，API 层再映射到档位；此处 sizes 供 adapter 校验
+      // UI 直接选档位 + 比例；API 层 normalizeAgnesVideoSize 兜底兼容历史 WxH
       sizeMode: 'tier',
       sizes: videoFlash ? ['720P'] : [...AGNES_VIDEO_SIZES],
+      ratios: [...AGNES_VIDEO_RATIOS],
       durationMode: 'seconds',
       durationMin: 4,
       durationMax: 12,

@@ -100,7 +100,11 @@
 }
 
 .opt-size :deep(.n-select) {
-  width: 118px;
+  width: 156px;
+}
+
+.opt-ratio :deep(.n-select) {
+  width: 112px;
 }
 
 .ref-compress-hint {

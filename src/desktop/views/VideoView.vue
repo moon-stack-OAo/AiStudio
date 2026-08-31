@@ -44,7 +44,8 @@ const {
   bottomRef,
   refThumbMap,
   session,
-  useAspectOnly,
+  showSize,
+  showAspectRatio,
   isGeneratingCurrent,
   canGenerate,
   timelineItems,
@@ -376,7 +377,7 @@ function onAiBubbleContextMenu(e, item) {
                 size="small"
               />
             </label>
-            <label v-if="!useAspectOnly" class="opt-item opt-size" title="画幅">
+            <label v-if="showSize" class="opt-item opt-size" title="画幅">
               <span class="opt-label">画幅</span>
               <n-select
                 v-model:value="size"
@@ -385,7 +386,7 @@ function onAiBubbleContextMenu(e, item) {
                 size="small"
               />
             </label>
-            <label v-else class="opt-item opt-ratio" title="比例">
+            <label v-if="showAspectRatio" class="opt-item opt-ratio" title="比例">
               <span class="opt-label">比例</span>
               <n-select
                 v-model:value="aspectRatio"
@@ -524,17 +525,20 @@ function onAiBubbleContextMenu(e, item) {
         </div>
 
         <div class="params-section params-section-full">
-          <div class="params-label">{{ useAspectOnly ? '比例' : '画幅' }}</div>
+          <div v-if="showSize" class="params-label">画幅</div>
           <n-select
-            v-if="!useAspectOnly"
+            v-if="showSize"
             v-model:value="size"
             :options="sizeOptionsDesktop"
             :render-label="renderSelectLabel"
             class="params-control"
             size="medium"
           />
+          <div v-if="showAspectRatio" class="params-label" :class="{'params-label-gap': showSize}">
+            比例
+          </div>
           <n-select
-            v-else
+            v-if="showAspectRatio"
             v-model:value="aspectRatio"
             :options="aspectOptions"
             :render-label="renderSelectLabel"

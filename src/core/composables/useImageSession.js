@@ -10,6 +10,7 @@ import {
   toErrorMessage,
 } from '@core/api/client'
 import {cacheGeneratedImages, getImageObjectUrl} from '@core/utils/imageCache'
+import {resolveThumbStyle} from '@core/utils/imageThumb'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
 import {useScrollToBottom} from '@core/composables/useScrollToBottom'
 import {useClipboardImage} from '@core/composables/useClipboardImage'
@@ -73,6 +74,8 @@ export function useImageSession(options = {}) {
 
   /** itemId -> imageIndex -> objectURL，用于 idb 图片展示 */
   const resolvedMap = ref({})
+  /** `${itemId}:${index}` -> natural width/height 比，用于缩略图校正 */
+  const naturalRatioMap = ref({})
   const createdObjectUrls = new Set()
   let resolveToken = 0
 
@@ -176,6 +179,27 @@ export function useImageSession(options = {}) {
 
   function itemStatus(item) {
     return item?.status || 'done'
+  }
+
+  function thumbStyleKey(itemId, index) {
+    return `${itemId}:${index}`
+  }
+
+  function thumbStyle(item, index = 0, longEdge = 148) {
+    const key = thumbStyleKey(item?.id, index)
+    const natural = naturalRatioMap.value[key]
+    return resolveThumbStyle(item, natural, {longEdge})
+  }
+
+  function onThumbLoad(item, index, event) {
+    const img = event?.target
+    const w = Number(img?.naturalWidth)
+    const h = Number(img?.naturalHeight)
+    if (!item?.id || !(w > 0) || !(h > 0)) return
+    const key = thumbStyleKey(item.id, index)
+    const next = w / h
+    if (naturalRatioMap.value[key] === next) return
+    naturalRatioMap.value = {...naturalRatioMap.value, [key]: next}
   }
 
   function paramSummary(item) {
@@ -322,7 +346,8 @@ export function useImageSession(options = {}) {
     () => session.value?.id,
     () => {
       refThumbMap.value = {}
-      // 切会话强制滚底；生成走贴底跟随（见 generate）
+      naturalRatioMap.value = {}
+      // 切会话时滚到底；停留当前页生成时不自动拽底
       scheduleScrollToBottom({force: true})
     },
   )
@@ -331,7 +356,8 @@ export function useImageSession(options = {}) {
     sizeOptions,
     (opts) => {
       if (!opts.some((o) => o.value === size.value)) {
-        size.value = opts[0]?.value || '1024x1024'
+        const preferred = opts.find((o) => o.value === '1K') || opts[0]
+        size.value = preferred?.value || '1024x1024'
       }
     },
     {immediate: true},
@@ -673,6 +699,8 @@ export function useImageSession(options = {}) {
     sessionTitle,
     sendTooltip,
     itemStatus,
+    thumbStyle,
+    onThumbLoad,
     paramSummary,
     ensureProvider,
     setReferenceFromFile,

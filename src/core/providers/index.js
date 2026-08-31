@@ -16,6 +16,7 @@ export {
   buildAgnesImageSizeFields,
   clampAgnesVideoSeconds,
   AGNES_VIDEO_SIZES,
+  AGNES_VIDEO_RATIOS,
   AGNES_SIZE_TIERS,
   AGNES_LEGACY_SIZES,
   AGNES_RATIOS,
