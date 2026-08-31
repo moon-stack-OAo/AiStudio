@@ -8,16 +8,16 @@
 
 ## 功能概览
 
-| 模块        | 能力                                                                                                                                         |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **对话**    | 流式 SSE、停止 / 后台继续生成、Markdown / 代码高亮、复制；撤回；会话 CRUD；上下文双上限；温度 / 系统提示 / Max Tokens / 超时；本会话参数覆盖 |
-| **生图**    | 文生图 / 图生图；数量、尺寸或比例、质量；气泡时间线、灯箱、下载、用作参考图、粘贴剪贴板图片；生成中可停止；提示词辅助                        |
-| **生视频**  | 文生 / 图生（OpenAI / xAI / Agnes）；进度与停止、恢复未完成任务、播放与下载；提示词辅助（桌面 + Android）                                    |
-| **提供商**  | OpenAI / xAI / Agnes（URL·模型自动识别）/ 自定义兼容中转；测试连接、拉取模型列表、密钥仅存本机                                               |
-| **设置**    | 提供商 / 对话 / 外观 / 关于与更新；主题（含跟随系统）、字号与密度、清数据、设置导入导出；桌面关闭行为；双端检查更新                          |
-| **桌面**    | 无边框标题栏、可缩放窗口、系统托盘、Tauri Updater                                                                                            |
-| **Android** | 底栏 Tab、安全区、返回键分层关闭、侧载更新、媒体保存到相册                                                                                   |
-| **持久化**  | 配置与会话 → `localStorage`；生图二进制 → IndexedDB                                                                                          |
+| 模块          | 能力                                                                                          |
+|-------------|---------------------------------------------------------------------------------------------|
+| **对话**      | 流式 SSE、停止 / 后台继续生成、Markdown / 代码高亮、复制；撤回；会话 CRUD；上下文双上限；温度 / 系统提示 / Max Tokens / 超时；本会话参数覆盖 |
+| **生图**      | 文生图 / 图生图；数量、尺寸或比例、质量；气泡时间线、灯箱、下载、用作参考图、粘贴剪贴板图片；生成中可停止；提示词辅助                                |
+| **生视频**     | 文生 / 图生（OpenAI / xAI / 兼容中转）；进度与停止、恢复未完成任务、播放与下载；提示词辅助（桌面 + Android）                        |
+| **提供商**     | OpenAI / xAI / 自定义兼容中转（部分网关按 URL·模型名自动识别）；测试连接、拉取模型列表、密钥仅存本机                                |
+| **设置**      | 提供商 / 对话 / 外观 / 关于与更新；主题（含跟随系统）、字号与密度、清数据、设置导入导出；桌面关闭行为；双端检查更新                              |
+| **桌面**      | 无边框标题栏、可缩放窗口、系统托盘、Tauri Updater                                                             |
+| **Android** | 底栏 Tab、安全区、返回键分层关闭、侧载更新、媒体保存到相册                                                             |
+| **持久化**     | 配置与会话 → `localStorage`；生图二进制 → IndexedDB                                                    |
 
 ## 技术栈
 
@@ -47,12 +47,12 @@ npm run preview
 
 ### 环境要求
 
-| 依赖             | 说明                                                 |
-| ---------------- | ---------------------------------------------------- |
-| Node.js          | 18+（CI 使用 20）                                    |
-| Rust             | [rustup](https://rustup.rs/)                         |
-| Windows WebView2 | Win10/11 通常已预装                                  |
-| MSVC 构建工具    | Visual Studio Build Tools（「使用 C++ 的桌面开发」） |
+| 依赖               | 说明                                        |
+|------------------|-------------------------------------------|
+| Node.js          | 18+（CI 使用 20）                             |
+| Rust             | [rustup](https://rustup.rs/)              |
+| Windows WebView2 | Win10/11 通常已预装                            |
+| MSVC 构建工具        | Visual Studio Build Tools（「使用 C++ 的桌面开发」） |
 
 ```bash
 node -v && npm -v && rustc --version && cargo --version
@@ -89,13 +89,13 @@ npm run tauri:build:check
 
 ### 本机环境（可选）
 
-| 依赖        | 说明                                                                                                             |
-| ----------- | ---------------------------------------------------------------------------------------------------------------- |
-| JDK 17+     | Temurin / Oracle 等                                                                                              |
-| Android SDK | `platforms;android-34`、Build-Tools、NDK 27.x                                                                    |
-| 环境变量    | `ANDROID_HOME`、`NDK_HOME`                                                                                       |
-| Rust target | `rustup target add aarch64-linux-android`                                                                        |
-| 正式签名    | 配置 `src-tauri/gen/android/keystore.properties`（见 [签名文档](https://v2.tauri.app/distribute/sign/android/)） |
+| 依赖          | 说明                                                                                                      |
+|-------------|---------------------------------------------------------------------------------------------------------|
+| JDK 17+     | Temurin / Oracle 等                                                                                      |
+| Android SDK | `platforms;android-34`、Build-Tools、NDK 27.x                                                             |
+| 环境变量        | `ANDROID_HOME`、`NDK_HOME`                                                                               |
+| Rust target | `rustup target add aarch64-linux-android`                                                               |
+| 正式签名        | 配置 `src-tauri/gen/android/keystore.properties`（见 [签名文档](https://v2.tauri.app/distribute/sign/android/)） |
 
 ```bash
 npm run tauri:android:init
@@ -125,24 +125,25 @@ npm run tauri:build:android         # release APK（需 keystore）
 
 ### 预设示例
 
-| 提供商   | Base URL                    | 对话示例   | 生图示例                   | 生视频示例           |
-| -------- | --------------------------- | ---------- | -------------------------- | -------------------- |
+| 提供商      | Base URL                    | 对话示例       | 生图示例                       | 生视频示例                |
+|----------|-----------------------------|------------|----------------------------|----------------------|
 | OpenAI   | `https://api.openai.com/v1` | `gpt-4o`   | `gpt-image-1` / `dall-e-3` | `sora-2`             |
 | xAI Grok | `https://api.x.ai/v1`       | `grok-4.5` | `grok-imagine-image`       | `grok-imagine-video` |
-| Agnes    | 按 Agnes APIHub 文档        | 按文档     | Agnes Image 2.x            | Agnes Video 2.5      |
-| 兼容中转 | 你的中转地址 `/v1`          | 按中转文档 | 按中转文档                 | 按中转文档           |
+| 兼容中转     | 你的中转地址 `/v1`                | 按中转文档      | 按中转文档                      | 按中转文档                |
+
+> 部分兼容网关（如 Agnes APIHub）无需单独选接口类型：填 Base URL + 模型名后会按 URL / 模型自动识别。
 
 ## 接口约定
 
 - 对话：`POST /chat/completions`（流式 SSE）
 - 文生图：`POST /images/generations`
 - 图生图：
-  - OpenAI / 兼容：`multipart/form-data` → `/images/edits`
-  - xAI：`application/json` → `/images/edits`
+    - OpenAI / 兼容：`multipart/form-data` → `/images/edits`
+    - xAI：`application/json` → `/images/edits`
 - 生视频：
-  - OpenAI 兼容：`/videos`（创建任务 + 轮询）
-  - xAI：`/videos/generations`（创建任务 + 轮询）
-  - Agnes：`/videos` + 网关根路径轮询（按 URL / 模型名自动识别）
+    - OpenAI 兼容：`/videos`（创建任务 + 轮询）
+    - xAI：`/videos/generations`（创建任务 + 轮询）
+    - 部分兼容网关可按 URL / 模型名自动走专用轮询路径（无需单独选接口类型）
 
 ## 发版与自动更新
 
@@ -156,13 +157,13 @@ npm run tauri:build:android         # release APK（需 keystore）
 
 ### 仓库 Secrets
 
-| Secret                               | 说明                                          |
-| ------------------------------------ | --------------------------------------------- |
+| Secret                               | 说明                               |
+|--------------------------------------|----------------------------------|
 | `TAURI_SIGNING_PRIVATE_KEY`          | **必需**（Windows Updater）：更新签名私钥全文 |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **必需**（Windows Updater）：私钥密码         |
-| `ANDROID_KEY_ALIAS`                  | **必需**（Android）：Keystore alias           |
-| `ANDROID_KEY_PASSWORD`               | **必需**（Android）：密钥密码                 |
-| `ANDROID_KEY_BASE64`                 | **必需**（Android）：`.jks` 的 base64         |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | **必需**（Windows Updater）：私钥密码     |
+| `ANDROID_KEY_ALIAS`                  | **必需**（Android）：Keystore alias   |
+| `ANDROID_KEY_PASSWORD`               | **必需**（Android）：密钥密码             |
+| `ANDROID_KEY_BASE64`                 | **必需**（Android）：`.jks` 的 base64  |
 
 > CI 会写入 `keystore.properties` 并注入 Gradle release 签名。本地 keystore 请自行备份，勿提交仓库。
 

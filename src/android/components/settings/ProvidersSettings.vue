@@ -206,7 +206,7 @@ defineExpose({addCustom, reset})
             :value="current.provider"
             @update:value="(v) => patch('provider', v)"
           />
-          <div class="hint">Agnes 等会按 URL / 模型名自动识别，不必强选专用类型</div>
+          <div class="hint">部分中转会按 URL / 模型名自动识别，不必强选专用类型</div>
         </div>
       </div>
 
