@@ -21,6 +21,8 @@ export function useScrollToBottom(listRef, options = {}) {
   let rafs = []
   /** @type {ResizeObserver | null} */
   let resizeObserver = null
+  /** @type {MutationObserver | null} */
+  let mutationObserver = null
 
   function now() {
     return typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -52,30 +54,53 @@ export function useScrollToBottom(listRef, options = {}) {
     el.addEventListener('scroll', onScroll, {passive: true})
     listening = true
     stickToBottom = isNearBottom(el)
-    observeResize(el)
+    observeContent(el)
   }
 
   function unbindScroll() {
     const el = listRef.value
     if (el && listening) el.removeEventListener('scroll', onScroll)
     listening = false
+    disconnectObservers()
+  }
+
+  function disconnectObservers() {
     if (resizeObserver) {
       resizeObserver.disconnect()
       resizeObserver = null
     }
+    if (mutationObserver) {
+      mutationObserver.disconnect()
+      mutationObserver = null
+    }
   }
 
-  function observeResize(el) {
+  function observeNode(node) {
+    if (!resizeObserver || !node || node.nodeType !== 1) return
+    resizeObserver.observe(node)
+  }
+
+  function observeContent(el) {
     if (typeof ResizeObserver === 'undefined') return
-    if (resizeObserver) resizeObserver.disconnect()
+    disconnectObservers()
     resizeObserver = new ResizeObserver(() => {
       if (!stickToBottom) return
-      // 内容撑高时静默跟随（流式 Markdown / 图片）
+      // 内容撑高时静默跟随（流式 Markdown / 图片 / 时间线条目）
       scrollToBottom(false)
     })
-    resizeObserver.observe(el)
+    observeNode(el)
     const anchor = bottomRef?.value
-    if (anchor) resizeObserver.observe(anchor)
+    if (anchor) observeNode(anchor)
+    for (const child of el.children) observeNode(child)
+
+    if (typeof MutationObserver === 'undefined') return
+    mutationObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) observeNode(node)
+      }
+      if (stickToBottom) scrollToBottom(false)
+    })
+    mutationObserver.observe(el, {childList: true})
   }
 
   function cancelPendingScroll() {
@@ -141,10 +166,7 @@ export function useScrollToBottom(listRef, options = {}) {
         prev.removeEventListener('scroll', onScroll)
         listening = false
       }
-      if (resizeObserver) {
-        resizeObserver.disconnect()
-        resizeObserver = null
-      }
+      disconnectObservers()
       if (el) bindScroll()
     },
     {flush: 'post'},
@@ -155,7 +177,7 @@ export function useScrollToBottom(listRef, options = {}) {
       bottomRef,
       () => {
         const el = listRef.value
-        if (el) observeResize(el)
+        if (el) observeContent(el)
       },
       {flush: 'post'},
     )

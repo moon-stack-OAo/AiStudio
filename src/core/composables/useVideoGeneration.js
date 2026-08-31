@@ -28,9 +28,11 @@ export function useVideoGeneration() {
       resolution,
       signal,
       params,
+      onTimelineUpdate,
     } = options
 
     lastError.value = ''
+    const notifyTimeline = typeof onTimelineUpdate === 'function' ? onTimelineUpdate : null
 
     let refPreview = ''
     if (imageFile) {
@@ -63,6 +65,7 @@ export function useVideoGeneration() {
     if (!item) {
       throw new Error('会话不存在')
     }
+    notifyTimeline?.()
 
     try {
       const job = await generateVideo(provider, {
@@ -86,6 +89,7 @@ export function useVideoGeneration() {
             },
             {persist: Boolean(j.jobId)},
           )
+          notifyTimeline?.()
         },
       })
 
@@ -101,6 +105,7 @@ export function useVideoGeneration() {
           videoUrl: job.videoUrl,
           errorMessage: '',
         })
+        notifyTimeline?.()
       } else {
         const msg = job.errorMessage || '视频生成失败'
         videoStore.updateItem(sessionId, item.id, {
@@ -108,6 +113,7 @@ export function useVideoGeneration() {
           jobId: job.jobId || item.jobId,
           errorMessage: msg,
         })
+        notifyTimeline?.()
         lastError.value = msg
         throw new Error(msg)
       }
@@ -127,6 +133,7 @@ export function useVideoGeneration() {
           needsResume: hasJob,
           errorMessage: hasJob ? '' : '已取消',
         })
+        notifyTimeline?.()
         const abortErr = new Error('已取消')
         abortErr.name = 'AbortError'
         throw abortErr
@@ -139,6 +146,7 @@ export function useVideoGeneration() {
           errorMessage: msg,
           needsResume: false,
         })
+        notifyTimeline?.()
       }
       throw e
     }

@@ -43,6 +43,7 @@ const {
   quality,
   previewUrl,
   listRef,
+  bottomRef,
   refThumbMap,
   lightboxShow,
   lightboxSrc,
@@ -380,6 +381,7 @@ async function onCardUseAsReference() {
           </div>
         </div>
       </template>
+      <div ref="bottomRef" class="gallery-anchor" aria-hidden="true" />
     </div>
 
     <template #composer>

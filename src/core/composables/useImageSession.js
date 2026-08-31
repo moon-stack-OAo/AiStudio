@@ -67,7 +67,8 @@ export function useImageSession(options = {}) {
   const previewUrl = ref('')
 
   const listRef = ref(null)
-  const {scheduleScrollToBottom} = useScrollToBottom(listRef)
+  const bottomRef = ref(null)
+  const {scheduleScrollToBottom} = useScrollToBottom(listRef, {bottomRef})
   const mounted = ref(true)
 
   /** itemId -> imageIndex -> objectURL，用于 idb 图片展示 */
@@ -321,7 +322,7 @@ export function useImageSession(options = {}) {
     () => session.value?.id,
     () => {
       refThumbMap.value = {}
-      // 切会话时滚到底；停留当前页生成时不自动拽底
+      // 切会话强制滚底；生成走贴底跟随（见 generate）
       scheduleScrollToBottom({force: true})
     },
   )
@@ -415,6 +416,8 @@ export function useImageSession(options = {}) {
       refThumbMap.value = {...refThumbMap.value, [pending.id]: previewUrl.value}
     }
 
+    // 用户主动生成：强制贴底并开启后续贴底跟随
+    scheduleScrollToBottom({force: true})
     await nextTick()
 
     try {
@@ -453,6 +456,7 @@ export function useImageSession(options = {}) {
         status: 'done',
         errorMessage: '',
       })
+      if (imageStore.activeId === sessionId) scheduleScrollToBottom()
 
       if (mounted.value && imageStore.activeId === sessionId) {
         if (tempCount > 0) {
@@ -477,6 +481,7 @@ export function useImageSession(options = {}) {
           status: 'error',
           errorMessage: '已取消',
         })
+        if (imageStore.activeId === sessionId) scheduleScrollToBottom()
         return
       }
       const errText = toErrorMessage(err, '生成失败')
@@ -484,6 +489,7 @@ export function useImageSession(options = {}) {
         status: 'error',
         errorMessage: errText,
       })
+      if (imageStore.activeId === sessionId) scheduleScrollToBottom()
       if (mounted.value && imageStore.activeId === sessionId) {
         message.error(errText)
       }
@@ -637,6 +643,7 @@ export function useImageSession(options = {}) {
     imageFile,
     previewUrl,
     listRef,
+    bottomRef,
     mounted,
     resolvedMap,
     refThumbMap,

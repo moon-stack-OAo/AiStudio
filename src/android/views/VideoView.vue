@@ -44,6 +44,7 @@ const {
   aspectRatio,
   previewUrl,
   listRef,
+  bottomRef,
   refThumbMap,
   session,
   useAspectOnly,
@@ -403,6 +404,7 @@ async function onCardDownload() {
           </div>
         </div>
       </template>
+      <div ref="bottomRef" class="gallery-anchor" aria-hidden="true" />
     </div>
 
     <template #composer>

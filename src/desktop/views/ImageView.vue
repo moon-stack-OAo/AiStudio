@@ -40,6 +40,7 @@ const {
   quality,
   previewUrl,
   listRef,
+  bottomRef,
   refThumbMap,
   lightboxShow,
   lightboxSrc,
@@ -307,6 +308,7 @@ function onAiBubbleContextMenu(e, item) {
             </div>
           </div>
         </template>
+        <div ref="bottomRef" class="gallery-anchor" aria-hidden="true" />
       </div>
 
       <GenerateComposerCard

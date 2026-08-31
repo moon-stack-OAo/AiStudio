@@ -5,6 +5,7 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 18px calc(22px + var(--safe-right)) 18px calc(22px + var(--safe-left));
   display: flex;
   flex-direction: column;

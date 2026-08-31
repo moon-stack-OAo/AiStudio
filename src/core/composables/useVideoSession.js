@@ -46,7 +46,8 @@ export function useVideoSession(options = {}) {
   const previewUrl = ref('')
 
   const listRef = ref(null)
-  const {scheduleScrollToBottom} = useScrollToBottom(listRef)
+  const bottomRef = ref(null)
+  const {scheduleScrollToBottom} = useScrollToBottom(listRef, {bottomRef})
   const mounted = ref(true)
   const resumeAbortRef = ref(null)
 
@@ -196,7 +197,7 @@ export function useVideoSession(options = {}) {
     () => {
       refThumbMap.value = {}
       videoErrorIds.value = {}
-      // 切会话时滚到底；停留在当前页播放时不自动拽底
+      // 切会话强制滚底；生成走贴底跟随（见 generate）
       scheduleScrollToBottom({force: true})
     },
   )
@@ -295,6 +296,17 @@ export function useVideoSession(options = {}) {
 
     const itemsBefore = new Set((session.value?.items || []).map((i) => i.id))
 
+    let forceScrollPending = true
+    const followTimeline = () => {
+      if (videoStore.activeId !== sessionId) return
+      if (forceScrollPending) {
+        forceScrollPending = false
+        scheduleScrollToBottom({force: true})
+        return
+      }
+      scheduleScrollToBottom()
+    }
+
     await nextTick()
 
     try {
@@ -307,6 +319,7 @@ export function useVideoSession(options = {}) {
         size: useAspectOnly.value ? undefined : size.value,
         aspectRatio: useAspectOnly.value ? aspectRatio.value : undefined,
         signal: controller.signal,
+        onTimelineUpdate: followTimeline,
       })
 
       const newItemId =
@@ -424,6 +437,16 @@ export function useVideoSession(options = {}) {
     gen.begin(sessionId, controller)
 
     const p = item.params || {}
+    let forceScrollPending = true
+    const followTimeline = () => {
+      if (videoStore.activeId !== sessionId) return
+      if (forceScrollPending) {
+        forceScrollPending = false
+        scheduleScrollToBottom({force: true})
+        return
+      }
+      scheduleScrollToBottom()
+    }
     try {
       await runGenerate(provider.value, sessionId, {
         prompt: text,
@@ -433,6 +456,7 @@ export function useVideoSession(options = {}) {
         size: p.size || size.value,
         aspectRatio: p.aspectRatio || aspectRatio.value,
         signal: controller.signal,
+        onTimelineUpdate: followTimeline,
       })
       if (controller.signal.aborted) return
       if (mounted.value && videoStore.activeId === sessionId) {
@@ -465,6 +489,7 @@ export function useVideoSession(options = {}) {
     imageFile,
     previewUrl,
     listRef,
+    bottomRef,
     mounted,
     refThumbMap,
     videoErrorIds,

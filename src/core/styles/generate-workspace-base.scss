@@ -10,6 +10,13 @@
     var(--pad-gallery-bottom) calc(var(--pad-gallery-x) + var(--safe-left));
 }
 
+.gallery-anchor {
+  width: 100%;
+  height: 1px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
 .msg-body {
   align-items: flex-start;
 }
