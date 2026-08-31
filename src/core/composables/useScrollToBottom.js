@@ -2,33 +2,47 @@ import {nextTick, onBeforeUnmount, watch} from 'vue'
 
 /**
  * 列表滚动到底部。
- * 普通跟随不使用延迟定时器；仅 force（切页/切会话）时补延迟重试，避免媒体未撑高滚不到底。
+ * - force：切页/切会话/主动发送，强制贴底并延迟补滚
+ * - 普通跟随：仅 stickToBottom 时跟随
+ * - 优先 scrollIntoView(bottomRef)；无锚点时回退 scrollTop
  * @param {import('vue').Ref<HTMLElement | null>} listRef
- * @param {{ threshold?: number }} [options]
- * @returns {{
- *   scrollToBottom: (force?: boolean) => void,
- *   scheduleScrollToBottom: (options?: { force?: boolean }) => void,
- *   cancelPendingScroll: () => void,
- * }}
+ * @param {{ threshold?: number, bottomRef?: import('vue').Ref<HTMLElement | null> }} [options]
  */
 export function useScrollToBottom(listRef, options = {}) {
-  const threshold = options.threshold ?? 96
+  const threshold = options.threshold ?? 120
+  const bottomRef = options.bottomRef || null
   let stickToBottom = true
   let listening = false
+  /** 程序化滚动期间忽略 scroll（不放入可取消队列，避免被 cancel 泄漏） */
+  let ignoreScrollUntil = 0
   /** @type {number[]} */
   let timers = []
   /** @type {number[]} */
   let rafs = []
+  /** @type {ResizeObserver | null} */
+  let resizeObserver = null
+
+  function now() {
+    return typeof performance !== 'undefined' ? performance.now() : Date.now()
+  }
+
+  function isIgnoringScroll() {
+    return now() < ignoreScrollUntil
+  }
+
+  function markProgrammaticScroll(ms = 120) {
+    ignoreScrollUntil = Math.max(ignoreScrollUntil, now() + ms)
+  }
 
   function isNearBottom(el) {
     return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
   }
 
   function onScroll() {
+    if (isIgnoringScroll()) return
     const el = listRef.value
     if (!el) return
     stickToBottom = isNearBottom(el)
-    // 用户上滑后取消待执行的强制补滚，避免又被拽回
     if (!stickToBottom) cancelPendingScroll()
   }
 
@@ -38,12 +52,30 @@ export function useScrollToBottom(listRef, options = {}) {
     el.addEventListener('scroll', onScroll, {passive: true})
     listening = true
     stickToBottom = isNearBottom(el)
+    observeResize(el)
   }
 
   function unbindScroll() {
     const el = listRef.value
     if (el && listening) el.removeEventListener('scroll', onScroll)
     listening = false
+    if (resizeObserver) {
+      resizeObserver.disconnect()
+      resizeObserver = null
+    }
+  }
+
+  function observeResize(el) {
+    if (typeof ResizeObserver === 'undefined') return
+    if (resizeObserver) resizeObserver.disconnect()
+    resizeObserver = new ResizeObserver(() => {
+      if (!stickToBottom) return
+      // 内容撑高时静默跟随（流式 Markdown / 图片）
+      scrollToBottom(false)
+    })
+    resizeObserver.observe(el)
+    const anchor = bottomRef?.value
+    if (anchor) resizeObserver.observe(anchor)
   }
 
   function cancelPendingScroll() {
@@ -53,19 +85,34 @@ export function useScrollToBottom(listRef, options = {}) {
     rafs = []
   }
 
+  function applyScroll(el) {
+    markProgrammaticScroll()
+    const anchor = bottomRef?.value
+    if (anchor && typeof anchor.scrollIntoView === 'function') {
+      try {
+        anchor.scrollIntoView({block: 'end', inline: 'nearest'})
+      } catch {
+        el.scrollTop = el.scrollHeight
+      }
+    } else {
+      el.scrollTop = el.scrollHeight
+    }
+    // 再写一次兜底（部分 WebView 首帧 scrollHeight 偏小）
+    el.scrollTop = el.scrollHeight
+    stickToBottom = true
+  }
+
   function scrollToBottom(force = false) {
     bindScroll()
     const el = listRef.value
     if (!el) return
     if (!force && !stickToBottom) return
-    el.scrollTop = el.scrollHeight
-    // 部分 WebView 首帧 scrollHeight 偏小，再写一次兜底
-    el.scrollTop = el.scrollHeight
-    stickToBottom = true
+    applyScroll(el)
   }
 
   function scheduleScrollToBottom(opts = {}) {
     const force = Boolean(opts?.force)
+    if (force) stickToBottom = true
     if (!force && !stickToBottom) return
     cancelPendingScroll()
     nextTick(() => {
@@ -76,11 +123,13 @@ export function useScrollToBottom(listRef, options = {}) {
         rafs.push(r2)
       })
       rafs.push(r1)
-      // 仅切页/切会话：等图片/视频布局完成后再补滚
       if (force) {
-        timers.push(window.setTimeout(() => scrollToBottom(true), 120))
-        timers.push(window.setTimeout(() => scrollToBottom(true), 320))
-        timers.push(window.setTimeout(() => scrollToBottom(true), 600))
+        timers.push(window.setTimeout(() => scrollToBottom(true), 80))
+        timers.push(window.setTimeout(() => scrollToBottom(true), 200))
+        timers.push(window.setTimeout(() => scrollToBottom(true), 400))
+      } else {
+        timers.push(window.setTimeout(() => scrollToBottom(false), 50))
+        timers.push(window.setTimeout(() => scrollToBottom(false), 150))
       }
     })
   }
@@ -92,10 +141,25 @@ export function useScrollToBottom(listRef, options = {}) {
         prev.removeEventListener('scroll', onScroll)
         listening = false
       }
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+        resizeObserver = null
+      }
       if (el) bindScroll()
     },
     {flush: 'post'},
   )
+
+  if (bottomRef) {
+    watch(
+      bottomRef,
+      () => {
+        const el = listRef.value
+        if (el) observeResize(el)
+      },
+      {flush: 'post'},
+    )
+  }
 
   onBeforeUnmount(() => {
     cancelPendingScroll()

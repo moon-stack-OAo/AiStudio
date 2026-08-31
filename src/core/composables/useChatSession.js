@@ -101,7 +101,8 @@ export function useChatSession(options = {}) {
 
   const input = ref('')
   const listRef = ref(null)
-  const {scheduleScrollToBottom} = useScrollToBottom(listRef)
+  const bottomRef = ref(null)
+  const {scheduleScrollToBottom} = useScrollToBottom(listRef, {bottomRef})
   const contextHintShown = ref(false)
 
   /** 流式 UI 更新：合并同帧内的 delta 写入，停止/结束时 flush */
@@ -118,6 +119,10 @@ export function useChatSession(options = {}) {
     if (!pending) return
     const {sessionId, messageId, content} = pending
     chatStore.updateMessage(sessionId, messageId, {content, streaming: true}, {persist: false})
+    // 用户在底部附近时跟随；已上滑则不拽底
+    if (chatStore.activeId === sessionId) {
+      scheduleScrollToBottom()
+    }
   }
 
   function scheduleStreamUi(sessionId, messageId, content) {
@@ -183,7 +188,7 @@ export function useChatSession(options = {}) {
     () => session.value?.id,
     () => {
       contextHintShown.value = false
-      // 切会话时滚到底；停留当前页流式输出时不自动拽底
+      // 切会话强制滚底；发送/流式走非 force 跟随（见 send / flushStreamUi）
       scheduleScrollToBottom({force: true})
     },
   )
@@ -221,6 +226,8 @@ export function useChatSession(options = {}) {
       role: 'user',
       content: text,
     })
+    // 用户主动发送：强制贴底并开启后续流式跟随
+    scheduleScrollToBottom({force: true})
 
     const rawHistory = session.value.messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -267,6 +274,7 @@ export function useChatSession(options = {}) {
       content: '',
       streaming: true,
     })
+    scheduleScrollToBottom({force: true})
 
     const controller = new AbortController()
     gen.begin(sessionId, controller)
@@ -421,6 +429,7 @@ export function useChatSession(options = {}) {
     copyText,
     input,
     listRef,
+    bottomRef,
     session,
     provider,
     isStreamingCurrent,

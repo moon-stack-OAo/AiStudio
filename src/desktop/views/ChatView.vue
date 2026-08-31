@@ -27,6 +27,7 @@ const {
   copiedId,
   input,
   listRef,
+  bottomRef,
   session,
   isStreamingCurrent,
   contextInfo,
@@ -193,6 +194,7 @@ function onKeydown(e) {
           </div>
         </div>
       </div>
+      <div ref="bottomRef" class="message-list-anchor" aria-hidden="true" />
     </div>
 
     <template #composer>
