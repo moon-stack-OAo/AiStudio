@@ -28,6 +28,8 @@ src-tauri/gen/android/**/.gradle/
 
 # CI 临时产物
 release-notes.md
+latest.json
+android-latest.json
 
 # Editor directories and files
 .vscode/

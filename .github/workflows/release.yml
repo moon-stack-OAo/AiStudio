@@ -328,6 +328,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Rewrite latest.json to public download URLs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          # tauri-action 可能写入 api.github.com/releases/assets/{id}；
+          # 客户端无 Token 下载会 403 / ERR_CONNECTION_CLOSED，需改为公开 browser_download_url。
+          node .github/scripts/rewrite-updater-latest.mjs "$TAG"
+          test -f latest.json
+          if grep -q 'api.github.com/.*/releases/assets/' latest.json; then
+            echo "::error::latest.json 仍含 API 资产 URL，拒绝发布"
+            cat latest.json
+            exit 1
+          fi
+          gh release upload "$TAG" latest.json --clobber
+          echo "已回写公开下载地址的 latest.json"
+
       - name: Verify assets and publish Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

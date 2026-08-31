@@ -200,6 +200,7 @@ git push origin v1.0.1
 **检查更新失败 / 没有更新**
 
 - 桌面：确认已发带签名产物与 `latest.json` 的 Release，且应用版本低于最新版。
+- 桌面下载失败 `net::ERR_CONNECTION_CLOSED` / HTTP 403：多半是 `latest.json` 里的安装包 URL 写成了 `api.github.com/.../releases/assets/{id}`（需鉴权）。应使用 `github.com/.../releases/download/...` 公开链接；发版流水线会自动改写。
 - Android：确认 Release 含 `android-latest.json` 与对应 APK；首次安装需允许「安装未知应用」。
 
 **Android init 后更新 / 相册 / 安全区异常**  
