@@ -39,6 +39,10 @@ fn run_desktop() {
                         .level(log::LevelFilter::Info)
                         .build(),
                 )?;
+                // 开发态自动打开 WebView DevTools，便于排查视频播放等问题
+                if let Some(win) = app.get_webview_window("main") {
+                    win.open_devtools();
+                }
             }
 
             let app_config_dir = app.path().app_config_dir().ok();

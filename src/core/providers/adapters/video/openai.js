@@ -30,7 +30,11 @@ export async function prepareCreate(provider, options, deps) {
   const sec = seconds ?? duration
 
   if (mode === 'img2video' && imageFile) {
-    const compressed = await compressImageFile(imageFile)
+    // 默认略收紧；413 重试走 _aggressiveCompress
+    const compressOpts = options._aggressiveCompress
+      ? {maxEdge: 768, quality: 0.65, skipBelowBytes: 0}
+      : {maxEdge: 1024, quality: 0.75, skipBelowBytes: 0}
+    const compressed = await compressImageFile(imageFile, compressOpts)
     const form = new FormData()
     form.append('model', model)
     form.append('prompt', prompt || '')

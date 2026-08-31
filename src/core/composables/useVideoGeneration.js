@@ -86,16 +86,36 @@ export function useVideoGeneration() {
         resolution,
         signal,
         onProgress: (j) => {
-          videoStore.updateItem(
-            sessionId,
-            item.id,
-            {
-              status: 'loading',
-              progress: j.progress,
-              jobId: j.jobId || item.jobId,
-            },
-            {persist: Boolean(j.jobId)},
-          )
+          const patch = {
+            status: 'loading',
+            progress: j.progress,
+            jobId: j.jobId || item.jobId,
+          }
+          // 完成瞬间尽早锁住可播放地址（直链 https 或已 materialize 的 blob）
+          const earlyPlayable =
+            (typeof j?.videoUrl === 'string' && String(j.videoUrl).startsWith('blob:')
+              ? j.videoUrl
+              : '') ||
+            (typeof j?.videoUrl === 'string' &&
+            /^https?:\/\//i.test(j.videoUrl) &&
+            !/(?:\/v1)?\/videos\/[^/]+\/content\/?$/i.test(j.videoUrl)
+              ? j.videoUrl
+              : '') ||
+            (typeof j?.remoteVideoUrl === 'string' &&
+            /^https?:\/\//i.test(j.remoteVideoUrl) &&
+            !/(?:\/v1)?\/videos\/[^/]+\/content\/?$/i.test(j.remoteVideoUrl)
+              ? j.remoteVideoUrl
+              : '')
+          if (earlyPlayable) {
+            patch.videoUrl = earlyPlayable
+            if (/^https?:\/\//i.test(earlyPlayable)) patch.remoteVideoUrl = earlyPlayable
+            else if (typeof j?.remoteVideoUrl === 'string' && /^https?:\/\//i.test(j.remoteVideoUrl)) {
+              patch.remoteVideoUrl = j.remoteVideoUrl
+            }
+          }
+          videoStore.updateItem(sessionId, item.id, patch, {
+            persist: Boolean(j.jobId || earlyPlayable),
+          })
           notifyTimeline?.()
         },
       })
@@ -105,14 +125,53 @@ export function useVideoGeneration() {
       }
 
       if (job.status === 'completed' && job.videoUrl) {
+        const pickDirectHttps = (...cands) => {
+          for (const c of cands) {
+            const s = String(c || '').trim()
+            if (!/^https?:\/\//i.test(s)) continue
+            // 跳过需鉴权的 /content，不能直接给 <video>
+            if (/(?:\/v1)?\/videos\/[^/]+\/content\/?$/i.test(s)) continue
+            return s
+          }
+          return ''
+        }
+        const playable =
+          (String(job.videoUrl || '').startsWith('blob:') ? job.videoUrl : '') ||
+          pickDirectHttps(job.videoUrl, job.remoteVideoUrl, job.raw?.video?.url) ||
+          job.videoUrl
+        const remoteVideoUrl =
+          pickDirectHttps(job.remoteVideoUrl, job.videoUrl, job.raw?.video?.url) ||
+          item.remoteVideoUrl ||
+          ''
+        if (!/^https?:\/\//i.test(String(playable)) && !String(playable).startsWith('blob:')) {
+          console.warn('[video] completed without playable url', {
+            jobId: job.jobId,
+            videoUrl: job.videoUrl,
+            rawKeys: job.raw && typeof job.raw === 'object' ? Object.keys(job.raw) : [],
+            rawVideo: job.raw?.video,
+          })
+        }
         videoStore.updateItem(sessionId, item.id, {
           status: 'success',
           progress: 100,
           jobId: job.jobId || item.jobId,
-          videoUrl: job.videoUrl,
+          videoUrl: playable,
+          remoteVideoUrl,
+          needsMaterialize: false,
           errorMessage: '',
         })
         notifyTimeline?.()
+      } else if (job.status === 'completed' && !job.videoUrl) {
+        const msg = '视频已完成但未返回播放地址'
+        console.warn('[video] completed without videoUrl', job.raw)
+        videoStore.updateItem(sessionId, item.id, {
+          status: 'error',
+          jobId: job.jobId || item.jobId,
+          errorMessage: msg,
+        })
+        notifyTimeline?.()
+        lastError.value = msg
+        throw new Error(msg)
       } else {
         const msg = job.errorMessage || '视频生成失败'
         videoStore.updateItem(sessionId, item.id, {
@@ -138,7 +197,10 @@ export function useVideoGeneration() {
         videoStore.updateItem(sessionId, item.id, {
           status: hasJob ? 'pending_resume' : 'error',
           needsResume: hasJob,
-          errorMessage: hasJob ? '' : '已取消',
+          // 保留 stopGenerate 等已写入的说明，避免覆盖成空串
+          errorMessage: hasJob
+            ? current?.errorMessage || '已停止轮询，可手动恢复'
+            : '已取消',
         })
         notifyTimeline?.()
         const abortErr = new Error('已取消')

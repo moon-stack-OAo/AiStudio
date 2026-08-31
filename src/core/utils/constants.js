@@ -8,6 +8,9 @@ export const API_TIMEOUT_MS_MAX = 600000
 /** 生图超时（毫秒）。Agnes 文档建议 60s–360s */
 export const IMAGE_TIMEOUT_MS = 360000
 
+/** 远程视频下载超时（毫秒）；大视频需不低于 API_TIMEOUT_MS */
+export const VIDEO_DOWNLOAD_TIMEOUT_MS = 600000
+
 /** Chat Completions 默认温度 */
 export const DEFAULT_TEMPERATURE = 0.7
 

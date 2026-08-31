@@ -64,6 +64,12 @@ export function useVideoSession(options = {}) {
   const refFileBySession = ref({})
   /** video 元素加载失败的 itemId */
   const videoErrorIds = ref({})
+  /** 内存双保险：itemId → 远程 https，防 persist/patch 丢 remoteVideoUrl */
+  const remoteVideoByItemId = ref({})
+  /** blob 播放失败后已尝试切回 remote 的 itemId */
+  const triedRemoteByItemId = ref({})
+  /** https 播放失败后已尝试 materialize 为 blob 的 itemId */
+  const triedBlobByItemId = ref({})
 
   const session = computed(() => videoStore.activeSession)
   const provider = computed(() => settings.activeProvider)
@@ -87,16 +93,18 @@ export function useVideoSession(options = {}) {
     const sid = session.value?.id
     return sid ? refThumbBySession.value[sid] || {} : {}
   })
+  /** 真正进行中的任务（不含仅等待用户恢复的 pending_resume） */
   function sessionHasInFlightJob(sessionId = session.value?.id) {
     if (!sessionId) return false
     const s = videoStore.sessions.find((x) => x.id === sessionId)
-    return (s?.items || []).some(
-      (i) => i.status === 'loading' || i.status === 'pending_resume',
-    )
+    return (s?.items || []).some((i) => i.status === 'loading')
   }
+
+  const isResuming = computed(() => Boolean(resumeAbortRef.value))
 
   const isGeneratingCurrent = computed(() => {
     const sid = session.value?.id
+    // pending_resume 仅等待用户操作，不锁死发送区；真正 resume 时 gen.begin / loading 会占 busy
     return gen.isCurrent(sid) || sessionHasInFlightJob(sid)
   })
 
@@ -305,9 +313,34 @@ export function useVideoSession(options = {}) {
     () => session.value?.id,
     () => {
       videoErrorIds.value = {}
+      triedRemoteByItemId.value = {}
+      triedBlobByItemId.value = {}
+      // 切会话清除上一会话的 composer 参考图，避免带到新会话
+      clearUpload()
       // 切会话强制滚底；生成走贴底跟随（见 generate）
       scheduleScrollToBottom({force: true})
     },
+  )
+
+  // 同步 remote https 到内存 Map，防止 store patch 丢字段后无法重新加载
+  watch(
+    () => session.value?.items,
+    (items) => {
+      const next = {...remoteVideoByItemId.value}
+      for (const it of items || []) {
+        if (!it?.id) continue
+        const remote =
+          (typeof it.remoteVideoUrl === 'string' && /^https?:\/\//i.test(it.remoteVideoUrl)
+            ? it.remoteVideoUrl
+            : '') ||
+          (typeof it.videoUrl === 'string' && /^https?:\/\//i.test(it.videoUrl) ? it.videoUrl : '') ||
+          next[it.id] ||
+          ''
+        if (remote) next[it.id] = remote
+      }
+      remoteVideoByItemId.value = next
+    },
+    {deep: true, immediate: true},
   )
 
   watch(
@@ -361,7 +394,7 @@ export function useVideoSession(options = {}) {
   let resumeInFlight = false
 
   function startResumeIfNeeded() {
-    if (resumeInFlight) return
+    if (resumeInFlight || gen.busy) return
     const pending = videoStore.pendingResumeItems
     if (!pending.length) return
     resumeInFlight = true
@@ -371,7 +404,7 @@ export function useVideoSession(options = {}) {
     const activeId = videoStore.activeId
     const bindSessionId =
       pending.find((p) => p.sessionId === activeId)?.sessionId || pending[0]?.sessionId
-    const bindToGen = Boolean(bindSessionId) && !gen.busy
+    const bindToGen = Boolean(bindSessionId)
     if (bindToGen) {
       gen.begin(bindSessionId, controller)
     }
@@ -391,6 +424,38 @@ export function useVideoSession(options = {}) {
           gen.end(bindSessionId, controller)
         }
       })
+  }
+
+  /** 手动恢复单条（或全部 pending）轮询 */
+  function resumeItem(item) {
+    if (!item?.jobId) {
+      message.warning('无法恢复：缺少任务 ID')
+      return
+    }
+    if (gen.busy || resumeInFlight) {
+      message.warning('当前有任务进行中，请稍后再试')
+      return
+    }
+    const sessionId = session.value?.id
+    if (!sessionId) return
+    videoStore.updateItem(sessionId, item.id, {
+      status: 'pending_resume',
+      needsResume: true,
+      errorMessage: item.errorMessage || '正在恢复轮询…',
+    })
+    startResumeIfNeeded()
+  }
+
+  /** 放弃 pending_resume，解除锁死 */
+  function abandonPendingItem(item) {
+    if (!item) return
+    const sessionId = session.value?.id
+    if (!sessionId) return
+    videoStore.updateItem(sessionId, item.id, {
+      status: 'error',
+      needsResume: false,
+      errorMessage: item.errorMessage || '已放弃恢复',
+    })
   }
 
   onMounted(() => {
@@ -473,6 +538,16 @@ export function useVideoSession(options = {}) {
 
       const newItemId =
         result?.itemId || (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
+      if (newItemId) {
+        const created = (session.value?.items || []).find((i) => i.id === newItemId)
+        const remote =
+          resolveRemoteVideoUrl(created) ||
+          (typeof result?.job?.remoteVideoUrl === 'string' ? result.job.remoteVideoUrl : '') ||
+          (typeof result?.job?.videoUrl === 'string' && /^https?:\/\//i.test(result.job.videoUrl)
+            ? result.job.videoUrl
+            : '')
+        if (remote) rememberRemoteVideoUrl(newItemId, remote)
+      }
       if (savedMode === 'img2video' && newItemId) {
         if (savedPreview) setRefThumb(sessionId, newItemId, savedPreview)
         if (savedFile) rememberRefFile(sessionId, newItemId, savedFile)
@@ -527,15 +602,14 @@ export function useVideoSession(options = {}) {
     const hasLocalJob = sessionHasInFlightJob(sessionId)
     if (!gen.isCurrent(sessionId) && !hasLocalJob) return
 
-    const loadingItem = session.value?.items?.find(
-      (i) => i.status === 'loading' || i.status === 'pending_resume',
-    )
+    // 仅处理真正进行中的 loading；pending_resume 由「恢复 / 放弃」按钮处理
+    const loadingItem = session.value?.items?.find((i) => i.status === 'loading')
     if (loadingItem) {
       const hasJob = Boolean(loadingItem.jobId)
       videoStore.updateItem(sessionId, loadingItem.id, {
         status: hasJob ? 'pending_resume' : 'error',
         needsResume: hasJob,
-        errorMessage: hasJob ? '' : '已取消',
+        errorMessage: hasJob ? '已停止轮询，可手动恢复' : '已取消',
       })
     }
     resumeAbortRef.value?.abort()
@@ -550,10 +624,35 @@ export function useVideoSession(options = {}) {
     if (!ok) message.error('复制失败')
   }
 
+  function resolveRemoteVideoUrl(item) {
+    if (!item) return ''
+    const fromItem =
+      (typeof item.remoteVideoUrl === 'string' && /^https?:\/\//i.test(item.remoteVideoUrl)
+        ? item.remoteVideoUrl
+        : '') ||
+      (typeof item.videoUrl === 'string' && /^https?:\/\//i.test(item.videoUrl) ? item.videoUrl : '') ||
+      ''
+    const fromMap = item.id ? remoteVideoByItemId.value[item.id] : ''
+    const remote = fromItem || fromMap || ''
+    return /^https?:\/\//i.test(remote) ? remote : ''
+  }
+
+  function rememberRemoteVideoUrl(itemId, remote) {
+    if (!itemId || !remote || !/^https?:\/\//i.test(remote)) return
+    remoteVideoByItemId.value = {...remoteVideoByItemId.value, [itemId]: remote}
+  }
+
+  function videoPlaybackErrorText(item) {
+    if (item?.errorMessage) return String(item.errorMessage)
+    if (resolveRemoteVideoUrl(item)) {
+      return '视频无法播放，可尝试重新加载'
+    }
+    if (item?.videoUrl) return '视频无法播放，请重新生成'
+    return '暂无视频'
+  }
+
   async function copyErrorText(item) {
-    const text = String(
-      item?.errorMessage || (item?.videoUrl ? '视频链接已失效，请重新生成' : '暂无视频'),
-    ).trim()
+    const text = videoPlaybackErrorText(item).trim()
     const ok = await copyText(`${item?.id || 'err'}-error`, text)
     if (!ok) message.error('复制失败')
   }
@@ -565,16 +664,105 @@ export function useVideoSession(options = {}) {
       content: '确定清空当前会话的全部生成记录？',
       positiveText: '清空',
       negativeText: '取消',
-      onPositiveClick: () => videoStore.clearItems(session.value.id),
+      onPositiveClick: () => {
+        const sid = session.value?.id
+        if (sid) {
+          const thumbs = {...refThumbBySession.value}
+          const files = {...refFileBySession.value}
+          delete thumbs[sid]
+          delete files[sid]
+          refThumbBySession.value = thumbs
+          refFileBySession.value = files
+        }
+        videoStore.clearItems(sid)
+      },
     })
   }
 
+  /**
+   * 播放失败：保留/恢复 https，不自动转 blob（WebView2 上 blob 反而不稳）。
+   * 有 remote 时标 needsMaterialize，露出「重新加载」。
+   */
   function onVideoError(itemId) {
+    if (!itemId || !session.value) {
+      videoErrorIds.value = {...videoErrorIds.value, [itemId]: true}
+      return
+    }
+    const sessionId = session.value.id
+    const item = session.value.items?.find((i) => i.id === itemId)
+    const remote = resolveRemoteVideoUrl(item)
+    if (remote) rememberRemoteVideoUrl(itemId, remote)
+
+    const currentSrc = String(item?.videoUrl || '')
+    // blob 失败：切回 https 再给一次机会
+    if (currentSrc.startsWith('blob:') && remote && !triedRemoteByItemId.value[itemId]) {
+      triedRemoteByItemId.value = {...triedRemoteByItemId.value, [itemId]: true}
+      videoStore.updateItem(sessionId, itemId, {
+        videoUrl: remote,
+        remoteVideoUrl: remote,
+        needsMaterialize: false,
+        errorMessage: '',
+      })
+      clearVideoError(itemId)
+      return
+    }
+
+    if (remote) {
+      videoStore.updateItem(sessionId, itemId, {
+        videoUrl: remote,
+        remoteVideoUrl: remote,
+        needsMaterialize: true,
+        errorMessage: '',
+      })
+    }
     videoErrorIds.value = {...videoErrorIds.value, [itemId]: true}
   }
 
+  function clearVideoError(itemId) {
+    if (!itemId || !videoErrorIds.value[itemId]) return
+    const next = {...videoErrorIds.value}
+    delete next[itemId]
+    videoErrorIds.value = next
+  }
+
   function isVideoBroken(item) {
+    // needsMaterialize 只影响「重新加载」按钮，不直接藏播放器（避免误伤可播的 https）
     return Boolean(videoErrorIds.value[item?.id]) || !item?.videoUrl
+  }
+
+  function canReloadVideo(item) {
+    return Boolean(resolveRemoteVideoUrl(item))
+  }
+
+  /**
+   * 用 appFetch 重新拉取远程视频为强制 mp4 的 blob（Tauri WebView 直连失败时的补救）
+   * @param {object} item
+   */
+  async function reloadVideo(item) {
+    if (!item?.id || !session.value) return
+    const sessionId = session.value.id
+    const remote = resolveRemoteVideoUrl(item)
+    if (!remote) {
+      message.warning('无法重新加载，请重新生成')
+      return
+    }
+    rememberRemoteVideoUrl(item.id, remote)
+    // 重新加载优先切回远程 https；若再失败由 onVideoError materialize 回退
+    const triedRemote = {...triedRemoteByItemId.value}
+    const triedBlob = {...triedBlobByItemId.value}
+    delete triedRemote[item.id]
+    delete triedBlob[item.id]
+    triedRemoteByItemId.value = triedRemote
+    triedBlobByItemId.value = triedBlob
+    videoStore.updateItem(sessionId, item.id, {
+      videoUrl: remote,
+      remoteVideoUrl: remote,
+      needsMaterialize: false,
+      errorMessage: '',
+      status: item.status === 'error' ? 'success' : item.status,
+    })
+    clearVideoError(item.id)
+    message.success('视频已重新加载')
   }
 
   const lightboxShow = ref(false)
@@ -662,6 +850,16 @@ export function useVideoSession(options = {}) {
       })
       const newItemId =
         result?.itemId || (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
+      if (newItemId) {
+        const created = (session.value?.items || []).find((i) => i.id === newItemId)
+        const remote =
+          resolveRemoteVideoUrl(created) ||
+          (typeof result?.job?.remoteVideoUrl === 'string' ? result.job.remoteVideoUrl : '') ||
+          (typeof result?.job?.videoUrl === 'string' && /^https?:\/\//i.test(result.job.videoUrl)
+            ? result.job.videoUrl
+            : '')
+        if (remote) rememberRemoteVideoUrl(newItemId, remote)
+      }
       if (itemMode === 'img2video' && newItemId && imageFile.value) {
         rememberRefFile(sessionId, newItemId, imageFile.value)
         if (previewUrl.value) setRefThumb(sessionId, newItemId, previewUrl.value)
@@ -707,6 +905,7 @@ export function useVideoSession(options = {}) {
     mounted,
     refThumbMap,
     videoErrorIds,
+    remoteVideoByItemId,
     lightboxShow,
     lightboxSrc,
     lightboxTitle,
@@ -720,6 +919,7 @@ export function useVideoSession(options = {}) {
     showAspectRatio,
     showResolution,
     isGeneratingCurrent,
+    isResuming,
     canGenerate,
     timelineItems,
     sizeOptions,
@@ -744,14 +944,20 @@ export function useVideoSession(options = {}) {
     clearUpload,
     generate,
     stopGenerate,
+    startResumeIfNeeded,
+    resumeItem,
+    abandonPendingItem,
     selectSession,
     createSession,
     removeSession,
     copyPrompt,
     copyErrorText,
+    videoPlaybackErrorText,
     clearItems,
     onVideoError,
     isVideoBroken,
+    canReloadVideo,
+    reloadVideo,
     retryItem,
     onComposerFocus,
     scheduleScrollToBottom,

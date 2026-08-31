@@ -53,6 +53,8 @@ const {
   showResolution,
   isGeneratingCurrent,
   canGenerate,
+  resumeItem,
+  abandonPendingItem,
   timelineItems,
   sizeOptions: sizeOptionsDesktop,
   aspectOptions,
@@ -76,6 +78,9 @@ const {
   clearItems,
   onVideoError,
   isVideoBroken,
+  canReloadVideo,
+  reloadVideo,
+  videoPlaybackErrorText,
   retryItem,
   onComposerFocus,
   openRefLightbox,
@@ -152,11 +157,16 @@ async function downloadVideo(item, name) {
 
 function onAiBubbleContextMenu(e, item) {
   const status = itemStatus(item)
-  if (status === 'loading' || status === 'pending_resume') return
+  if (status === 'loading') return
 
   const options = []
-  if (status === 'error' || isVideoBroken(item)) {
+  if (status === 'pending_resume') {
+    options.push({label: '恢复轮询', key: 'resume', disabled: gen.busy})
+    options.push({label: '放弃', key: 'abandon'})
+    if (item?.errorMessage) options.push({label: '复制错误信息', key: 'copy-error'})
+  } else if (status === 'error' || isVideoBroken(item)) {
     options.push({label: '复制错误信息', key: 'copy-error'})
+    if (canReloadVideo(item)) options.push({label: '重新加载', key: 'reload'})
     options.push({label: '重试', key: 'retry', disabled: gen.busy})
   } else if (item?.videoUrl) {
     options.push({label: '下载', key: 'download'})
@@ -165,7 +175,10 @@ function onAiBubbleContextMenu(e, item) {
 
   openCtxMenu(e, options, (key) => {
     if (key === 'copy-error') copyErrorText(item)
+    else if (key === 'reload') reloadVideo(item)
     else if (key === 'retry') retryItem(item)
+    else if (key === 'resume') resumeItem(item)
+    else if (key === 'abandon') abandonPendingItem(item)
     else if (key === 'download') downloadVideo(item, `video-${item.id}.mp4`)
   })
 }
@@ -234,15 +247,10 @@ function onAiBubbleContextMenu(e, item) {
             <div class="role">AI</div>
             <div class="msg-body">
               <div class="bubble ai-bubble" @contextmenu="onAiBubbleContextMenu($event, item)">
-                <div
-                  v-if="itemStatus(item) === 'loading' || itemStatus(item) === 'pending_resume'"
-                  class="ai-loading"
-                >
+                <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
                   <n-spin size="small" />
                   <div class="loading-meta">
-                    <span>
-                      {{ itemStatus(item) === 'pending_resume' ? '等待恢复…' : '生成中…' }}
-                    </span>
+                    <span>生成中…</span>
                     <n-progress
                       v-if="item.progress != null && item.progress > 0"
                       :percentage="Math.min(100, Math.round(Number(item.progress) || 0))"
@@ -256,27 +264,73 @@ function onAiBubbleContextMenu(e, item) {
                     </span>
                   </div>
                 </div>
+                <div v-else-if="itemStatus(item) === 'pending_resume'" class="ai-error-block">
+                  <div class="ai-error">
+                    {{ item.errorMessage || '任务未完成，可恢复轮询或放弃' }}
+                  </div>
+                  <div class="error-actions">
+                    <n-button
+                      :disabled="gen.busy"
+                      secondary
+                      size="tiny"
+                      type="primary"
+                      @click="resumeItem(item)"
+                    >
+                      恢复轮询
+                    </n-button>
+                    <n-button secondary size="tiny" @click="abandonPendingItem(item)">
+                      放弃
+                    </n-button>
+                    <n-button
+                      v-if="item.errorMessage"
+                      secondary
+                      size="tiny"
+                      @click="copyErrorText(item)"
+                    >
+                      复制错误
+                    </n-button>
+                  </div>
+                </div>
                 <div v-else-if="itemStatus(item) === 'error'" class="ai-error-block">
                   <div class="ai-error">{{ item.errorMessage || '生成失败' }}</div>
-                  <n-button size="tiny" secondary :disabled="gen.busy" @click="retryItem(item)">
-                    <template #icon>
-                      <n-icon :component="RefreshOutline" :size="14" />
-                    </template>
-                    重试
-                  </n-button>
+                  <div class="error-actions">
+                    <n-button secondary size="tiny" @click="copyErrorText(item)">
+                      复制错误
+                    </n-button>
+                    <n-button :disabled="gen.busy" secondary size="tiny" @click="retryItem(item)">
+                      <template #icon>
+                        <n-icon :component="RefreshOutline" :size="14" />
+                      </template>
+                      重试
+                    </n-button>
+                  </div>
                 </div>
                 <div v-else-if="!item.videoUrl || isVideoBroken(item)" class="ai-error-block">
                   <div class="ai-error">
-                    {{
-                      item.videoUrl ? '视频链接已失效，请重新生成' : item.errorMessage || '暂无视频'
-                    }}
+                    {{ videoPlaybackErrorText(item) }}
                   </div>
-                  <n-button size="tiny" secondary :disabled="gen.busy" @click="retryItem(item)">
-                    <template #icon>
-                      <n-icon :component="RefreshOutline" :size="14" />
-                    </template>
-                    重试
-                  </n-button>
+                  <div class="error-actions">
+                    <n-button secondary size="tiny" @click="copyErrorText(item)">
+                      复制错误
+                    </n-button>
+                    <n-button
+                      v-if="canReloadVideo(item)"
+                      secondary
+                      size="tiny"
+                      @click="reloadVideo(item)"
+                    >
+                      <template #icon>
+                        <n-icon :component="RefreshOutline" :size="14" />
+                      </template>
+                      重新加载
+                    </n-button>
+                    <n-button :disabled="gen.busy" secondary size="tiny" @click="retryItem(item)">
+                      <template #icon>
+                        <n-icon :component="RefreshOutline" :size="14" />
+                      </template>
+                      重试
+                    </n-button>
+                  </div>
                 </div>
                 <div v-else class="video-wrap">
                   <div class="video-actions">
@@ -299,10 +353,11 @@ function onAiBubbleContextMenu(e, item) {
                     </n-tooltip>
                   </div>
                   <video
+                    :key="`${item.id}:${item.videoUrl || ''}`"
                     :src="item.videoUrl"
                     controls
                     playsinline
-                    preload="metadata"
+                    preload="auto"
                     class="video-player"
                     @error="onVideoError(item.id)"
                   />

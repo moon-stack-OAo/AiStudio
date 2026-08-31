@@ -53,6 +53,8 @@ const {
   showResolution,
   isGeneratingCurrent,
   canGenerate,
+  resumeItem,
+  abandonPendingItem,
   timelineItems,
   sizeOptions: sizeOptionsDesktop,
   aspectOptions,
@@ -77,8 +79,16 @@ const {
   clearItems: clearItemsCore,
   onVideoError,
   isVideoBroken,
+  canReloadVideo,
+  reloadVideo,
+  videoPlaybackErrorText,
   retryItem,
   onComposerFocus,
+  openRefLightbox,
+  closeLightbox,
+  lightboxShow,
+  lightboxSrc,
+  lightboxTitle,
 } = useVideoSession({notifyCreateSession: true})
 
 const {tooltipTrigger} = useTooltipTrigger()
@@ -92,6 +102,7 @@ useBackCloseLayer(paramsDrawerShow)
 useBackCloseLayer(builderDrawerShow)
 useBackCloseLayer(moreShow)
 useBackCloseLayer(cardActionShow)
+useBackCloseLayer(lightboxShow)
 
 const promptPlaceholder = computed(() =>
   getPromptPlaceholder('video', mode.value, {isMobile: true}),
@@ -243,6 +254,27 @@ async function onCardRetry() {
   if (!item) return
   await retryItem(item)
 }
+
+async function onCardReload() {
+  const item = cardActionTarget.value
+  cardActionShow.value = false
+  if (!item) return
+  await reloadVideo(item)
+}
+
+function onCardResume() {
+  const item = cardActionTarget.value
+  cardActionShow.value = false
+  if (!item) return
+  resumeItem(item)
+}
+
+function onCardAbandon() {
+  const item = cardActionTarget.value
+  cardActionShow.value = false
+  if (!item) return
+  abandonPendingItem(item)
+}
 </script>
 
 <template>
@@ -304,7 +336,12 @@ async function onCardRetry() {
                 v-if="item.mode === 'img2video' && (refThumbMap[item.id] || item.refPreview)"
                 class="ref-thumb"
               >
-                <img :src="refThumbMap[item.id] || item.refPreview" alt="reference" />
+                <img
+                  :src="refThumbMap[item.id] || item.refPreview"
+                  alt="reference"
+                  title="点击预览"
+                  @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
+                />
               </div>
               <div class="prompt-text">{{ item.prompt }}</div>
             </div>
@@ -339,15 +376,10 @@ async function onCardRetry() {
           <div class="role">AI</div>
           <div class="msg-body">
             <div class="bubble ai-bubble">
-              <div
-                v-if="itemStatus(item) === 'loading' || itemStatus(item) === 'pending_resume'"
-                class="ai-loading"
-              >
+              <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
                 <n-spin size="small" />
                 <div class="loading-meta">
-                  <span>
-                    {{ itemStatus(item) === 'pending_resume' ? '等待恢复…' : '生成中…' }}
-                  </span>
+                  <span>生成中…</span>
                   <n-progress
                     v-if="item.progress != null && item.progress > 0"
                     :percentage="Math.min(100, Math.round(Number(item.progress) || 0))"
@@ -359,6 +391,40 @@ async function onCardRetry() {
                   <span v-else-if="item.progress != null" class="progress-text">
                     {{ Math.round(Number(item.progress) || 0) }}%
                   </span>
+                </div>
+              </div>
+              <div v-else-if="itemStatus(item) === 'pending_resume'" class="ai-error-block">
+                <div class="ai-error">
+                  {{ item.errorMessage || '任务未完成，可恢复轮询或放弃' }}
+                </div>
+                <div class="error-actions">
+                  <n-button
+                    :disabled="gen.busy"
+                    class="retry-btn"
+                    secondary
+                    size="tiny"
+                    type="primary"
+                    @click="resumeItem(item)"
+                  >
+                    恢复轮询
+                  </n-button>
+                  <n-button
+                    class="retry-btn"
+                    secondary
+                    size="tiny"
+                    @click="abandonPendingItem(item)"
+                  >
+                    放弃
+                  </n-button>
+                  <n-button
+                    v-if="item.errorMessage"
+                    class="retry-btn"
+                    secondary
+                    size="tiny"
+                    @click="copyErrorText(item)"
+                  >
+                    复制错误
+                  </n-button>
                 </div>
               </div>
               <div v-else-if="itemStatus(item) === 'error'" class="ai-error-block">
@@ -383,13 +449,23 @@ async function onCardRetry() {
               </div>
               <div v-else-if="!item.videoUrl || isVideoBroken(item)" class="ai-error-block">
                 <div class="ai-error">
-                  {{
-                    item.videoUrl ? '视频链接已失效，请重新生成' : item.errorMessage || '暂无视频'
-                  }}
+                  {{ videoPlaybackErrorText(item) }}
                 </div>
                 <div class="error-actions">
                   <n-button class="retry-btn" secondary size="tiny" @click="copyErrorText(item)">
                     复制错误
+                  </n-button>
+                  <n-button
+                    v-if="canReloadVideo(item)"
+                    class="retry-btn"
+                    secondary
+                    size="tiny"
+                    @click="reloadVideo(item)"
+                  >
+                    <template #icon>
+                      <n-icon :component="RefreshOutline" :size="14" />
+                    </template>
+                    重新加载
                   </n-button>
                   <n-button
                     :disabled="gen.busy"
@@ -701,15 +777,46 @@ async function onCardRetry() {
     <n-drawer-content closable title="视频操作">
       <div class="more-sheet">
         <n-button
+          v-if="cardActionTarget && itemStatus(cardActionTarget) === 'pending_resume'"
+          :disabled="gen.busy"
+          block
+          secondary
+          type="primary"
+          @click="onCardResume"
+        >
+          恢复轮询
+        </n-button>
+        <n-button
+          v-if="cardActionTarget && itemStatus(cardActionTarget) === 'pending_resume'"
+          block
+          secondary
+          @click="onCardAbandon"
+        >
+          放弃
+        </n-button>
+        <n-button
           v-if="
             cardActionTarget &&
-            (itemStatus(cardActionTarget) === 'error' || isVideoBroken(cardActionTarget))
+            (itemStatus(cardActionTarget) === 'error' ||
+              itemStatus(cardActionTarget) === 'pending_resume' ||
+              isVideoBroken(cardActionTarget))
           "
           block
           secondary
           @click="onCardCopyError"
         >
           复制错误信息
+        </n-button>
+        <n-button
+          v-if="cardActionTarget && isVideoBroken(cardActionTarget) && canReloadVideo(cardActionTarget)"
+          block
+          secondary
+          @click="onCardReload"
+        >
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          重新加载
         </n-button>
         <n-button
           v-if="
@@ -735,6 +842,21 @@ async function onCardRetry() {
       </div>
     </n-drawer-content>
   </n-drawer>
+
+  <n-modal
+    v-model:show="lightboxShow"
+    :bordered="false"
+    :mask-closable="true"
+    :title="lightboxTitle"
+    preset="card"
+    size="huge"
+    style="width: min(920px, 94vw)"
+    @after-leave="closeLightbox"
+  >
+    <div class="lightbox-body" title="点击关闭预览" @click="lightboxShow = false">
+      <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview" />
+    </div>
+  </n-modal>
 </template>
 
 <style lang="scss" scoped src="./VideoView.scss"></style>

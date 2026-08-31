@@ -52,7 +52,33 @@ function sanitizeItem(item) {
       }
     }
   }
+  // 保留 remoteVideoUrl（https），禁止被清掉；blob 失效后可重新加载
+  if (typeof next.remoteVideoUrl === 'string') {
+    const remote = next.remoteVideoUrl.trim()
+    next.remoteVideoUrl = /^https?:\/\//i.test(remote) ? remote : next.remoteVideoUrl
+  }
   return next
+}
+
+/** 从 localStorage hydrate：blob: 已失效，有 remote 则改回 https 直接播 */
+function hydrateVideoUrls(sessions) {
+  return (sessions || []).map((session) => ({
+    ...session,
+    items: (session.items || []).map((item) => {
+      if (!item || typeof item !== 'object') return item
+      const url = item.videoUrl
+      if (typeof url !== 'string' || !url.startsWith('blob:')) return item
+      const remote = item.remoteVideoUrl
+      if (typeof remote === 'string' && /^https?:\/\//i.test(remote)) {
+        return {
+          ...item,
+          videoUrl: remote,
+          needsMaterialize: false,
+        }
+      }
+      return item
+    }),
+  }))
 }
 
 function sanitizeSessions(sessions) {
@@ -89,7 +115,7 @@ export const useVideoStore = defineStore('video', {
   state: () => {
     const saved = loadJSON('video_sessions', null)
     if (saved?.sessions?.length) {
-      const sessions = hydrateLoadingItems(sanitizeSessions(saved.sessions))
+      const sessions = hydrateVideoUrls(hydrateLoadingItems(sanitizeSessions(saved.sessions)))
       const activeId = saved.activeId || saved.sessions[0].id
       const changed = (saved.sessions || []).some((s) =>
         (s.items || []).some((i) => i?.status === 'loading'),
@@ -196,7 +222,17 @@ export const useVideoStore = defineStore('video', {
       ) {
         revokeItemVideoUrl(target)
       }
-      const safe = sanitizeItem({...target, ...patch})
+      const merged = {...target, ...patch}
+      // 禁止用空串清掉已有 https remoteVideoUrl
+      const prevRemote = target.remoteVideoUrl
+      if (
+        typeof prevRemote === 'string' &&
+        /^https?:\/\//i.test(prevRemote) &&
+        (!merged.remoteVideoUrl || !/^https?:\/\//i.test(String(merged.remoteVideoUrl)))
+      ) {
+        merged.remoteVideoUrl = prevRemote
+      }
+      const safe = sanitizeItem(merged)
       Object.assign(target, safe)
       session.updatedAt = Date.now()
       if (persist) this.persist()
@@ -253,24 +289,47 @@ export const useVideoStore = defineStore('video', {
             signal,
             intervalMs,
             onProgress: (j) => {
-              this.updateItem(
-                sessionId,
-                item.id,
-                {
-                  status: 'loading',
-                  progress: j.progress,
-                  jobId: j.jobId || item.jobId,
-                },
-                {persist: false},
-              )
+              const patch = {
+                status: 'loading',
+                progress: j.progress,
+                jobId: j.jobId || item.jobId,
+              }
+              const earlyHttps =
+                (typeof j?.remoteVideoUrl === 'string' && /^https?:\/\//i.test(j.remoteVideoUrl)
+                  ? j.remoteVideoUrl
+                  : '') ||
+                (typeof j?.videoUrl === 'string' && /^https?:\/\//i.test(j.videoUrl)
+                  ? j.videoUrl
+                  : '') ||
+                (typeof j?.raw?.video?.url === 'string' && /^https?:\/\//i.test(j.raw.video.url)
+                  ? j.raw.video.url
+                  : '')
+              if (earlyHttps) {
+                patch.remoteVideoUrl = earlyHttps
+                patch.videoUrl = earlyHttps
+              }
+              this.updateItem(sessionId, item.id, patch, {persist: false})
               onProgress?.(sessionId, item.id, j)
             },
           })
           if (job.status === 'completed' && job.videoUrl) {
+            const httpsFromJob =
+              (typeof job.remoteVideoUrl === 'string' && /^https?:\/\//i.test(job.remoteVideoUrl)
+                ? job.remoteVideoUrl
+                : '') ||
+              (/^https?:\/\//i.test(String(job.videoUrl || '')) ? String(job.videoUrl) : '') ||
+              (typeof job.raw?.video?.url === 'string' && /^https?:\/\//i.test(job.raw.video.url)
+                ? job.raw.video.url
+                : '') ||
+              ''
+            const remoteVideoUrl = httpsFromJob || item.remoteVideoUrl || ''
+            const videoUrl = remoteVideoUrl || job.videoUrl
             this.updateItem(sessionId, item.id, {
               status: 'success',
               progress: 100,
-              videoUrl: job.videoUrl,
+              videoUrl,
+              remoteVideoUrl,
+              needsMaterialize: false,
               errorMessage: '',
               needsResume: false,
             })
@@ -284,10 +343,14 @@ export const useVideoStore = defineStore('video', {
           results.push({sessionId, itemId: item.id, job})
         } catch (e) {
           if (e?.name === 'AbortError') {
+            const live = this.sessions
+              .find((s) => s.id === sessionId)
+              ?.items?.find((i) => i.id === item.id)
             this.updateItem(sessionId, item.id, {
               status: 'pending_resume',
               needsResume: true,
-              errorMessage: '',
+              // 优先保留 stopGenerate 等已写入的说明
+              errorMessage: live?.errorMessage || item.errorMessage || '已停止轮询，可手动恢复',
             })
             throw e
           }
