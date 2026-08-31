@@ -34,10 +34,8 @@ const MODE_HINTS = {
 }
 
 const GENERATE_MODE_HINTS = {
-  img2video:
-    '当前为图生视频：不要推翻或替换参考图主体，侧重镜头运动、动态与节奏描述。',
-  img2img:
-    '当前为图生图：不要推翻或替换参考图主体，侧重改动方向、风格与细节描述。',
+  img2video: '当前为图生视频：不要推翻或替换参考图主体，侧重镜头运动、动态与节奏描述。',
+  img2img: '当前为图生图：不要推翻或替换参考图主体，侧重改动方向、风格与细节描述。',
 }
 
 function resolveSystemPrompt(domain, mode) {
@@ -170,10 +168,7 @@ export async function generatePromptFromLabel(preset, options = {}) {
   }
 
   const resolvedMode = mode || preset?.mode || ''
-  const system = resolveGenerateSystemPrompt(
-    domain === 'image' ? 'image' : 'video',
-    resolvedMode,
-  )
+  const system = resolveGenerateSystemPrompt(domain === 'image' ? 'image' : 'video', resolvedMode)
   const userContent = buildGenerateUserContent({
     label,
     prompt: preset?.prompt,

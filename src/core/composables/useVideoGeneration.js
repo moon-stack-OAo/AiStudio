@@ -1,5 +1,11 @@
 import {ref} from 'vue'
-import {createVideoJob, generateVideo, getVideoJob, toErrorMessage, waitVideoJob,} from '@core/api/client'
+import {
+  createVideoJob,
+  generateVideo,
+  getVideoJob,
+  toErrorMessage,
+  waitVideoJob,
+} from '@core/api/client'
 import {compressImageFile} from '@core/utils/imageCompress'
 import {useVideoStore} from '@core/stores/video'
 
@@ -109,7 +115,10 @@ export function useVideoGeneration() {
           if (earlyPlayable) {
             patch.videoUrl = earlyPlayable
             if (/^https?:\/\//i.test(earlyPlayable)) patch.remoteVideoUrl = earlyPlayable
-            else if (typeof j?.remoteVideoUrl === 'string' && /^https?:\/\//i.test(j.remoteVideoUrl)) {
+            else if (
+              typeof j?.remoteVideoUrl === 'string' &&
+              /^https?:\/\//i.test(j.remoteVideoUrl)
+            ) {
               patch.remoteVideoUrl = j.remoteVideoUrl
             }
           }
@@ -198,9 +207,7 @@ export function useVideoGeneration() {
           status: hasJob ? 'pending_resume' : 'error',
           needsResume: hasJob,
           // 保留 stopGenerate 等已写入的说明，避免覆盖成空串
-          errorMessage: hasJob
-            ? current?.errorMessage || '已停止轮询，可手动恢复'
-            : '已取消',
+          errorMessage: hasJob ? current?.errorMessage || '已停止轮询，可手动恢复' : '已取消',
         })
         notifyTimeline?.()
         const abortErr = new Error('已取消')

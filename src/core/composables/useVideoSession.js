@@ -333,7 +333,9 @@ export function useVideoSession(options = {}) {
           (typeof it.remoteVideoUrl === 'string' && /^https?:\/\//i.test(it.remoteVideoUrl)
             ? it.remoteVideoUrl
             : '') ||
-          (typeof it.videoUrl === 'string' && /^https?:\/\//i.test(it.videoUrl) ? it.videoUrl : '') ||
+          (typeof it.videoUrl === 'string' && /^https?:\/\//i.test(it.videoUrl)
+            ? it.videoUrl
+            : '') ||
           next[it.id] ||
           ''
         if (remote) next[it.id] = remote
@@ -630,7 +632,9 @@ export function useVideoSession(options = {}) {
       (typeof item.remoteVideoUrl === 'string' && /^https?:\/\//i.test(item.remoteVideoUrl)
         ? item.remoteVideoUrl
         : '') ||
-      (typeof item.videoUrl === 'string' && /^https?:\/\//i.test(item.videoUrl) ? item.videoUrl : '') ||
+      (typeof item.videoUrl === 'string' && /^https?:\/\//i.test(item.videoUrl)
+        ? item.videoUrl
+        : '') ||
       ''
     const fromMap = item.id ? remoteVideoByItemId.value[item.id] : ''
     const remote = fromItem || fromMap || ''

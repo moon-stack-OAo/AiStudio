@@ -4,7 +4,11 @@ import {compressImageFile} from '@core/utils/imageCompress'
 import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl} from '@core/utils/request'
 import {API_TIMEOUT_MS, DEFAULT_TEMPERATURE, VIDEO_DOWNLOAD_TIMEOUT_MS} from '@core/utils/constants'
 import {prepareEditImage, prepareGenerateImage} from '@core/providers/adapters/image'
-import {prepareCreateVideoJob, preparePollVideoJob, shouldFetchVideoContent,} from '@core/providers/adapters/video'
+import {
+  prepareCreateVideoJob,
+  preparePollVideoJob,
+  shouldFetchVideoContent,
+} from '@core/providers/adapters/video'
 
 /**
  * OpenAI 兼容 API 客户端：对话、生图、视频任务与连通性探测。
@@ -31,16 +35,16 @@ import {prepareCreateVideoJob, preparePollVideoJob, shouldFetchVideoContent,} fr
  * @property {string} src 可展示的 data URL 或远程 URL
  * @property {string} [revisedPrompt]
  *
-  * @typedef {object} VideoJob
-  * @property {string} jobId
-  * @property {'queued'|'in_progress'|'completed'|'failed'|string} status
-  * @property {number} [progress]
-  * @property {string} [videoUrl]
-  * @property {string} [remoteVideoUrl] 原始 http(s) 地址，供 blob 失效后重新加载
-  * @property {boolean} [needsMaterialize] materialize 失败时为 true，UI 可提示重新加载
-  * @property {string} [errorMessage]
-  * @property {object} [raw] 上游原始响应
-  */
+ * @typedef {object} VideoJob
+ * @property {string} jobId
+ * @property {'queued'|'in_progress'|'completed'|'failed'|string} status
+ * @property {number} [progress]
+ * @property {string} [videoUrl]
+ * @property {string} [remoteVideoUrl] 原始 http(s) 地址，供 blob 失效后重新加载
+ * @property {boolean} [needsMaterialize] materialize 失败时为 true，UI 可提示重新加载
+ * @property {string} [errorMessage]
+ * @property {object} [raw] 上游原始响应
+ */
 
 export {
   getCapabilities,
@@ -854,7 +858,9 @@ export async function materializeRemoteVideoUrl(url, signal) {
     throw new Error(formatNetworkError(error, false) || toErrorMessage(error, '下载视频失败'))
   }
   if (!res.ok) {
-    throw new Error(httpStatusErrorMessage(res.status, `HTTP ${res.status}`) || `HTTP ${res.status}`)
+    throw new Error(
+      httpStatusErrorMessage(res.status, `HTTP ${res.status}`) || `HTTP ${res.status}`,
+    )
   }
 
   let buf
@@ -1201,7 +1207,9 @@ export async function waitVideoJob(provider, jobId, options = {}) {
   } = options
   const interval = Math.max(1000, Number(intervalMs) || 5000)
   const limit =
-    typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) ? timeoutMs : VIDEO_JOB_DEFAULT_TIMEOUT_MS
+    typeof timeoutMs === 'number' && Number.isFinite(timeoutMs)
+      ? timeoutMs
+      : VIDEO_JOB_DEFAULT_TIMEOUT_MS
   const startedAt = Date.now()
 
   while (true) {

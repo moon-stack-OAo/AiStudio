@@ -694,7 +694,11 @@ function onCardAbandon() {
               class="params-control"
               size="medium"
             />
-            <div v-if="showAspectRatio" class="params-label" :class="{'params-label-gap': showSize}">
+            <div
+              v-if="showAspectRatio"
+              class="params-label"
+              :class="{'params-label-gap': showSize}"
+            >
               比例
             </div>
             <n-select
@@ -808,7 +812,9 @@ function onCardAbandon() {
           复制错误信息
         </n-button>
         <n-button
-          v-if="cardActionTarget && isVideoBroken(cardActionTarget) && canReloadVideo(cardActionTarget)"
+          v-if="
+            cardActionTarget && isVideoBroken(cardActionTarget) && canReloadVideo(cardActionTarget)
+          "
           block
           secondary
           @click="onCardReload"

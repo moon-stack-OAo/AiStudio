@@ -4,12 +4,12 @@
 
 ## 开发环境
 
-| 依赖          | 说明                                                                                   |
-|-------------|--------------------------------------------------------------------------------------|
-| Node.js     | **18+**（`package.json` `engines`）；**CI 使用 20**                                       |
-| npm         | 与 Node 配套即可                                                                          |
-| Rust        | [rustup](https://rustup.rs/)，桌面 / Android 原生构建需要                                     |
-| Windows 桌面  | WebView2；MSVC「使用 C++ 的桌面开发」                                                          |
+| 依赖            | 说明                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| Node.js         | **18+**（`package.json` `engines`）；**CI 使用 20**                                       |
+| npm             | 与 Node 配套即可                                                                          |
+| Rust            | [rustup](https://rustup.rs/)，桌面 / Android 原生构建需要                                 |
+| Windows 桌面    | WebView2；MSVC「使用 C++ 的桌面开发」                                                     |
 | Android（可选） | JDK 17+、Android SDK / NDK 等；详见 [README · Android](./README.md#androidtauri-2-mobile) |
 
 ```bash
@@ -19,19 +19,19 @@ npm install
 
 ## 常用命令
 
-| 命令                                                          | 说明                                                   |
-|-------------------------------------------------------------|------------------------------------------------------|
-| `npm run dev`                                               | 浏览器开发（桌面 Vite 配置，默认端口 5173）                          |
-| `npm run build` / `build:desktop` / `build:android`         | 前端生产构建                                               |
-| `npm run lint` / `lint:fix`                                 | ESLint                                               |
-| `npm run test` / `test:watch`                               | Vitest                                               |
-| `npm run check:theme`                                       | 主题相关同步检查（CI 会跑）                                      |
+| 命令                                                        | 说明                                                            |
+| ----------------------------------------------------------- | --------------------------------------------------------------- |
+| `npm run dev`                                               | 浏览器开发（桌面 Vite 配置，默认端口 5173）                     |
+| `npm run build` / `build:desktop` / `build:android`         | 前端生产构建                                                    |
+| `npm run lint` / `lint:fix`                                 | ESLint                                                          |
+| `npm run test` / `test:watch`                               | Vitest                                                          |
+| `npm run check:theme`                                       | 主题相关同步检查（CI 会跑）                                     |
 | `npm run format` / `format:check`                           | Prettier；**CI 中 `format:check` 尚未全开**（见 `ci.yml` 注释） |
-| `npm run tauri:dev`                                         | Vite + Tauri 桌面窗口                                    |
-| `npm run tauri:build` / `tauri:build:win`                   | 桌面打包；Windows 可用 NSIS+MSI                             |
-| `npm run tauri:build:check`                                 | 检查安装包 / 签名产物                                         |
-| `npm run tauri:android:init`                                | 初始化 Android 工程                                       |
-| `npm run tauri:build:android` / `tauri:build:android:debug` | Android APK                                          |
+| `npm run tauri:dev`                                         | Vite + Tauri 桌面窗口                                           |
+| `npm run tauri:build` / `tauri:build:win`                   | 桌面打包；Windows 可用 NSIS+MSI                                 |
+| `npm run tauri:build:check`                                 | 检查安装包 / 签名产物                                           |
+| `npm run tauri:android:init`                                | 初始化 Android 工程                                             |
+| `npm run tauri:build:android` / `tauri:build:android:debug` | Android APK                                                     |
 
 更多环境与签名说明见 [README](./README.md)。
 

@@ -11,9 +11,8 @@ vi.mock('@core/utils/request', () => ({
   resolveBaseUrl: (base) => base || '',
 }))
 
-const {extractVideoUrl, materializeRemoteVideoUrl, ensureJobVideoMaterialized} = await import(
-  '../client.js'
-)
+const {extractVideoUrl, materializeRemoteVideoUrl, ensureJobVideoMaterialized} =
+  await import('../client.js')
 
 describe('extractVideoUrl', () => {
   it('优先 video.url（xAI），即使顶层有误导性 url', () => {
@@ -84,14 +83,15 @@ describe('materializeRemoteVideoUrl', () => {
     vi.restoreAllMocks()
     // 最小合法 mp4 头：size(4) + 'ftyp'
     const ftyp = new Uint8Array([
-      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x00, 0x00,
-      0x69, 0x73, 0x6f, 0x6d, 0x69, 0x73, 0x6f, 0x32,
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x00,
+      0x00, 0x69, 0x73, 0x6f, 0x6d, 0x69, 0x73, 0x6f, 0x32,
     ])
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
         ok: true,
-        arrayBuffer: async () => ftyp.buffer.slice(ftyp.byteOffset, ftyp.byteOffset + ftyp.byteLength),
+        arrayBuffer: async () =>
+          ftyp.buffer.slice(ftyp.byteOffset, ftyp.byteOffset + ftyp.byteLength),
         blob: async () => new Blob([ftyp], {type: 'application/octet-stream'}),
       })),
     )
@@ -104,7 +104,9 @@ describe('materializeRemoteVideoUrl', () => {
 
   it('已是 blob/data 则原样返回', async () => {
     await expect(materializeRemoteVideoUrl('blob:http://x/1')).resolves.toBe('blob:http://x/1')
-    await expect(materializeRemoteVideoUrl('data:video/mp4,abc')).resolves.toBe('data:video/mp4,abc')
+    await expect(materializeRemoteVideoUrl('data:video/mp4,abc')).resolves.toBe(
+      'data:video/mp4,abc',
+    )
   })
 
   it('http(s) 拉取后强制 video/mp4 MIME 再 createObjectURL', async () => {
@@ -150,7 +152,11 @@ describe('ensureJobVideoMaterialized', () => {
   })
 
   it('blob/data 原样返回，不改写', async () => {
-    const job = {status: 'completed', videoUrl: 'blob:http://x/1', remoteVideoUrl: 'https://a/x.mp4'}
+    const job = {
+      status: 'completed',
+      videoUrl: 'blob:http://x/1',
+      remoteVideoUrl: 'https://a/x.mp4',
+    }
     const out = await ensureJobVideoMaterialized(job)
     expect(out.videoUrl).toBe('blob:http://x/1')
     expect(out.remoteVideoUrl).toBe('https://a/x.mp4')
