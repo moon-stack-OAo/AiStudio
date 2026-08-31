@@ -49,7 +49,7 @@ npm run preview
 
 | 依赖             | 说明                                                 |
 | ---------------- | ---------------------------------------------------- |
-| Node.js          | 18+（CI 使用 20）                                    |
+| Node.js          | 18+（CI 使用 24）                                    |
 | Rust             | [rustup](https://rustup.rs/)                         |
 | Windows WebView2 | Win10/11 通常已预装                                  |
 | MSVC 构建工具    | Visual Studio Build Tools（「使用 C++ 的桌面开发」） |

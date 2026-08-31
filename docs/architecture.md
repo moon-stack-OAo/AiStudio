@@ -155,7 +155,7 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 | 工作流                                                              | 触发                                  | 作用                                                                                                                                                      |
 | ------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)           | PR / 推送到 `main` · `master` · `dev` | Node 20：`check:theme`、`lint`、`test`、双端 Vite build；另 job `cargo check`（不做完整 Tauri 打包）。`format:check` 脚本已有，CI 中暂注释（待格式化 PR） |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)           | PR / 推送到 `main` · `master` · `dev` | Node 24：`check:theme`、`lint`、`test`、双端 Vite build；另 job `cargo check`（不做完整 Tauri 打包）。`format:check` 脚本已有，CI 中暂注释（待格式化 PR） |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | 推送 `v*` tag                         | Windows：NSIS/MSI + Updater 签名与 `latest.json`；Android：init → 同步原生源 → 正式签名 APK + `android-latest.json`；Release 正文从 `CHANGELOG.md` 截取   |
 
 日常开发与合入**依赖 ci.yml**；不要指望只靠发版流水线发现前端 / 主题 / lint 问题。

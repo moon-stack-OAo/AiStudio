@@ -6,7 +6,7 @@
 
 | 依赖            | 说明                                                                                      |
 | --------------- | ----------------------------------------------------------------------------------------- |
-| Node.js         | **18+**（`package.json` `engines`）；**CI 使用 20**                                       |
+| Node.js         | **18+**（`package.json` `engines`）；**CI 使用 24**                                       |
 | npm             | 与 Node 配套即可                                                                          |
 | Rust            | [rustup](https://rustup.rs/)，桌面 / Android 原生构建需要                                 |
 | Windows 桌面    | WebView2；MSVC「使用 C++ 的桌面开发」                                                     |
