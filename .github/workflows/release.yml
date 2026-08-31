@@ -1,6 +1,9 @@
 # 推送 v* tag 时构建 Windows 安装包 + Android APK，并上传到同一 GitHub Release
 # 示例：git tag v0.1.1 && git push origin v0.1.1
 #
+# 流程：先创建 draft Release → Windows / Android 并行构建上传 → 两端成功后再正式发布
+# （避免 Windows 先发版导致更新通道出现不完整资产）
+#
 # 仓库 Secrets（Windows Updater 签名必需）：
 # - TAURI_SIGNING_PRIVATE_KEY：私钥全文（~/.tauri/ai-studio.key 内容）
 # - TAURI_SIGNING_PRIVATE_KEY_PASSWORD：私钥密码
@@ -24,10 +27,10 @@ permissions:
   contents: write
 
 jobs:
-  publish-windows:
-    runs-on: windows-latest
+  create-draft:
+    runs-on: ubuntu-latest
     outputs:
-      releaseId: ${{ steps.tauri.outputs.releaseId }}
+      releaseId: ${{ steps.release.outputs.releaseId }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,6 +52,59 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Create or reuse draft Release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          TITLE="AI Studio ${TAG}"
+          PRERELEASE_ARGS=()
+          if [[ "$TAG" == *-* ]]; then
+            PRERELEASE_ARGS+=(--prerelease)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "$TAG" --json isDraft --jq .isDraft)"
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "::error::Release $TAG 已正式发布，拒绝覆盖。请换新 tag 或手动处理。"
+              exit 1
+            fi
+            gh release edit "$TAG" \
+              --title "$TITLE" \
+              --notes-file release-notes.md \
+              "${PRERELEASE_ARGS[@]}"
+            echo "::notice::复用已有 draft Release: $TAG"
+          else
+            gh release create "$TAG" \
+              --draft \
+              --title "$TITLE" \
+              --notes-file release-notes.md \
+              "${PRERELEASE_ARGS[@]}"
+            echo "::notice::已创建 draft Release: $TAG"
+          fi
+
+          RELEASE_ID="$(gh release view "$TAG" --json databaseId --jq .databaseId)"
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "::error::无法读取 Release databaseId"
+            exit 1
+          fi
+          echo "releaseId=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+          echo "releaseId=$RELEASE_ID"
+
+  publish-windows:
+    needs: create-draft
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -60,18 +116,16 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app & create Release
-        id: tauri
+      - name: Build Tauri app & upload to draft Release
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          releaseId: ${{ needs.create-draft.outputs.releaseId }}
           tagName: ${{ github.ref_name }}
-          releaseName: AI Studio ${{ github.ref_name }}
-          releaseBody: ${{ steps.changelog.outputs.body }}
-          releaseDraft: false
+          releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           projectPath: .
           tauriScript: npm run tauri
@@ -80,12 +134,9 @@ jobs:
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
 
-  # 等 Windows job 创建 Release 后只上传 APK，不改 Release 标题/正文
   publish-android:
-    needs: publish-windows
+    needs: create-draft
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -189,7 +240,7 @@ jobs:
           node .github/scripts/patch-android-signing.mjs
           node .github/scripts/sync-android-updater-sources.mjs
 
-      # 正式 release 签名 APK；仅传 releaseId，避免覆盖 Windows 写入的 CHANGELOG 正文
+      # 正式 release 签名 APK；上传到已有 draft，不改标题/正文
       - name: Build Android APK (arm64, release-signed)
         uses: tauri-apps/tauri-action@v1
         env:
@@ -202,8 +253,9 @@ jobs:
           tauriScript: npm run tauri
           mobile: android
           args: --apk --ci --target aarch64
-          releaseId: ${{ needs.publish-windows.outputs.releaseId }}
+          releaseId: ${{ needs.create-draft.outputs.releaseId }}
           tagName: ${{ github.ref_name }}
+          releaseDraft: true
           releaseAssetNamePattern: '[name]_[version][ext]'
           uploadUpdaterJson: false
           uploadUpdaterSignatures: false
@@ -248,3 +300,44 @@ jobs:
           test -f android-latest.json
           gh release upload "$TAG" android-latest.json --clobber
           echo "已上传 android-latest.json"
+
+  # 两端构建都成功后，校验关键资产再正式发布
+  publish-release:
+    needs: [publish-windows, publish-android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify assets and publish Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          mapfile -t ASSETS < <(gh release view "$TAG" --json assets --jq '.assets[].name')
+          printf '当前资产:\n'
+          printf '  - %s\n' "${ASSETS[@]}"
+
+          missing=0
+          require() {
+            local pattern="$1"
+            local label="$2"
+            if printf '%s\n' "${ASSETS[@]}" | grep -qiE "$pattern"; then
+              echo "OK: $label"
+            else
+              echo "::error::缺少资产: $label (pattern=$pattern)"
+              missing=1
+            fi
+          }
+
+          require '\.exe$' "Windows NSIS installer"
+          require '\.msi$' "Windows MSI"
+          require '\.apk$' "Android APK"
+          require '^latest\.json$' "Desktop updater latest.json"
+          require '^android-latest\.json$' "Android updater android-latest.json"
+
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::资产不完整，保持 draft，不正式发布"
+            exit 1
+          fi
+
+          gh release edit "$TAG" --draft=false
+          echo "::notice::已正式发布 $TAG"
