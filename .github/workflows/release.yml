@@ -279,12 +279,30 @@ jobs:
             exit 0
           fi
 
-          mapfile -t APKS < <(find src-tauri/gen/android -type f -name '*.apk' 2>/dev/null || true)
-          if [ "${#APKS[@]}" -eq 0 ]; then
-            echo "No APK found for fallback upload"
-            exit 0
+          # 优先正式产物路径，再按命名启发式挑选，避免误传 debug/unsigned
+          PREFERRED=(
+            "src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk"
+            "src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk"
+          )
+          SRC=""
+          for p in "${PREFERRED[@]}"; do
+            if [ -f "$p" ]; then
+              SRC="$p"
+              break
+            fi
+          done
+          if [ -z "$SRC" ]; then
+            mapfile -t APKS < <(
+              find src-tauri/gen/android -type f \( -name 'AI.Studio_*.apk' -o -name '*-release.apk' -o -name '*.apk' \) 2>/dev/null \
+                | grep -viE '(unsigned|debug)' \
+                || true
+            )
+            if [ "${#APKS[@]}" -eq 0 ]; then
+              echo "No APK found for fallback upload"
+              exit 0
+            fi
+            SRC="${APKS[0]}"
           fi
-          SRC="${APKS[0]}"
           OUT="${RUNNER_TEMP}/${ASSET_NAME}"
           cp -f "$SRC" "$OUT"
           echo "Fallback upload: $SRC -> $ASSET_NAME"
