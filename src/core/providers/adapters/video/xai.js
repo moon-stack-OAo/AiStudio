@@ -29,7 +29,10 @@ export async function prepareCreate(provider, options, deps) {
   if (resolution) body.resolution = resolution
 
   if (mode === 'img2video' && imageFile) {
-    const compressed = await compressImageFile(imageFile)
+    const compressOpts = options._aggressiveCompress
+      ? {maxEdge: 768, quality: 0.65, skipBelowBytes: 0}
+      : {maxEdge: 1024, quality: 0.75, skipBelowBytes: 0}
+    const compressed = await compressImageFile(imageFile, compressOpts)
     const dataUrl = await fileToDataUrl(compressed)
     body.image = {
       url: dataUrl,

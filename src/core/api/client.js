@@ -4,11 +4,7 @@ import {compressImageFile} from '@core/utils/imageCompress'
 import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl} from '@core/utils/request'
 import {API_TIMEOUT_MS, DEFAULT_TEMPERATURE} from '@core/utils/constants'
 import {prepareEditImage, prepareGenerateImage} from '@core/providers/adapters/image'
-import {
-  prepareCreateVideoJob,
-  preparePollVideoJob,
-  shouldFetchVideoContent,
-} from '@core/providers/adapters/video'
+import {prepareCreateVideoJob, preparePollVideoJob, shouldFetchVideoContent,} from '@core/providers/adapters/video'
 
 /**
  * OpenAI 兼容 API 客户端：对话、生图、视频任务与连通性探测。
@@ -854,20 +850,60 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
  * @param {AbortSignal} [options.signal]
  * @returns {Promise<VideoJob>}
  */
+function isHttp413Error(error) {
+  const status = error?.response?.status ?? error?.status
+  if (status === 413) return true
+  const msg = String(error?.message || '')
+  return /HTTP\s*413|payload too large|request entity too large/i.test(msg)
+}
+
+async function postPreparedVideoCreate(provider, prepared, signal) {
+  if (prepared.transport === 'multipart') {
+    return postMultipart(provider, prepared.path, prepared.form, signal, API_TIMEOUT_MS)
+  }
+  const client = createApiClient(provider)
+  const {data} = await client.post(prepared.path, prepared.body, {signal})
+  return data
+}
+
 export async function createVideoJob(provider, options = {}) {
   if (!provider?.baseUrl) throw new Error('请先填写 Base URL')
   const {signal} = options
-  const prepared = await prepareCreateVideoJob(provider, options, {
-    compressImageFile,
-    fileToDataUrl,
-  })
+  const deps = {compressImageFile, fileToDataUrl}
+  let prepared = await prepareCreateVideoJob(provider, options, deps)
 
   let data
-  if (prepared.transport === 'multipart') {
-    data = await postMultipart(provider, prepared.path, prepared.form, signal, API_TIMEOUT_MS)
-  } else {
-    const client = createApiClient(provider)
-    ;({data} = await client.post(prepared.path, prepared.body, {signal}))
+  try {
+    data = await postPreparedVideoCreate(provider, prepared, signal)
+  } catch (error) {
+    if (signal?.aborted || isAbortLike(error, signal)) throw toAbortError()
+    // JSON dataURL 图生：413 时自动更激进压缩重试一次
+    if (
+      prepared.transport === 'json' &&
+      options.mode === 'img2video' &&
+      options.imageFile &&
+      !options._aggressiveCompress &&
+      isHttp413Error(error)
+    ) {
+      prepared = await prepareCreateVideoJob(
+        provider,
+        {...options, _aggressiveCompress: true},
+        deps,
+      )
+      try {
+        data = await postPreparedVideoCreate(provider, prepared, signal)
+      } catch (retryErr) {
+        if (signal?.aborted || isAbortLike(retryErr, signal)) throw toAbortError()
+        if (isHttp413Error(retryErr)) {
+          throw new Error(HTTP_413_HINT)
+        }
+        throw retryErr
+      }
+    } else if (isHttp413Error(error)) {
+      throw new Error(HTTP_413_HINT)
+    } else {
+      throw error
+    }
   }
 
   const job = buildNormalizedVideoJob(data)
@@ -921,6 +957,9 @@ export async function getVideoJob(provider, jobId, options = {}) {
   return job
 }
 
+/** 视频任务默认轮询超时（30 分钟） */
+export const VIDEO_JOB_DEFAULT_TIMEOUT_MS = 30 * 60 * 1000
+
 /**
  * 轮询直至任务完成或失败。
  * @param {ProviderSettings} provider
@@ -929,17 +968,33 @@ export async function getVideoJob(provider, jobId, options = {}) {
  * @param {AbortSignal} [options.signal]
  * @param {(job: VideoJob) => void} [options.onProgress]
  * @param {number} [options.intervalMs=5000] 轮询间隔（至少 1000ms）
+ * @param {number} [options.timeoutMs=VIDEO_JOB_DEFAULT_TIMEOUT_MS] 总超时；<=0 表示不限
  * @param {boolean} [options.fetchContent=true]
  * @returns {Promise<VideoJob>}
  */
 export async function waitVideoJob(provider, jobId, options = {}) {
-  const {signal, onProgress, intervalMs = 5000, fetchContent = true} = options
+  const {
+    signal,
+    onProgress,
+    intervalMs = 5000,
+    timeoutMs = VIDEO_JOB_DEFAULT_TIMEOUT_MS,
+    fetchContent = true,
+  } = options
   const interval = Math.max(1000, Number(intervalMs) || 5000)
+  const limit =
+    typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) ? timeoutMs : VIDEO_JOB_DEFAULT_TIMEOUT_MS
+  const startedAt = Date.now()
 
   while (true) {
     if (signal?.aborted) {
       const err = new Error('已取消')
       err.name = 'AbortError'
+      throw err
+    }
+    if (limit > 0 && Date.now() - startedAt >= limit) {
+      const err = new Error('视频生成超时，可稍后在会话中恢复轮询')
+      err.name = 'TimeoutError'
+      err.code = 'VIDEO_JOB_TIMEOUT'
       throw err
     }
     const job = await getVideoJob(provider, jobId, {signal, fetchContent})
@@ -961,15 +1016,15 @@ export async function waitVideoJob(provider, jobId, options = {}) {
  * @returns {Promise<VideoJob>}
  */
 export async function generateVideo(provider, options = {}) {
-  const {signal, onProgress, intervalMs, ...createOpts} = options
+  const {signal, onProgress, intervalMs, timeoutMs, ...createOpts} = options
   const created = await createVideoJob(provider, {...createOpts, signal})
   onProgress?.(created)
   if (created.status === 'completed' || created.status === 'failed') {
     if (created.status === 'completed' && !created.videoUrl && shouldFetchVideoContent(provider)) {
-      return waitVideoJob(provider, created.jobId, {signal, onProgress, intervalMs})
+      return waitVideoJob(provider, created.jobId, {signal, onProgress, intervalMs, timeoutMs})
     }
     return created
   }
   if (!created.jobId) throw new Error('未返回任务 ID')
-  return waitVideoJob(provider, created.jobId, {signal, onProgress, intervalMs})
+  return waitVideoJob(provider, created.jobId, {signal, onProgress, intervalMs, timeoutMs})
 }

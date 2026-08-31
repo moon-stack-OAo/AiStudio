@@ -39,19 +39,25 @@ const {
   seconds,
   size,
   aspectRatio,
+  resolution,
   previewUrl,
   listRef,
   bottomRef,
   refThumbMap,
+  lightboxShow,
+  lightboxSrc,
+  lightboxTitle,
   session,
   showSize,
   showAspectRatio,
+  showResolution,
   isGeneratingCurrent,
   canGenerate,
   timelineItems,
   sizeOptions: sizeOptionsDesktop,
   aspectOptions,
   durationOptions,
+  resolutionOptions,
   paramsSummary,
   drawerHeight,
   sendTooltip,
@@ -72,6 +78,8 @@ const {
   isVideoBroken,
   retryItem,
   onComposerFocus,
+  openRefLightbox,
+  closeLightbox,
 } = useVideoSession()
 
 const paramsDrawerShow = ref(false)
@@ -213,10 +221,12 @@ function onAiBubbleContextMenu(e, item) {
             :ref-thumb-src="
               item.mode === 'img2video' ? refThumbMap[item.id] || item.refPreview || null : null
             "
+            ref-previewable
             :copied="copiedId === item.id"
             show-refill
             @copy="copyPrompt(item)"
             @refill="onRefillPrompt(item)"
+            @preview-ref="openRefLightbox"
             @contextmenu="onUserBubbleContextMenu($event, item)"
           />
 
@@ -395,6 +405,15 @@ function onAiBubbleContextMenu(e, item) {
                 size="small"
               />
             </label>
+            <label v-if="showResolution" class="opt-item opt-ratio" title="清晰度">
+              <span class="opt-label">清晰度</span>
+              <n-select
+                v-model:value="resolution"
+                :options="resolutionOptions"
+                :render-label="renderSelectLabel"
+                size="small"
+              />
+            </label>
           </div>
         </template>
 
@@ -545,9 +564,39 @@ function onAiBubbleContextMenu(e, item) {
             class="params-control"
             size="medium"
           />
+          <div
+            v-if="showResolution"
+            :class="{'params-label-gap': showSize || showAspectRatio}"
+            class="params-label"
+          >
+            清晰度
+          </div>
+          <n-select
+            v-if="showResolution"
+            v-model:value="resolution"
+            :options="resolutionOptions"
+            :render-label="renderSelectLabel"
+            class="params-control"
+            size="medium"
+          />
         </div>
       </div>
     </GenerateParamsDrawer>
+
+    <n-modal
+      v-model:show="lightboxShow"
+      :bordered="false"
+      :mask-closable="true"
+      :title="lightboxTitle"
+      preset="card"
+      size="huge"
+      style="width: min(920px, 94vw)"
+      @after-leave="closeLightbox"
+    >
+      <div class="lightbox-body" title="点击关闭预览" @click="lightboxShow = false">
+        <img v-if="lightboxSrc" :src="lightboxSrc" alt="preview" />
+      </div>
+    </n-modal>
   </SessionWorkspaceShell>
 
   <n-dropdown

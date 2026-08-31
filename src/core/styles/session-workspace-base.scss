@@ -105,6 +105,11 @@
   color: var(--color-danger);
 }
 
+.bubble-error {
+  color: var(--color-danger);
+  white-space: pre-wrap;
+}
+
 .msg-actions {
   display: flex;
   align-items: center;

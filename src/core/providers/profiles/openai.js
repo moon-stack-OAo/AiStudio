@@ -17,6 +17,8 @@ export function getOpenAiCapabilities() {
     },
     video: {
       sizeMode: 'pixels',
+      // OpenAI Videos API 官方 VideoSize
+      sizes: ['1280x720', '720x1280', '1792x1024', '1024x1792'],
       durationMode: 'seconds',
       durationOptions: [4, 8, 12],
       durationDefault: 8,

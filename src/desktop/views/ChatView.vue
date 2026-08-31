@@ -160,12 +160,19 @@ function onKeydown(e) {
         <div class="msg-body">
           <div class="bubble" @contextmenu="onMsgContextMenu($event, msg)">
             <MarkdownRenderer
+              v-if="msg.content || msg.streaming"
               :content="msg.content"
               :placeholder="msg.streaming ? '思考中…' : ''"
             />
+            <div v-else-if="msg.error" class="bubble-error">
+              {{ msg.errorMessage || '请求失败' }}
+            </div>
           </div>
           <div v-if="msg.stopped && !msg.streaming" class="msg-status stopped">已停止</div>
-          <div v-if="msg.error && !msg.streaming" class="msg-status error">
+          <div
+            v-if="msg.error && !msg.streaming && msg.content"
+            class="msg-status error"
+          >
             {{ msg.errorMessage || '请求失败' }}
           </div>
           <div v-if="!msg.streaming && (msg.content || msg.role === 'user')" class="msg-actions">

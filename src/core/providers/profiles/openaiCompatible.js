@@ -18,6 +18,8 @@ export function getOpenAiCompatibleCapabilities() {
     },
     video: {
       sizeMode: 'pixels',
+      // 兼容中转默认对齐 OpenAI Videos API
+      sizes: ['1280x720', '720x1280', '1792x1024', '1024x1792'],
       durationMode: 'seconds',
       durationOptions: [4, 8, 12],
       durationDefault: 8,

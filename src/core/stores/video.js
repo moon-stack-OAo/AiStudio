@@ -19,7 +19,22 @@ function createSession(title = '新视频') {
   }
 }
 
-const MAX_REF_PREVIEW = 256
+function revokeBlobUrl(url) {
+  if (typeof url === 'string' && url.startsWith('blob:')) {
+    try {
+      URL.revokeObjectURL(url)
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function revokeItemVideoUrl(item) {
+  revokeBlobUrl(item?.videoUrl)
+}
+
+/** 允许持久化小缩略图 dataURL（约 160px JPEG）；超大仍清空防撑爆 localStorage */
+const MAX_REF_PREVIEW = 48_000
 
 function sanitizeItem(item) {
   if (!item || typeof item !== 'object') return item
@@ -137,6 +152,8 @@ export const useVideoStore = defineStore('video', {
       this.persist()
     },
     removeSession(id) {
+      const removed = this.sessions.find((s) => s.id === id)
+      ;(removed?.items || []).forEach(revokeItemVideoUrl)
       this.sessions = this.sessions.filter((s) => s.id !== id)
       if (!this.sessions.length) {
         const next = createSession()
@@ -172,6 +189,13 @@ export const useVideoStore = defineStore('video', {
       if (!session) return
       const target = session.items.find((i) => i.id === itemId)
       if (!target) return
+      if (
+        patch &&
+        Object.prototype.hasOwnProperty.call(patch, 'videoUrl') &&
+        patch.videoUrl !== target.videoUrl
+      ) {
+        revokeItemVideoUrl(target)
+      }
       const safe = sanitizeItem({...target, ...patch})
       Object.assign(target, safe)
       session.updatedAt = Date.now()
@@ -180,6 +204,8 @@ export const useVideoStore = defineStore('video', {
     removeItem(sessionId, itemId) {
       const session = this.sessions.find((s) => s.id === sessionId)
       if (!session) return
+      const removed = session.items.find((i) => i.id === itemId)
+      revokeItemVideoUrl(removed)
       session.items = session.items.filter((i) => i.id !== itemId)
       session.updatedAt = Date.now()
       this.persist()
@@ -187,6 +213,7 @@ export const useVideoStore = defineStore('video', {
     clearItems(sessionId) {
       const session = this.sessions.find((s) => s.id === sessionId)
       if (!session) return
+      ;(session.items || []).forEach(revokeItemVideoUrl)
       session.items = []
       session.updatedAt = Date.now()
       this.persist()
@@ -264,11 +291,20 @@ export const useVideoStore = defineStore('video', {
             })
             throw e
           }
-          this.updateItem(sessionId, item.id, {
-            status: 'error',
-            needsResume: false,
-            errorMessage: toErrorMessage(e, '恢复任务失败'),
-          })
+          const isTimeout = e?.name === 'TimeoutError' || e?.code === 'VIDEO_JOB_TIMEOUT'
+          if (isTimeout) {
+            this.updateItem(sessionId, item.id, {
+              status: 'pending_resume',
+              needsResume: true,
+              errorMessage: e?.message || '视频生成超时，可稍后恢复轮询',
+            })
+          } else {
+            this.updateItem(sessionId, item.id, {
+              status: 'error',
+              needsResume: false,
+              errorMessage: toErrorMessage(e, '恢复任务失败'),
+            })
+          }
           results.push({sessionId, itemId: item.id, error: e})
         }
       }

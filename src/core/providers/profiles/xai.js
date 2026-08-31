@@ -23,7 +23,9 @@ export function getXaiCapabilities(provider) {
     },
     video: {
       sizeMode: 'aspectOnly',
-      ratios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
+      ratios: ['16:9', '9:16', '1:1', '4:3', '3:4', '3:2', '2:3'],
+      resolutions: ['480p', '720p', '1080p'],
+      resolutionDefault: '720p',
       durationMode: 'duration',
       durationMin: 1,
       durationMax: 15,

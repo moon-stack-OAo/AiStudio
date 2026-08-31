@@ -42,6 +42,7 @@ const {
   seconds,
   size,
   aspectRatio,
+  resolution,
   previewUrl,
   listRef,
   bottomRef,
@@ -49,12 +50,14 @@ const {
   session,
   showSize,
   showAspectRatio,
+  showResolution,
   isGeneratingCurrent,
   canGenerate,
   timelineItems,
   sizeOptions: sizeOptionsDesktop,
   aspectOptions,
   durationOptions,
+  resolutionOptions,
   paramsSummary,
   drawerHeight,
   sessionTitle,
@@ -70,6 +73,7 @@ const {
   createSession,
   removeSession,
   copyPrompt,
+  copyErrorText,
   clearItems: clearItemsCore,
   onVideoError,
   isVideoBroken,
@@ -225,6 +229,20 @@ async function onCardDownload() {
   if (!item) return
   await downloadVideo(item, `video-${item.id}.mp4`)
 }
+
+async function onCardCopyError() {
+  const item = cardActionTarget.value
+  cardActionShow.value = false
+  if (!item) return
+  await copyErrorText(item)
+}
+
+async function onCardRetry() {
+  const item = cardActionTarget.value
+  cardActionShow.value = false
+  if (!item) return
+  await retryItem(item)
+}
 </script>
 
 <template>
@@ -345,18 +363,23 @@ async function onCardDownload() {
               </div>
               <div v-else-if="itemStatus(item) === 'error'" class="ai-error-block">
                 <div class="ai-error">{{ item.errorMessage || '生成失败' }}</div>
-                <n-button
-                  :disabled="gen.busy"
-                  class="retry-btn"
-                  secondary
-                  size="tiny"
-                  @click="retryItem(item)"
-                >
-                  <template #icon>
-                    <n-icon :component="RefreshOutline" :size="14" />
-                  </template>
-                  重试
-                </n-button>
+                <div class="error-actions">
+                  <n-button class="retry-btn" secondary size="tiny" @click="copyErrorText(item)">
+                    复制错误
+                  </n-button>
+                  <n-button
+                    :disabled="gen.busy"
+                    class="retry-btn"
+                    secondary
+                    size="tiny"
+                    @click="retryItem(item)"
+                  >
+                    <template #icon>
+                      <n-icon :component="RefreshOutline" :size="14" />
+                    </template>
+                    重试
+                  </n-button>
+                </div>
               </div>
               <div v-else-if="!item.videoUrl || isVideoBroken(item)" class="ai-error-block">
                 <div class="ai-error">
@@ -364,18 +387,23 @@ async function onCardDownload() {
                     item.videoUrl ? '视频链接已失效，请重新生成' : item.errorMessage || '暂无视频'
                   }}
                 </div>
-                <n-button
-                  :disabled="gen.busy"
-                  class="retry-btn"
-                  secondary
-                  size="tiny"
-                  @click="retryItem(item)"
-                >
-                  <template #icon>
-                    <n-icon :component="RefreshOutline" :size="14" />
-                  </template>
-                  重试
-                </n-button>
+                <div class="error-actions">
+                  <n-button class="retry-btn" secondary size="tiny" @click="copyErrorText(item)">
+                    复制错误
+                  </n-button>
+                  <n-button
+                    :disabled="gen.busy"
+                    class="retry-btn"
+                    secondary
+                    size="tiny"
+                    @click="retryItem(item)"
+                  >
+                    <template #icon>
+                      <n-icon :component="RefreshOutline" :size="14" />
+                    </template>
+                    重试
+                  </n-button>
+                </div>
               </div>
               <div v-else class="video-wrap">
                 <div class="video-actions">
@@ -601,6 +629,21 @@ async function onCardDownload() {
               class="params-control"
               size="medium"
             />
+            <div
+              v-if="showResolution"
+              :class="{'params-label-gap': showSize || showAspectRatio}"
+              class="params-label"
+            >
+              清晰度
+            </div>
+            <n-select
+              v-if="showResolution"
+              v-model:value="resolution"
+              :options="resolutionOptions"
+              :render-label="renderSelectLabel"
+              class="params-control"
+              size="medium"
+            />
           </div>
         </div>
 
@@ -657,7 +700,33 @@ async function onCardDownload() {
   >
     <n-drawer-content closable title="视频操作">
       <div class="more-sheet">
-        <n-button block secondary @click="onCardDownload">
+        <n-button
+          v-if="
+            cardActionTarget &&
+            (itemStatus(cardActionTarget) === 'error' || isVideoBroken(cardActionTarget))
+          "
+          block
+          secondary
+          @click="onCardCopyError"
+        >
+          复制错误信息
+        </n-button>
+        <n-button
+          v-if="
+            cardActionTarget &&
+            (itemStatus(cardActionTarget) === 'error' || isVideoBroken(cardActionTarget))
+          "
+          :disabled="gen.busy"
+          block
+          secondary
+          @click="onCardRetry"
+        >
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          重试
+        </n-button>
+        <n-button v-if="cardActionTarget?.videoUrl" block secondary @click="onCardDownload">
           <template #icon>
             <n-icon :component="DownloadOutline" />
           </template>

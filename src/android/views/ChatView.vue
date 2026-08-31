@@ -2,12 +2,7 @@
 defineOptions({name: 'ChatView'})
 
 import {ref} from 'vue'
-import {
-  AddOutline,
-  ArrowUndoOutline,
-  EllipsisHorizontalOutline,
-  SendOutline,
-} from '@vicons/ionicons5'
+import {AddOutline, ArrowUndoOutline, EllipsisHorizontalOutline, SendOutline,} from '@vicons/ionicons5'
 import {useMessage} from 'naive-ui'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
@@ -123,12 +118,19 @@ function onOverridesSaved() {
         <div class="msg-body">
           <div class="bubble">
             <MarkdownRenderer
+              v-if="msg.content || msg.streaming"
               :content="msg.content"
               :placeholder="msg.streaming ? '思考中…' : ''"
             />
+            <div v-else-if="msg.error" class="bubble-error">
+              {{ msg.errorMessage || '请求失败' }}
+            </div>
           </div>
           <div v-if="msg.stopped && !msg.streaming" class="msg-status stopped">已停止</div>
-          <div v-if="msg.error && !msg.streaming" class="msg-status error">
+          <div
+            v-if="msg.error && !msg.streaming && msg.content"
+            class="msg-status error"
+          >
             {{ msg.errorMessage || '请求失败' }}
           </div>
           <div v-if="!msg.streaming && (msg.content || msg.role === 'user')" class="msg-actions">

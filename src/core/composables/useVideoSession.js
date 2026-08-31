@@ -10,6 +10,7 @@ import {useClipboardImage} from '@core/composables/useClipboardImage'
 import {videoGeneration} from '@core/runtime/generationRuntime'
 import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
 
+/** 仅当 profile 未声明 video.sizes 时的视频像素回退（勿用生图尺寸） */
 const SIZE_OPTIONS_PIXELS = [
   {label: '1280×720', value: '1280x720'},
   {label: '720×1280', value: '720x1280'},
@@ -57,8 +58,10 @@ export function useVideoSession(options = {}) {
   const mounted = ref(true)
   const resumeAbortRef = ref(null)
 
-  /** 当前会话内图生视频参考缩略图（不持久化大图） */
-  const refThumbMap = ref({})
+  /** 按 sessionId 分桶的参考缩略图（内存态，不持久化大图） */
+  const refThumbBySession = ref({})
+  /** 同会话图生参考原图缓存，供一键重试（不进 localStorage） */
+  const refFileBySession = ref({})
   /** video 元素加载失败的 itemId */
   const videoErrorIds = ref({})
 
@@ -75,12 +78,32 @@ export function useVideoSession(options = {}) {
     const ratios = videoCaps.value.ratios
     return Array.isArray(ratios) && ratios.length > 0
   })
-  const isGeneratingCurrent = computed(() => gen.isCurrent(session.value?.id))
+  const showResolution = computed(() => {
+    const list = videoCaps.value.resolutions
+    return Array.isArray(list) && list.length > 0
+  })
+  const resolution = ref('720p')
+  const refThumbMap = computed(() => {
+    const sid = session.value?.id
+    return sid ? refThumbBySession.value[sid] || {} : {}
+  })
+  function sessionHasInFlightJob(sessionId = session.value?.id) {
+    if (!sessionId) return false
+    const s = videoStore.sessions.find((x) => x.id === sessionId)
+    return (s?.items || []).some(
+      (i) => i.status === 'loading' || i.status === 'pending_resume',
+    )
+  }
+
+  const isGeneratingCurrent = computed(() => {
+    const sid = session.value?.id
+    return gen.isCurrent(sid) || sessionHasInFlightJob(sid)
+  })
 
   const canGenerate = computed(() => {
-    if (!prompt.value.trim() || isGeneratingCurrent.value) return false
-    if (mode.value === 'img2video' && !imageFile.value) return false
-    return true
+    if (isGeneratingCurrent.value || gen.busy) return false
+    if (mode.value === 'img2video') return Boolean(imageFile.value)
+    return Boolean(prompt.value.trim())
   })
 
   const timelineItems = computed(() => {
@@ -123,13 +146,25 @@ export function useVideoSession(options = {}) {
     })
   })
 
+  const resolutionOptions = computed(() => {
+    const list = videoCaps.value.resolutions
+    if (!Array.isArray(list) || !list.length) return []
+    return list.map((v) => ({label: String(v).toUpperCase(), value: v}))
+  })
+
   const modeLabel = computed(() => (mode.value === 'img2video' ? '图生视频' : '文生视频'))
 
   const sizeLabel = computed(() => {
     if (useAspectOnly.value) {
-      return (
+      const ratio =
         aspectOptions.value.find((o) => o.value === aspectRatio.value)?.label || aspectRatio.value
-      )
+      if (showResolution.value) {
+        const res =
+          resolutionOptions.value.find((o) => o.value === resolution.value)?.label ||
+          resolution.value
+        return `${ratio} · ${res}`
+      }
+      return ratio
     }
     const tier = sizeOptions.value.find((o) => o.value === size.value)?.label || size.value
     if (showAspectRatio.value) {
@@ -154,9 +189,11 @@ export function useVideoSession(options = {}) {
 
   const sessionTitle = computed(() => session.value?.title || '生视频')
 
-  const sendTooltip = computed(() =>
-    mode.value === 'img2video' && !imageFile.value ? '请先上传参考图' : '生成',
-  )
+  const sendTooltip = computed(() => {
+    if (mode.value === 'img2video' && !imageFile.value) return '请先上传参考图'
+    if (mode.value === 'txt2video' && !prompt.value.trim()) return '请输入提示词'
+    return '生成'
+  })
 
   const emptyDesc = computed(() => {
     if (!provider.value?.videoModel) {
@@ -176,6 +213,7 @@ export function useVideoSession(options = {}) {
     if (sec != null && sec !== '') parts.push(`${sec} 秒`)
     if (p.size) parts.push(formatVideoSizeLabel(p.size))
     if (p.aspectRatio) parts.push(p.aspectRatio)
+    if (p.resolution) parts.push(String(p.resolution).toUpperCase())
     return parts.join(' · ')
   }
 
@@ -191,20 +229,66 @@ export function useVideoSession(options = {}) {
     return true
   }
 
+  function rememberRefFile(sessionId, itemId, file) {
+    if (!sessionId || !itemId || !file) return
+    const bucket = {...(refFileBySession.value[sessionId] || {})}
+    bucket[itemId] = file
+    refFileBySession.value = {...refFileBySession.value, [sessionId]: bucket}
+  }
+
+  function setRefThumb(sessionId, itemId, thumb) {
+    if (!sessionId || !itemId || !thumb) return
+    const bucket = {...(refThumbBySession.value[sessionId] || {})}
+    bucket[itemId] = thumb
+    refThumbBySession.value = {...refThumbBySession.value, [sessionId]: bucket}
+  }
+
+  function applyItemParams(item) {
+    const p = item?.params || {}
+    const sec = p.seconds ?? p.duration
+    if (sec != null && sec !== '') seconds.value = Number(sec) || seconds.value
+    if (p.size) size.value = p.size
+    if (p.aspectRatio) aspectRatio.value = p.aspectRatio
+    if (p.resolution) resolution.value = p.resolution
+  }
+
   async function setReferenceFromFile(file, {notify = true} = {}) {
-    if (!file || !String(file.type || '').startsWith('image/')) {
+    if (!file) {
       if (notify) message.warning('请提供图片文件')
       return false
     }
+    const type = String(file.type || '').toLowerCase()
+    const name = String(file.name || '').toLowerCase()
+    if (type.includes('heic') || type.includes('heif') || /\.heic$|\.heif$/i.test(name)) {
+      if (notify) message.warning('暂不支持 HEIC/HEIF，请先转为 JPG/PNG')
+      return false
+    }
+    if (type && !type.startsWith('image/')) {
+      if (notify) message.warning('请提供图片文件')
+      return false
+    }
+    const maxBytes = 25 * 1024 * 1024
+    if (typeof file.size === 'number' && file.size > maxBytes) {
+      if (notify) message.warning('图片过大（建议 < 25MB），请压缩后再上传')
+      return false
+    }
     imageFile.value = file
-    previewUrl.value = await fileToPreview(file)
+    try {
+      previewUrl.value = await fileToPreview(file)
+    } catch {
+      if (notify) message.error('图片无法预览，请换 JPG/PNG 重试')
+      imageFile.value = null
+      previewUrl.value = ''
+      return false
+    }
     mode.value = 'img2video'
     if (notify) message.success('已设为参考图，可继续图生视频')
     return true
   }
 
   async function onUpload({file}) {
-    await setReferenceFromFile(file.file, {notify: false})
+    const ok = await setReferenceFromFile(file.file, {notify: false})
+    if (ok) message.success('已设为参考图，可继续图生视频')
     return false
   }
 
@@ -220,7 +304,6 @@ export function useVideoSession(options = {}) {
   watch(
     () => session.value?.id,
     () => {
-      refThumbMap.value = {}
       videoErrorIds.value = {}
       // 切会话强制滚底；生成走贴底跟随（见 generate）
       scheduleScrollToBottom({force: true})
@@ -258,6 +341,18 @@ export function useVideoSession(options = {}) {
     {immediate: true},
   )
 
+  watch(
+    resolutionOptions,
+    (opts) => {
+      if (!opts.length) return
+      if (!opts.some((o) => o.value === resolution.value)) {
+        const def = videoCaps.value.resolutionDefault
+        resolution.value = opts.some((o) => o.value === def) ? def : opts[0].value
+      }
+    },
+    {immediate: true},
+  )
+
   function getProviderById(id) {
     if (!id) return null
     return settings.providers.find((p) => p.id === id) || null
@@ -267,9 +362,20 @@ export function useVideoSession(options = {}) {
 
   function startResumeIfNeeded() {
     if (resumeInFlight) return
+    const pending = videoStore.pendingResumeItems
+    if (!pending.length) return
     resumeInFlight = true
     const controller = new AbortController()
     resumeAbortRef.value = controller
+
+    const activeId = videoStore.activeId
+    const bindSessionId =
+      pending.find((p) => p.sessionId === activeId)?.sessionId || pending[0]?.sessionId
+    const bindToGen = Boolean(bindSessionId) && !gen.busy
+    if (bindToGen) {
+      gen.begin(bindSessionId, controller)
+    }
+
     videoStore
       .resumePendingJobs(getProviderById, {signal: controller.signal})
       .catch((e) => {
@@ -279,6 +385,10 @@ export function useVideoSession(options = {}) {
       .finally(() => {
         if (resumeAbortRef.value === controller) {
           resumeInFlight = false
+          resumeAbortRef.value = null
+        }
+        if (bindToGen) {
+          gen.end(bindSessionId, controller)
         }
       })
   }
@@ -298,6 +408,8 @@ export function useVideoSession(options = {}) {
   onBeforeUnmount(() => {
     mounted.value = false
     window.removeEventListener('paste', onPaste)
+    resumeAbortRef.value?.abort()
+    resumeAbortRef.value = null
   })
 
   function onComposerFocus() {
@@ -306,18 +418,19 @@ export function useVideoSession(options = {}) {
 
   async function generate() {
     const text = prompt.value.trim()
-    if (!text) {
-      message.warning('请输入提示词')
-      return
-    }
     if (!session.value || gen.busy) return
     if (!ensureProvider()) return
     if (mode.value === 'img2video' && !imageFile.value) {
       message.warning('图生视频请先上传参考图')
       return
     }
+    if (mode.value !== 'img2video' && !text) {
+      message.warning('请输入提示词')
+      return
+    }
 
     const sessionId = session.value.id
+    resumeAbortRef.value?.abort()
     gen.abort()
     const controller = new AbortController()
     gen.begin(sessionId, controller)
@@ -353,14 +466,16 @@ export function useVideoSession(options = {}) {
         duration: seconds.value,
         size: showSize.value ? size.value : undefined,
         aspectRatio: showAspectRatio.value ? aspectRatio.value : undefined,
+        resolution: showResolution.value ? resolution.value : undefined,
         signal: controller.signal,
         onTimelineUpdate: followTimeline,
       })
 
       const newItemId =
         result?.itemId || (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
-      if (savedMode === 'img2video' && savedPreview && newItemId) {
-        refThumbMap.value = {...refThumbMap.value, [newItemId]: savedPreview}
+      if (savedMode === 'img2video' && newItemId) {
+        if (savedPreview) setRefThumb(sessionId, newItemId, savedPreview)
+        if (savedFile) rememberRefFile(sessionId, newItemId, savedFile)
       }
 
       if (controller.signal.aborted) return
@@ -369,8 +484,9 @@ export function useVideoSession(options = {}) {
       }
     } catch (err) {
       const newItemId = (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
-      if (savedMode === 'img2video' && savedPreview && newItemId) {
-        refThumbMap.value = {...refThumbMap.value, [newItemId]: savedPreview}
+      if (savedMode === 'img2video' && newItemId) {
+        if (savedPreview) setRefThumb(sessionId, newItemId, savedPreview)
+        if (savedFile) rememberRefFile(sessionId, newItemId, savedFile)
       }
       if (err?.name === 'AbortError' || err?.message === 'canceled' || controller.signal.aborted) {
         return
@@ -394,12 +510,23 @@ export function useVideoSession(options = {}) {
 
   function removeSession(id) {
     gen.abortIfSession(id)
+    if (id) {
+      const thumbs = {...refThumbBySession.value}
+      const files = {...refFileBySession.value}
+      delete thumbs[id]
+      delete files[id]
+      refThumbBySession.value = thumbs
+      refFileBySession.value = files
+    }
     videoStore.removeSession(id)
   }
 
   function stopGenerate() {
     const sessionId = session.value?.id
-    if (!sessionId || !gen.isCurrent(sessionId)) return
+    if (!sessionId) return
+    const hasLocalJob = sessionHasInFlightJob(sessionId)
+    if (!gen.isCurrent(sessionId) && !hasLocalJob) return
+
     const loadingItem = session.value?.items?.find(
       (i) => i.status === 'loading' || i.status === 'pending_resume',
     )
@@ -411,8 +538,11 @@ export function useVideoSession(options = {}) {
         errorMessage: hasJob ? '' : '已取消',
       })
     }
-    gen.abort()
-    gen.end(sessionId)
+    resumeAbortRef.value?.abort()
+    if (gen.isCurrent(sessionId)) {
+      gen.abort()
+      gen.end(sessionId)
+    }
   }
 
   async function copyPrompt(item) {
@@ -447,6 +577,26 @@ export function useVideoSession(options = {}) {
     return Boolean(videoErrorIds.value[item?.id]) || !item?.videoUrl
   }
 
+  const lightboxShow = ref(false)
+  const lightboxSrc = ref('')
+  const lightboxTitle = ref('')
+
+  function openRefLightbox(src) {
+    if (!src) {
+      message.warning('图片不可用')
+      return
+    }
+    lightboxSrc.value = src
+    lightboxTitle.value = '参考图'
+    lightboxShow.value = true
+  }
+
+  function closeLightbox() {
+    lightboxShow.value = false
+    lightboxSrc.value = ''
+    lightboxTitle.value = ''
+  }
+
   async function retryItem(item) {
     if (!item || gen.busy) return
     if (!ensureProvider()) return
@@ -454,24 +604,38 @@ export function useVideoSession(options = {}) {
 
     const sessionId = session.value.id
     const text = String(item.prompt || '').trim()
-    if (!text) {
+    const itemMode = item.mode || 'txt2video'
+    const p = item.params || {}
+
+    applyItemParams(item)
+    mode.value = itemMode
+    prompt.value = text
+
+    if (itemMode === 'img2video') {
+      const cachedFile = refFileBySession.value[sessionId]?.[item.id]
+      if (cachedFile) {
+        imageFile.value = cachedFile
+        try {
+          previewUrl.value = await fileToPreview(cachedFile)
+        } catch {
+          previewUrl.value = refThumbMap.value[item.id] || item.refPreview || ''
+        }
+      } else {
+        message.warning('图生视频需重新上传参考图后再生成')
+        return
+      }
+    }
+
+    if (itemMode === 'txt2video' && !text) {
       message.warning('缺少提示词，无法重试')
       return
     }
 
-    const itemMode = item.mode || 'txt2video'
-    if (itemMode === 'img2video') {
-      message.warning('图生视频需重新上传参考图后再生成')
-      mode.value = 'img2video'
-      prompt.value = text
-      return
-    }
-
+    resumeAbortRef.value?.abort()
     gen.abort()
     const controller = new AbortController()
     gen.begin(sessionId, controller)
 
-    const p = item.params || {}
     let forceScrollPending = true
     const followTimeline = () => {
       if (videoStore.activeId !== sessionId) return
@@ -482,22 +646,36 @@ export function useVideoSession(options = {}) {
       }
       scheduleScrollToBottom()
     }
+    const itemsBefore = new Set((session.value?.items || []).map((i) => i.id))
     try {
-      await runGenerate(provider.value, sessionId, {
+      const result = await runGenerate(provider.value, sessionId, {
         prompt: text,
-        mode: 'txt2video',
+        mode: itemMode,
+        imageFile: itemMode === 'img2video' ? imageFile.value : undefined,
         seconds: p.seconds ?? p.duration ?? seconds.value,
         duration: p.seconds ?? p.duration ?? seconds.value,
         size: p.size || size.value,
         aspectRatio: p.aspectRatio || aspectRatio.value,
+        resolution: p.resolution || (showResolution.value ? resolution.value : undefined),
         signal: controller.signal,
         onTimelineUpdate: followTimeline,
       })
+      const newItemId =
+        result?.itemId || (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
+      if (itemMode === 'img2video' && newItemId && imageFile.value) {
+        rememberRefFile(sessionId, newItemId, imageFile.value)
+        if (previewUrl.value) setRefThumb(sessionId, newItemId, previewUrl.value)
+      }
       if (controller.signal.aborted) return
       if (mounted.value && videoStore.activeId === sessionId) {
         message.success('视频生成成功')
       }
     } catch (err) {
+      const newItemId = (session.value?.items || []).find((i) => !itemsBefore.has(i.id))?.id
+      if (itemMode === 'img2video' && newItemId && imageFile.value) {
+        rememberRefFile(sessionId, newItemId, imageFile.value)
+        if (previewUrl.value) setRefThumb(sessionId, newItemId, previewUrl.value)
+      }
       if (err?.name === 'AbortError' || controller.signal.aborted) return
       if (mounted.value && videoStore.activeId === sessionId) {
         message.error(err?.message || '重试失败')
@@ -521,6 +699,7 @@ export function useVideoSession(options = {}) {
     seconds,
     size,
     aspectRatio,
+    resolution,
     imageFile,
     previewUrl,
     listRef,
@@ -528,6 +707,9 @@ export function useVideoSession(options = {}) {
     mounted,
     refThumbMap,
     videoErrorIds,
+    lightboxShow,
+    lightboxSrc,
+    lightboxTitle,
     session,
     provider,
     caps,
@@ -536,12 +718,14 @@ export function useVideoSession(options = {}) {
     useSizeTier,
     showSize,
     showAspectRatio,
+    showResolution,
     isGeneratingCurrent,
     canGenerate,
     timelineItems,
     sizeOptions,
     aspectOptions,
     durationOptions,
+    resolutionOptions,
     modeLabel,
     sizeLabel,
     durationLabel,
@@ -555,6 +739,8 @@ export function useVideoSession(options = {}) {
     ensureProvider,
     setReferenceFromFile,
     onUpload,
+    openRefLightbox,
+    closeLightbox,
     clearUpload,
     generate,
     stopGenerate,

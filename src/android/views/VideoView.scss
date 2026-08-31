@@ -50,6 +50,12 @@
   width: 100%;
 }
 
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .retry-btn {
   min-height: var(--touch-min);
 }

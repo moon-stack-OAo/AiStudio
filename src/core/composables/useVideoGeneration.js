@@ -1,13 +1,27 @@
 import {ref} from 'vue'
-import {
-  createVideoJob,
-  fileToPreview,
-  generateVideo,
-  getVideoJob,
-  toErrorMessage,
-  waitVideoJob,
-} from '@core/api/client'
+import {createVideoJob, generateVideo, getVideoJob, toErrorMessage, waitVideoJob,} from '@core/api/client'
+import {compressImageFile} from '@core/utils/imageCompress'
 import {useVideoStore} from '@core/stores/video'
+
+async function buildRefThumbDataUrl(file) {
+  if (!file) return ''
+  try {
+    const thumb = await compressImageFile(file, {
+      maxEdge: 160,
+      quality: 0.7,
+      skipBelowBytes: 0,
+      mimeType: 'image/jpeg',
+    })
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('预览失败'))
+      reader.readAsDataURL(thumb)
+    })
+  } catch {
+    return ''
+  }
+}
 
 /**
  * 视频生成流程辅助（busy 状态由 View 侧 videoGeneration runtime 管理）
@@ -34,14 +48,7 @@ export function useVideoGeneration() {
     lastError.value = ''
     const notifyTimeline = typeof onTimelineUpdate === 'function' ? onTimelineUpdate : null
 
-    let refPreview = ''
-    if (imageFile) {
-      try {
-        refPreview = await fileToPreview(imageFile)
-      } catch {
-        refPreview = ''
-      }
-    }
+    const refPreview = imageFile ? await buildRefThumbDataUrl(imageFile) : ''
 
     const item = videoStore.addItem(sessionId, {
       prompt: prompt || '',
@@ -138,14 +145,26 @@ export function useVideoGeneration() {
         abortErr.name = 'AbortError'
         throw abortErr
       }
-      const msg = toErrorMessage(e, '视频生成失败')
+      const isTimeout = e?.name === 'TimeoutError' || e?.code === 'VIDEO_JOB_TIMEOUT'
+      const msg = isTimeout
+        ? e?.message || '视频生成超时，可稍后恢复轮询'
+        : toErrorMessage(e, '视频生成失败')
       lastError.value = msg
       if (current?.status === 'loading' || current?.status === 'pending_resume') {
-        videoStore.updateItem(sessionId, item.id, {
-          status: 'error',
-          errorMessage: msg,
-          needsResume: false,
-        })
+        const hasJob = Boolean(current?.jobId)
+        if (isTimeout && hasJob) {
+          videoStore.updateItem(sessionId, item.id, {
+            status: 'pending_resume',
+            needsResume: true,
+            errorMessage: msg,
+          })
+        } else {
+          videoStore.updateItem(sessionId, item.id, {
+            status: 'error',
+            errorMessage: msg,
+            needsResume: false,
+          })
+        }
         notifyTimeline?.()
       }
       throw e
