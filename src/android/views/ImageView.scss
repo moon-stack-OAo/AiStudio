@@ -29,10 +29,11 @@
   overflow: hidden;
   background: var(--color-bg);
   border: 1px solid var(--border-subtle);
+  /* 宽高由 thumbStyle 注入；此处仅兜底 */
   width: min(100%, 320px);
   height: auto;
   aspect-ratio: 1;
-  flex: 1 1 min(100%, 320px);
+  flex: 0 1 auto;
   max-width: 100%;
 
   .img-actions {

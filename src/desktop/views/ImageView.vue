@@ -61,6 +61,8 @@ const {
   drawerHeight,
   sendTooltip,
   itemStatus,
+  thumbStyle,
+  onThumbLoad,
   paramSummary,
   onUpload,
   clearUpload,
@@ -255,7 +257,12 @@ function onAiBubbleContextMenu(e, item) {
                 </div>
                 <div v-else-if="!item.images?.length" class="ai-error">暂无图片</div>
                 <div v-else class="imgs">
-                  <div v-for="(img, idx) in item.images" :key="img.id || idx" class="img-wrap">
+                  <div
+                    v-for="(img, idx) in item.images"
+                    :key="img.id || idx"
+                    class="img-wrap"
+                    :style="thumbStyle(item, idx, isMobile ? 320 : isCompact ? 128 : 148)"
+                  >
                     <div class="img-actions">
                       <n-tooltip :trigger="tooltipTrigger" placement="bottom">
                         <template #trigger>
@@ -298,6 +305,7 @@ function onAiBubbleContextMenu(e, item) {
                       :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
                       alt="generated"
                       @click="openLightbox(item, idx, img)"
+                      @load="onThumbLoad(item, idx, $event)"
                     />
                     <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
                       临时链接，可能过期
