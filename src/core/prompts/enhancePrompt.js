@@ -83,6 +83,8 @@ export async function enhancePrompt(text, options = {}) {
     stream: false,
     signal,
     temperature,
+    // 提示词优化无需长文，限制输出降低挂起与超时概率
+    max_tokens: 2048,
     timeout,
   })
 

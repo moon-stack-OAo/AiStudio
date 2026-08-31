@@ -1,4 +1,5 @@
 <script setup>
+import {computed} from 'vue'
 import {SparklesOutline} from '@vicons/ionicons5'
 import {useMessage} from 'naive-ui'
 import {usePromptEnhance} from '@core/composables/usePromptEnhance'
@@ -21,10 +22,17 @@ const emit = defineEmits(['apply'])
 
 const message = useMessage()
 const {tooltipTrigger} = useTooltipTrigger()
-const {enhancing, enhance} = usePromptEnhance()
+const {enhancing, enhance, abort} = usePromptEnhance()
+
+const tooltipText = computed(() => (enhancing.value ? '点击取消优化' : 'AI 优化提示词'))
 
 async function onClick() {
-  if (props.disabled || enhancing.value) return
+  if (props.disabled) return
+  if (enhancing.value) {
+    abort()
+    message.info('已取消优化')
+    return
+  }
   const raw = String(props.text || '').trim()
   if (!raw) {
     message.warning(props.emptyWarning)
@@ -36,7 +44,9 @@ async function onClick() {
     emit('apply', result)
     message.success('已优化提示词')
   } catch (err) {
-    if (err?.name === 'AbortError' || err?.message === 'canceled') return
+    if (err?.name === 'AbortError' || err?.message === 'canceled' || err?.message === '已取消') {
+      return
+    }
     message.error(err?.message || '优化失败')
   }
 }
@@ -46,9 +56,9 @@ async function onClick() {
   <n-tooltip :trigger="tooltipTrigger" placement="top">
     <template #trigger>
       <n-button
-        :disabled="disabled || enhancing"
+        :aria-label="tooltipText"
         :loading="enhancing"
-        :aria-label="'AI 优化提示词'"
+        :disabled="disabled"
         class="prompt-enhance-btn touch-target"
         quaternary
         :size="compact ? 'tiny' : 'small'"
@@ -57,10 +67,10 @@ async function onClick() {
         <template #icon>
           <n-icon :component="SparklesOutline" :size="compact ? 14 : 16" />
         </template>
-        优化
+        {{ enhancing ? '取消' : '优化' }}
       </n-button>
     </template>
-    AI 优化提示词
+    {{ tooltipText }}
   </n-tooltip>
 </template>
 
