@@ -17,6 +17,7 @@
 
 - 修复 Android 更新清单生成，并更正仓库更新地址
 - 修复 CI 中 Prettier 格式校验，并补齐 Ubuntu Tauri 构建依赖
+- 修复桌面端 CSP `media-src` 未放行 http(s)，导致 Agnes 等远程视频链接无法播放
 
 ## [1.0.0]
 
