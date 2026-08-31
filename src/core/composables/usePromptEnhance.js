@@ -1,4 +1,4 @@
-import {onUnmounted, ref} from 'vue'
+import {onDeactivated, onUnmounted, ref} from 'vue'
 import {enhancePrompt} from '@core/prompts/enhancePrompt'
 import {useSettingsStore} from '@core/stores/settings'
 import {API_TIMEOUT_MS} from '@core/utils/constants'
@@ -27,6 +27,22 @@ export function usePromptEnhance() {
     return err
   }
 
+  /** 把 axios/拦截器的生图超时文案统一成优化超时 */
+  function normalizeEnhanceError(error) {
+    if (!error) return toTimeoutError()
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') return error
+    const code = String(error.code || error?.cause?.code || '')
+    const msg = String(error.message || '')
+    if (
+      code === 'ECONNABORTED' ||
+      code === 'ETIMEDOUT' ||
+      /timeout|超时/i.test(msg)
+    ) {
+      return toTimeoutError()
+    }
+    return error
+  }
+
   /**
    * @param {'cancel'|'timeout'} [reason]
    */
@@ -46,6 +62,8 @@ export function usePromptEnhance() {
   }
 
   onUnmounted(() => abort())
+  // keep-alive 切页走 deactivate，不会 unmount
+  onDeactivated(() => abort())
 
   /**
    * @param {string} text
@@ -90,14 +108,14 @@ export function usePromptEnhance() {
       signal: localController.signal,
     }).then(
       (value) => ({ok: true, value}),
-      (error) => ({ok: false, error}),
+      (error) => ({ok: false, error: normalizeEnhanceError(error)}),
     )
 
     try {
       const outcome = await Promise.race([primary, gate])
       // 竞态输家若仍 pending/reject，吞掉避免泄漏与 unhandledrejection
       primary.catch(() => {})
-      if (!outcome.ok) throw outcome.error
+      if (!outcome.ok) throw normalizeEnhanceError(outcome.error)
       return outcome.value
     } finally {
       if (timer != null) clearTimeout(timer)
