@@ -1,6 +1,6 @@
 <script setup>
 import {computed} from 'vue'
-import {SparklesOutline, StopOutline} from '@vicons/ionicons5'
+import {SparklesOutline} from '@vicons/ionicons5'
 import {useMessage} from 'naive-ui'
 import {usePromptEnhance} from '@core/composables/usePromptEnhance'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
@@ -27,14 +27,13 @@ const {enhancing, enhance, abort} = usePromptEnhance()
 const tooltipText = computed(() => (enhancing.value ? '点击取消优化' : 'AI 优化提示词'))
 const iconSize = computed(() => (props.compact ? 14 : 16))
 
-function onCancel() {
+async function onClick() {
   if (props.disabled) return
-  abort()
-  message.info('已取消优化')
-}
-
-async function onEnhance() {
-  if (props.disabled || enhancing.value) return
+  if (enhancing.value) {
+    abort()
+    message.info('已取消优化')
+    return
+  }
   const raw = String(props.text || '').trim()
   if (!raw) {
     message.warning(props.emptyWarning)
@@ -61,35 +60,25 @@ async function onEnhance() {
 <template>
   <n-tooltip :trigger="tooltipTrigger" placement="top">
     <template #trigger>
-      <!-- 取消态不用 loading：Naive UI loading 时不触发 click -->
+      <!-- 不用 n-button :loading，避免优化中无法点击取消；改为自定义转圈 -->
       <n-button
-        v-if="enhancing"
-        :aria-label="tooltipText"
-        :disabled="disabled"
-        class="prompt-enhance-btn touch-target"
-        quaternary
-        type="warning"
-        :size="compact ? 'tiny' : 'small'"
-        @click="onCancel"
-      >
-        <template #icon>
-          <n-icon :component="StopOutline" :size="iconSize" />
-        </template>
-        取消
-      </n-button>
-      <n-button
-        v-else
         :aria-label="tooltipText"
         :disabled="disabled"
         class="prompt-enhance-btn touch-target"
         quaternary
         :size="compact ? 'tiny' : 'small'"
-        @click="onEnhance"
+        @click="onClick"
       >
         <template #icon>
-          <n-icon :component="SparklesOutline" :size="iconSize" />
+          <span
+            v-if="enhancing"
+            class="prompt-enhance-spinner"
+            :style="{width: `${iconSize}px`, height: `${iconSize}px`}"
+            aria-hidden="true"
+          />
+          <n-icon v-else :component="SparklesOutline" :size="iconSize" />
         </template>
-        优化
+        {{ enhancing ? '取消' : '优化' }}
       </n-button>
     </template>
     {{ tooltipText }}
@@ -100,5 +89,20 @@ async function onEnhance() {
 .prompt-enhance-btn {
   flex-shrink: 0;
   color: var(--text-3);
+}
+
+.prompt-enhance-spinner {
+  display: inline-block;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: prompt-enhance-spin 0.7s linear infinite;
+}
+
+@keyframes prompt-enhance-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
