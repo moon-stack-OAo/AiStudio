@@ -324,12 +324,16 @@ jobs:
     needs: [publish-windows, publish-android]
     runs-on: ubuntu-latest
     steps:
+      # checkout 避免 gh 在无 .git 环境下解析 draft/tag 失败
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Verify assets and publish Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
           mapfile -t ASSETS < <(gh release view "$TAG" --json assets --jq '.assets[].name')
           printf '当前资产:\n'
           printf '  - %s\n' "${ASSETS[@]}"
