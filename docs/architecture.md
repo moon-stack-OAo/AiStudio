@@ -6,10 +6,10 @@
 
 AI Studio 是**本地多模态 AI 客户端**：多轮对话、文生图 / 图生图、文生视频 / 图生视频。无自建后端密钥托管；配置与会话落在本机。
 
-| 维度   | 说明                                               |
-|------|--------------------------------------------------|
-| 前端   | Vue 3 · Vite · Naive UI · Pinia · Vue Router     |
-| 壳层   | Tauri 2                                          |
+| 维度     | 说明                                                            |
+| -------- | --------------------------------------------------------------- |
+| 前端     | Vue 3 · Vite · Naive UI · Pinia · Vue Router                    |
+| 壳层     | Tauri 2                                                         |
 | 目标平台 | Windows 桌面 + Android（arm64 侧载 APK）；浏览器可用于 Web 开发 |
 
 源码按端拆分：`src/core`（共享）· `src/desktop` · `src/android` · `src-tauri`（Rust / 原生插件）。
@@ -26,14 +26,14 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 ### 2.1 `src/core`（应尽量收敛共享逻辑）
 
-| 路径                                                                  | 职责                                                                                        |
-|---------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| `api/client.js`                                                     | 对话 / 生图 / 生视频 HTTP 调用；消费 image/video adapters                                             |
-| `stores/`                                                           | `chat` · `image` · `video` · `settings`（Pinia）                                            |
-| `providers/profiles/`                                               | 协议能力声明（OpenAI / xAI / openai-compatible；部分网关如 Agnes 由 URL/模型自动识别）                         |
-| `providers/adapters/image\|video/`                                  | 按 profile 组装请求体 / 路径 / 轮询方式                                                               |
-| `providers/resolveProfile.js` · `capabilities.js`                   | 解析 profile、对外暴露能力                                                                         |
-| `utils/`                                                            | `http`（`appFetch`）、`secret`、版本、更新、主题、存储等                                                  |
+| 路径                                                                | 职责                                                                                                                   |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `api/client.js`                                                     | 对话 / 生图 / 生视频 HTTP 调用；消费 image/video adapters                                                              |
+| `stores/`                                                           | `chat` · `image` · `video` · `settings`（Pinia）                                                                       |
+| `providers/profiles/`                                               | 协议能力声明（OpenAI / xAI / openai-compatible；部分网关如 Agnes 由 URL/模型自动识别）                                 |
+| `providers/adapters/image\|video/`                                  | 按 profile 组装请求体 / 路径 / 轮询方式                                                                                |
+| `providers/resolveProfile.js` · `capabilities.js`                   | 解析 profile、对外暴露能力                                                                                             |
+| `utils/`                                                            | `http`（`appFetch`）、`secret`、版本、更新、主题、存储等                                                               |
 | `composables/` · `components/` · `runtime/` · `styles/` · `router/` | 可复用组合式 API、共享 UI（如 `ComposerSendStop` / `ModelSelect`）、生成运行时、主题样式、共享路由表 `createAppRoutes` |
 
 别名：`@core` → `src/core`（见 `vite.desktop.config.js` / `vite.android.config.js`）。
@@ -48,13 +48,13 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 **路由**（path/name 表在 `src/core/router/routes.js` 的 `createAppRoutes(views)`；各端 `router/index.js` 只负责 `createRouter` + 注入本端 `@/views/*`）：
 
-| 路径          | name       | 视图             |
-|-------------|------------|----------------|
-| `/`         | —          | 重定向到 `/chat`   |
-| `/chat`     | `chat`     | `ChatView`     |
-| `/image`    | `image`    | `ImageView`    |
-| `/video`    | `video`    | `VideoView`    |
-| `/settings` | `settings` | `SettingsView` |
+| 路径        | name       | 视图             |
+| ----------- | ---------- | ---------------- |
+| `/`         | —          | 重定向到 `/chat` |
+| `/chat`     | `chat`     | `ChatView`       |
+| `/image`    | `image`    | `ImageView`      |
+| `/video`    | `video`    | `VideoView`      |
+| `/settings` | `settings` | `SettingsView`   |
 
 已共享到 core 的低风险 UI：`ComposerSendStop`（`withTooltip`）、`ModelSelect`（`sheet` / 刷新与断点）。页面业务状态机已抽 composable，两端仍各保留 View 壳：
 
@@ -73,12 +73,12 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 均在 `src/core/stores/`，双端共用：
 
-| Store | 文件            | 要点                                               |
-|-------|---------------|--------------------------------------------------|
-| 对话    | `chat.js`     | 会话列表、消息、本地 `localStorage`                        |
-| 生图    | `image.js`    | 会话 / 气泡时间线；二进制可走 IndexedDB                       |
-| 生视频   | `video.js`    | 任务进度、未完成恢复等                                      |
-| 设置    | `settings.js` | 提供商列表、主题、更新偏好、上下文裁剪等；API Key 经 `secret.js` 混淆后落盘 |
+| Store  | 文件          | 要点                                                                        |
+| ------ | ------------- | --------------------------------------------------------------------------- |
+| 对话   | `chat.js`     | 会话列表、消息、本地 `localStorage`                                         |
+| 生图   | `image.js`    | 会话 / 气泡时间线；二进制可走 IndexedDB                                     |
+| 生视频 | `video.js`    | 任务进度、未完成恢复等                                                      |
+| 设置   | `settings.js` | 提供商列表、主题、更新偏好、上下文裁剪等；API Key 经 `secret.js` 混淆后落盘 |
 
 业务视图通过 Pinia 读写上述 store，经 `api/client.js` 访问上游。
 
@@ -140,23 +140,23 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 ## 7. 双端差异
 
-| 能力      | 桌面（`src/desktop` + Rust）                      | Android（`src/android` + 原生插件）                                    |
-|---------|-----------------------------------------------|------------------------------------------------------------------|
-| 导航      | 侧栏 / 工作区壳 + 自定义无边框标题栏（`TitleBar`）             | 底部 Tab 栏（`App.vue`）；软键盘弹起时收起底栏                                   |
-| 关闭 / 返回 | 关闭行为：退出 / 托盘；`tray.rs` + `TrayActionListener` | `useBackCloseLayer`：层打开时 `pushState`，物理返回先关层                     |
-| 更新      | Tauri Updater + GitHub `latest.json`          | 侧载：`android-latest.json` + `UpdaterPlugin` / `androidUpdater.js` |
-| 媒体      | 常规下载                                          | `MediaSaverPlugin` 保存到相册                                         |
-| 安全区     | 常规窗口                                          | `MainActivity` Bridge + `safeArea.js` 注入 CSS 变量                  |
-| 前端构建    | `build:desktop` → `dist-desktop`              | `build:android` → `dist-android`                                 |
+| 能力        | 桌面（`src/desktop` + Rust）                            | Android（`src/android` + 原生插件）                                 |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
+| 导航        | 侧栏 / 工作区壳 + 自定义无边框标题栏（`TitleBar`）      | 底部 Tab 栏（`App.vue`）；软键盘弹起时收起底栏                      |
+| 关闭 / 返回 | 关闭行为：退出 / 托盘；`tray.rs` + `TrayActionListener` | `useBackCloseLayer`：层打开时 `pushState`，物理返回先关层           |
+| 更新        | Tauri Updater + GitHub `latest.json`                    | 侧载：`android-latest.json` + `UpdaterPlugin` / `androidUpdater.js` |
+| 媒体        | 常规下载                                                | `MediaSaverPlugin` 保存到相册                                       |
+| 安全区      | 常规窗口                                                | `MainActivity` Bridge + `safeArea.js` 注入 CSS 变量                 |
+| 前端构建    | `build:desktop` → `dist-desktop`                        | `build:android` → `dist-android`                                    |
 
 共享业务（stores、API、providers）应留在 `core`；壳层交互、布局、原生桥接留在各端或 `src-tauri`。
 
 ## 8. 构建与发版流水线
 
-| 工作流                                                                 | 触发                                 | 作用                                                                                                                                 |
-|---------------------------------------------------------------------|------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)           | PR / 推送到 `main` · `master` · `dev` | Node 20：`check:theme`、`lint`、`test`、双端 Vite build；另 job `cargo check`（不做完整 Tauri 打包）。`format:check` 脚本已有，CI 中暂注释（待格式化 PR）          |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | 推送 `v*` tag                        | Windows：NSIS/MSI + Updater 签名与 `latest.json`；Android：init → 同步原生源 → 正式签名 APK + `android-latest.json`；Release 正文从 `CHANGELOG.md` 截取 |
+| 工作流                                                              | 触发                                  | 作用                                                                                                                                                      |
+| ------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)           | PR / 推送到 `main` · `master` · `dev` | Node 20：`check:theme`、`lint`、`test`、双端 Vite build；另 job `cargo check`（不做完整 Tauri 打包）。`format:check` 脚本已有，CI 中暂注释（待格式化 PR） |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | 推送 `v*` tag                         | Windows：NSIS/MSI + Updater 签名与 `latest.json`；Android：init → 同步原生源 → 正式签名 APK + `android-latest.json`；Release 正文从 `CHANGELOG.md` 截取   |
 
 日常开发与合入**依赖 ci.yml**；不要指望只靠发版流水线发现前端 / 主题 / lint 问题。
 
@@ -196,11 +196,11 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 原则：**结构一份、密度两套**——选择器与布局意图相同的规则下沉到 `src/core/styles/*-base.scss`；两端仅数值不同的间距 / 圆角 / 字号走 CSS 变量，由端侧覆写，**不要**为「统一」硬抹平 Desktop 偏松与 Android 偏紧的差异。
 
-| 层级    | 路径                                                             | 职责                                                                            |
-|-------|----------------------------------------------------------------|-------------------------------------------------------------------------------|
-| Token | `src/core/styles/tokens.scss`                                  | 色板、通用 `--space-*` / `--radius-*`，以及会话 / 生成区密度变量默认值（= Desktop）                 |
-| Base  | `session-workspace-base.scss` · `generate-workspace-base.scss` | 同构规则（气泡、composer、gallery、params 等）消费 `var(--...)`                             |
-| 端侧密度  | `desktop/styles/main.scss` · `android/styles/main.scss`        | Android 全局覆写偏紧；Desktop 在 `@media` 窄屏覆写（须放**非 scoped** 全局样式，避免 Vue 改写 `:root`） |
-| 端侧分叉  | `*/styles/session-workspace.scss` · `generate-workspace.scss`  | 仅结构差异：侧栏/底栏、hover 显隐、桌面 toolbar / opt-group、Android 顶栏标题等                     |
+| 层级     | 路径                                                           | 职责                                                                                                    |
+| -------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Token    | `src/core/styles/tokens.scss`                                  | 色板、通用 `--space-*` / `--radius-*`，以及会话 / 生成区密度变量默认值（= Desktop）                     |
+| Base     | `session-workspace-base.scss` · `generate-workspace-base.scss` | 同构规则（气泡、composer、gallery、params 等）消费 `var(--...)`                                         |
+| 端侧密度 | `desktop/styles/main.scss` · `android/styles/main.scss`        | Android 全局覆写偏紧；Desktop 在 `@media` 窄屏覆写（须放**非 scoped** 全局样式，避免 Vue 改写 `:root`） |
+| 端侧分叉 | `*/styles/session-workspace.scss` · `generate-workspace.scss`  | 仅结构差异：侧栏/底栏、hover 显隐、桌面 toolbar / opt-group、Android 顶栏标题等                         |
 
 改主题色仍须同步 `theme.js` 的 `PALETTE`，并跑 `npm run check:theme`。
