@@ -1,7 +1,9 @@
 <script setup>
 import {computed} from 'vue'
 import {DiceOutline} from '@vicons/ionicons5'
+import {useMessage} from 'naive-ui'
 import {getPromptPresets, pickRandomPromptPreset} from '@core/prompts'
+import {usePromptEnhance} from '@core/composables/usePromptEnhance'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 
 const props = defineProps({
@@ -17,19 +19,81 @@ const props = defineProps({
 
 const emit = defineEmits(['apply'])
 
+const message = useMessage()
 const {tooltipTrigger} = useTooltipTrigger()
+const {enhancing, generateFromLabel, abort} = usePromptEnhance()
 
 const presets = computed(() => getPromptPresets(props.domain, props.mode))
+const busy = computed(() => enhancing.value)
+const chipsDisabled = computed(() => props.disabled || busy.value)
+
+function fallbackPrompt(preset) {
+  return String(preset?.prompt || '').trim()
+}
+
+function applyFallback(preset, reason) {
+  const text = fallbackPrompt(preset)
+  if (!text) {
+    message.error(reason || '生成失败')
+    return false
+  }
+  emit('apply', text)
+  if (reason) message.warning(`${reason}，已填入示例提示词`)
+  else message.info('已填入示例提示词')
+  return true
+}
+
+/**
+ * @param {object} preset
+ */
+async function applyPresetWithAi(preset) {
+  if (props.disabled || !preset?.label) return
+  if (busy.value) {
+    abort()
+    message.info('已取消生成')
+    return
+  }
+
+  try {
+    const result = await generateFromLabel(preset, {
+      domain: props.domain,
+      mode: props.mode || preset.mode,
+    })
+    if (!result) {
+      applyFallback(preset, '生成结果为空')
+      return
+    }
+    emit('apply', result)
+    message.success(`已生成「${preset.label}」提示词`)
+  } catch (err) {
+    if (err?.name === 'AbortError' || err?.message === 'canceled' || err?.message === '已取消') {
+      return
+    }
+    if (err?.name === 'TimeoutError') {
+      applyFallback(preset, err.message || '生成超时')
+      return
+    }
+    applyFallback(preset, err?.message || '生成失败')
+  }
+}
 
 function applyPreset(preset) {
-  if (props.disabled || !preset?.prompt) return
-  emit('apply', preset.prompt)
+  void applyPresetWithAi(preset)
 }
 
 function applyRandom() {
   if (props.disabled) return
+  if (busy.value) {
+    abort()
+    message.info('已取消生成')
+    return
+  }
   const preset = pickRandomPromptPreset(props.domain, props.mode)
-  if (preset?.prompt) emit('apply', preset.prompt)
+  if (!preset) {
+    message.warning('暂无可用示例')
+    return
+  }
+  void applyPresetWithAi(preset)
 }
 </script>
 
@@ -41,7 +105,7 @@ function applyRandom() {
         :key="preset.id"
         type="button"
         class="prompt-assist-chip"
-        :disabled="disabled"
+        :disabled="chipsDisabled"
         :title="preset.label"
         @click="applyPreset(preset)"
       >
@@ -52,7 +116,7 @@ function applyRandom() {
       <template #trigger>
         <n-button
           :disabled="disabled"
-          :aria-label="'随机提示词'"
+          :aria-label="busy ? '取消生成' : '随机提示词'"
           circle
           class="prompt-assist-random touch-target"
           quaternary
@@ -60,11 +124,17 @@ function applyRandom() {
           @click="applyRandom"
         >
           <template #icon>
-            <n-icon :component="DiceOutline" :size="compact ? 14 : 16" />
+            <span
+              v-if="busy"
+              class="prompt-assist-spinner"
+              :style="{width: compact ? '14px' : '16px', height: compact ? '14px' : '16px'}"
+              aria-hidden="true"
+            />
+            <n-icon v-else :component="DiceOutline" :size="compact ? 14 : 16" />
           </template>
         </n-button>
       </template>
-      随机提示词
+      {{ busy ? '点击取消生成' : '随机生成提示词' }}
     </n-tooltip>
   </div>
 </template>
@@ -145,6 +215,21 @@ function applyRandom() {
 .prompt-assist-random {
   flex-shrink: 0;
   color: var(--text-3);
+}
+
+.prompt-assist-spinner {
+  display: inline-block;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: prompt-assist-spin 0.7s linear infinite;
+}
+
+@keyframes prompt-assist-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .prompt-assist.compact {

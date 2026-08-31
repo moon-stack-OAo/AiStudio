@@ -5,9 +5,13 @@ export {IMAGE_DIMENSIONS} from './imageDimensions'
 export {getDimensions, buildPromptFromSelection} from './buildPrompt'
 export {
   enhancePrompt,
+  generatePromptFromLabel,
+  buildGenerateUserContent,
   stripEnhancedPrompt,
   ENHANCE_SYSTEM_VIDEO,
   ENHANCE_SYSTEM_IMAGE,
+  GENERATE_SYSTEM_VIDEO,
+  GENERATE_SYSTEM_IMAGE,
 } from './enhancePrompt'
 
 import {VIDEO_PROMPT_PRESETS} from './videoPresets'
