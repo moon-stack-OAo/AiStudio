@@ -2,7 +2,11 @@ import {ref} from 'vue'
 import {useMessage} from 'naive-ui'
 import {useSettingsStore} from '@core/stores/settings'
 import {isDesktopTauri} from '@core/utils/request'
-import {checkForUpdate, installUpdateAndRelaunch} from '@core/utils/updater'
+import {
+  checkForUpdate,
+  friendlyUpdateInstallError,
+  installUpdateAndRelaunch,
+} from '@core/utils/updater'
 
 /** 模块级共享，避免 UpdateChecker 与关于页各持一份状态 */
 const checking = ref(false)
@@ -19,6 +23,11 @@ function formatProgressEvent(event) {
   }
   if (event.event === 'Progress') return '正在下载更新…'
   if (event.event === 'Finished') return '下载完成，准备重启…'
+  if (event.event === 'Retry') {
+    const attempt = event.data?.attempt
+    const max = event.data?.maxAttempts
+    return attempt && max ? `下载失败，正在重试（${attempt}/${max}）…` : '下载失败，正在重试…'
+  }
   return ''
 }
 
@@ -93,8 +102,7 @@ export function useAppUpdater() {
    * @param {(event: any) => void} [onEvent]
    */
   async function installUpdate(update, onEvent) {
-    const target = update || pendingUpdate.value
-    if (!target || installing.value) return
+    if (installing.value) return
     if (!supported) {
       message.info('应用内更新仅支持桌面客户端')
       return
@@ -103,6 +111,15 @@ export function useAppUpdater() {
     installing.value = true
     updateProgress.value = '准备下载…'
     try {
+      // 静默弹窗可能长时间持有旧 Update；安装前重新 check，避免首次失败后对象失效
+      const fresh = await checkForUpdate()
+      const target = fresh.update || update || pendingUpdate.value
+      if (!target) {
+        throw new Error(fresh.hasUpdate ? '获取更新信息失败，请重试' : '没有可安装的更新')
+      }
+      pendingUpdate.value = target
+      if (updateResult.value) updateResult.value = fresh
+
       await installUpdateAndRelaunch(target, (event) => {
         const text = formatProgressEvent(event)
         if (text) updateProgress.value = text
@@ -111,7 +128,14 @@ export function useAppUpdater() {
     } catch (e) {
       installing.value = false
       updateProgress.value = ''
-      message.error(e?.message || '安装更新失败')
+      pendingUpdate.value = null
+      if (updateResult.value?.hasUpdate) {
+        updateResult.value = {
+          ...updateResult.value,
+          update: null,
+        }
+      }
+      message.error(friendlyUpdateInstallError(e))
     }
   }
 
