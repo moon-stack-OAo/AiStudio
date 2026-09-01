@@ -1,6 +1,6 @@
 [package]
 name = "ai-studio"
-version = "1.0.2"
+version = "1.0.3"
 description = "AI Studio - 本地桌面 AI 客户端（对话 / 生图 / 生视频）"
 authors = ["Moon"]
 license = "MIT"
@@ -24,11 +24,13 @@ tauri-plugin-log = "2"
 # unsafe-headers：允许清空 Origin，避免部分中转站因 tauri/localhost Origin 拒绝请求
 tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 
-# 托盘 / 自动更新 / process 仅桌面；Android/iOS 不启用 tray-icon
+# 托盘 / 自动更新 / process / 另存为 仅桌面；Android/iOS 不启用 tray-icon
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri = { version = "2.11.3", features = ["tray-icon", "devtools"] }
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
 
 # Android 侧载更新：下载 APK + 校验
 [target.'cfg(target_os = "android")'.dependencies]

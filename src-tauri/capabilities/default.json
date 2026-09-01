@@ -23,6 +23,8 @@
     "core:event:default",
     "updater:default",
     "process:default",
+    "dialog:default",
+    "fs:allow-write-file",
     "allow-confirm-close-action",
     "allow-get-close-action-pref",
     "allow-set-close-action-pref",

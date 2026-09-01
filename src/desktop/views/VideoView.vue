@@ -138,8 +138,24 @@ function onUserBubbleContextMenu(e, item) {
   )
 }
 
+function resolveVideoDownloadSrc(item) {
+  const primary = typeof item?.videoUrl === 'string' ? item.videoUrl.trim() : ''
+  const remote = typeof item?.remoteVideoUrl === 'string' ? item.remoteVideoUrl.trim() : ''
+  const remoteOk = /^https?:\/\//i.test(remote) ? remote : ''
+  if (primary) return primary
+  return remoteOk
+}
+
+function resolveVideoFallbackSrc(item) {
+  const primary = typeof item?.videoUrl === 'string' ? item.videoUrl.trim() : ''
+  const remote = typeof item?.remoteVideoUrl === 'string' ? item.remoteVideoUrl.trim() : ''
+  const remoteOk = /^https?:\/\//i.test(remote) ? remote : ''
+  if (remoteOk && remoteOk !== primary) return remoteOk
+  return ''
+}
+
 async function downloadVideo(item, name) {
-  const src = item?.videoUrl
+  const src = resolveVideoDownloadSrc(item)
   if (!src) {
     message.warning('视频不可用，请重新生成')
     return
@@ -151,6 +167,7 @@ async function downloadVideo(item, name) {
     opts: {
       defaultMime: 'video/mp4',
       mobileOpenHint: '下载失败，已尝试在新窗口打开',
+      fallbackSrc: resolveVideoFallbackSrc(item),
     },
   })
 }
@@ -168,7 +185,7 @@ function onAiBubbleContextMenu(e, item) {
     options.push({label: '复制错误信息', key: 'copy-error'})
     if (canReloadVideo(item)) options.push({label: '重新加载', key: 'reload'})
     options.push({label: '重试', key: 'retry', disabled: gen.busy})
-  } else if (item?.videoUrl) {
+  } else if (resolveVideoDownloadSrc(item)) {
     options.push({label: '下载', key: 'download'})
   }
   if (!options.length) return

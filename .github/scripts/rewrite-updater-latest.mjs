@@ -21,9 +21,7 @@ const repo =
   String(process.env.GITHUB_REPOSITORY || process.env.GH_REPO || '').trim() ||
   'moon-stack-OAo/AiStudio'
 
-const inputPath = path.resolve(
-  process.argv[3] || path.join(process.cwd(), 'latest.json'),
-)
+const inputPath = path.resolve(process.argv[3] || path.join(process.cwd(), 'latest.json'))
 
 function ghJson(args) {
   const out = execFileSync('gh', args, {

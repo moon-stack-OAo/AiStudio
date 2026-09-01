@@ -1,5 +1,10 @@
 # Dependabot：每周自动检查并创建依赖更新 PR
 # 覆盖 npm（前端）、cargo（Tauri/Rust）、github-actions（CI 工作流）
+#
+# 策略：
+# - minor/patch 分组合并，减少噪音
+# - major 尽量单独开 PR，人工审阅（尤其 Tauri / crypto）
+# - Tauri 前后端插件单独分组，便于对齐版本
 
 version: 2
 updates:
@@ -9,9 +14,20 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 8
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - javascript
+    commit-message:
+      prefix: 'chore(deps)'
     groups:
-      # 具体工具链优先匹配，避免落入下方通用组
+      # 具体工具链 / 框架优先匹配，避免落入下方通用组
+      tauri:
+        patterns:
+          - '@tauri-apps/*'
+        update-types:
+          - minor
+          - patch
       eslint:
         patterns:
           - 'eslint*'
@@ -29,11 +45,31 @@ updates:
           - minor
           - patch
       production-dependencies:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - '@tauri-apps/*'
+          - 'eslint*'
+          - '@eslint/*'
+          - 'globals'
+          - 'vite'
+          - '@vitejs/*'
+          - 'vitest'
         dependency-type: production
         update-types:
           - minor
           - patch
       dev-dependencies:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - '@tauri-apps/*'
+          - 'eslint*'
+          - '@eslint/*'
+          - 'globals'
+          - 'vite'
+          - '@vitejs/*'
+          - 'vitest'
         dependency-type: development
         update-types:
           - minor
@@ -45,7 +81,37 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - rust
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      tauri:
+        patterns:
+          - 'tauri'
+          - 'tauri-*'
+        update-types:
+          - minor
+          - patch
+      cargo-minor-patch:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - 'tauri'
+          - 'tauri-*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Android 侧校验 / HTTP：major 常伴随 API 变更，单独人工升级
+      - dependency-name: sha2
+        update-types:
+          - version-update:semver-major
+      - dependency-name: reqwest
+        update-types:
+          - version-update:semver-major
 
   # GitHub Actions 工作流中的 action 版本
   - package-ecosystem: github-actions
@@ -53,3 +119,16 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch

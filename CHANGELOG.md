@@ -7,6 +7,17 @@
 
 ## [Unreleased]
 
+## [1.0.3]
+
+### 新增
+
+- **桌面下载**：图片 / 视频下载改为系统「另存为」对话框（Tauri dialog + fs），不再静默落入 Downloads
+- 视频下载源增加 `remoteVideoUrl` 兜底，降低 blob 失效导致无法保存的概率
+
+### 变更
+
+- **Dependabot**：优化分组与限额；Tauri 前后端单独分组；忽略 `sha2` / `reqwest` major，减少噪音与风险 PR
+
 ## [1.0.2]
 
 ### 新增
