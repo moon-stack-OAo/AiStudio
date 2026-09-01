@@ -32,9 +32,16 @@ function ghJson(args) {
   return JSON.parse(out)
 }
 
+// 注意：draft Release 对 REST `releases/tags/{tag}` 常返回 404；
+// `gh release view` 可正确解析 draft。
 const assets = ghJson([
-  'api',
-  `repos/${repo}/releases/tags/${tag}`,
+  'release',
+  'view',
+  tag,
+  '--repo',
+  repo,
+  '--json',
+  'assets',
   '--jq',
   '[.assets[] | {id, name, browser_download_url}]',
 ])
