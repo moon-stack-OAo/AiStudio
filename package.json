@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=18"
   },
+  "packageManager": "npm@10.9.3",
   "scripts": {
     "dev": "vite --config vite.desktop.config.js",
     "dev:desktop": "vite --config vite.desktop.config.js",
