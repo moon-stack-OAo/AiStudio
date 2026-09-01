@@ -108,9 +108,12 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         &[&show_i, &sep1, &chat_i, &settings_i, &update_i, &sep2, &quit_i],
     )?;
 
+    let version = app.package_info().version.to_string();
+    let tooltip = format!("AI Studio v{}", version);
+
     let mut builder = TrayIconBuilder::new()
         .menu(&menu)
-        .tooltip("AI Studio")
+        .tooltip(&tooltip)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_main_window(app),
             "open-chat" => emit_tray_action(app, "open-chat"),

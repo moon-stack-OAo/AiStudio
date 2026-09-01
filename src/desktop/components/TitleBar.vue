@@ -3,9 +3,11 @@ import {onMounted, onUnmounted, ref} from 'vue'
 import {getCurrentWindow} from '@tauri-apps/api/window'
 import {CloseOutline, CopyOutline, RemoveOutline, SquareOutline} from '@vicons/ionicons5'
 import ThemeToggleButton from '@/components/ThemeToggleButton.vue'
+import {getAppVersion} from '@core/utils/version'
 
 const appWindow = getCurrentWindow()
 const maximized = ref(false)
+const appVersion = ref('')
 let unlistenResize = null
 
 async function refreshMaximized() {
@@ -30,6 +32,7 @@ async function close() {
 }
 
 onMounted(async () => {
+  appVersion.value = await getAppVersion()
   await refreshMaximized()
   try {
     unlistenResize = await appWindow.onResized(() => {
@@ -52,7 +55,9 @@ onUnmounted(() => {
     <div class="drag" data-tauri-drag-region @dblclick="toggleMaximize">
       <div class="brand" data-tauri-drag-region>
         <div class="logo" data-tauri-drag-region>AI</div>
-        <span class="title" data-tauri-drag-region>AI Studio</span>
+        <span class="title" data-tauri-drag-region>
+          AI Studio<span v-if="appVersion" class="version"> v{{ appVersion }}</span>
+        </span>
       </div>
     </div>
 
@@ -119,6 +124,11 @@ onUnmounted(() => {
   font-weight: 600;
   color: var(--text-2);
   letter-spacing: 0.02em;
+}
+
+.version {
+  font-weight: 500;
+  color: var(--text-3);
 }
 
 .controls {
