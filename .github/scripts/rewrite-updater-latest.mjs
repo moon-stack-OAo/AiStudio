@@ -32,21 +32,43 @@ function ghJson(args) {
   return JSON.parse(out)
 }
 
-// 注意：draft Release 对 REST `releases/tags/{tag}` 常返回 404；
-// `gh release view` 可正确解析 draft。
-const assets = ghJson([
+function publicDownloadUrl(fileName) {
+  return `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(fileName)}`
+}
+
+function toFinalPublicUrl(url, fileName) {
+  if (!url) return publicDownloadUrl(fileName)
+  if (url.includes('/download/untagged-')) {
+    return url.replace(/\/download\/untagged-[^/]+\//, `/download/${tag}/`)
+  }
+  if (url.includes(`/download/${tag}/`)) return url
+  return publicDownloadUrl(fileName)
+}
+
+/**
+ * draft Release 对 REST `releases/tags/{tag}` 常 404；
+ * `gh release view --json assets` 在 draft 下 browser_download_url 可能为 null，
+ * 且 asset id 是 GraphQL node id，无法匹配 latest.json 里的数字 asset id。
+ * 因此：先拿 databaseId，再走 REST /releases/{id}。
+ */
+const releaseMeta = ghJson([
   'release',
   'view',
   tag,
   '--repo',
   repo,
   '--json',
-  'assets',
-  '--jq',
-  '[.assets[] | {id, name, browser_download_url}]',
+  'databaseId,isDraft',
 ])
+const releaseId = releaseMeta?.databaseId
+if (!releaseId) {
+  console.error(`无法解析 Release ${tag} 的 databaseId`)
+  process.exit(1)
+}
 
-if (!Array.isArray(assets) || assets.length === 0) {
+const release = ghJson(['api', `repos/${repo}/releases/${releaseId}`])
+const assets = Array.isArray(release?.assets) ? release.assets : []
+if (assets.length === 0) {
   console.error(`Release ${tag} 无资产`)
   process.exit(1)
 }
@@ -80,7 +102,6 @@ if (!fs.existsSync(inputPath)) {
 }
 
 const raw = fs.readFileSync(inputPath, 'utf8')
-
 const manifest = JSON.parse(raw)
 const platforms = manifest.platforms || {}
 let changed = 0
@@ -93,20 +114,16 @@ for (const [platform, entry] of Object.entries(platforms)) {
   const apiMatch = url.match(/\/releases\/assets\/(\d+)/)
   if (apiMatch) {
     const asset = byId.get(apiMatch[1])
-    if (!asset?.browser_download_url) {
+    if (!asset?.name) {
       console.error(`平台 ${platform}: 找不到 asset id=${apiMatch[1]}`)
       process.exit(1)
     }
-    next = asset.browser_download_url
+    // 发布前写成最终 tag 公开地址，避免 draft 的 untagged 链接在正式发布后失效
+    next = toFinalPublicUrl(asset.browser_download_url, asset.name)
   } else if (url.includes('/download/untagged-')) {
-    // draft 阶段 untagged 链接在正式发布后失效，尽量按文件名对齐到 tag 下载地址
     const name = decodeURIComponent(url.split('/').pop() || '')
     const asset = byName.get(name)
-    if (asset?.browser_download_url) {
-      next = asset.browser_download_url
-    } else {
-      next = url.replace(/\/download\/untagged-[^/]+\//, `/download/${tag}/`)
-    }
+    next = toFinalPublicUrl(asset?.browser_download_url, name || asset?.name)
   }
 
   if (next !== url) {
