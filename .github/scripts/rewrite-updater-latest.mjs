@@ -51,15 +51,7 @@ function toFinalPublicUrl(url, fileName) {
  * 且 asset id 是 GraphQL node id，无法匹配 latest.json 里的数字 asset id。
  * 因此：先拿 databaseId，再走 REST /releases/{id}。
  */
-const releaseMeta = ghJson([
-  'release',
-  'view',
-  tag,
-  '--repo',
-  repo,
-  '--json',
-  'databaseId,isDraft',
-])
+const releaseMeta = ghJson(['release', 'view', tag, '--repo', repo, '--json', 'databaseId,isDraft'])
 const releaseId = releaseMeta?.databaseId
 if (!releaseId) {
   console.error(`无法解析 Release ${tag} 的 databaseId`)
