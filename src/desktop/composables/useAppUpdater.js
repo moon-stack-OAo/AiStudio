@@ -4,6 +4,7 @@ import {useSettingsStore} from '@core/stores/settings'
 import {isDesktopTauri} from '@core/utils/request'
 import {
   checkForUpdate,
+  closeUpdate,
   friendlyUpdateInstallError,
   installUpdateAndRelaunch,
 } from '@core/utils/updater'
@@ -66,18 +67,18 @@ export function useAppUpdater() {
 
     try {
       const result = await checkForUpdate()
-      if (!silent) {
-        updateResult.value = result
-        pendingUpdate.value = result.update || null
-      }
 
       if (!result.hasUpdate || !result.update) {
         settings.clearAvailableUpdate()
-        if (!silent) message.info('当前已是最新版本')
+        if (!silent) {
+          updateResult.value = result
+          pendingUpdate.value = null
+          message.info('当前已是最新版本')
+        }
         return result
       }
 
-      // 静默检查：已跳过该版本则不提示、不写入角标状态
+      // 静默检查：已跳过该版本则不提示、不写入角标/关于页状态
       if (
         silent &&
         settings.skippedUpdateVersion &&
@@ -87,6 +88,8 @@ export function useAppUpdater() {
       }
 
       if (!silent) settings.clearSkippedUpdateVersion()
+      updateResult.value = result
+      pendingUpdate.value = result.update || null
       settings.setAvailableUpdate(result.latest.version)
       return result
     } catch (e) {
@@ -144,6 +147,10 @@ export function useAppUpdater() {
     const v = String(version || '')
     if (!v) return
     settings.skipUpdateVersion(v)
+    const old = pendingUpdate.value
+    updateResult.value = null
+    pendingUpdate.value = null
+    void closeUpdate(old)
     message.info(`已跳过 v${v}`)
   }
 

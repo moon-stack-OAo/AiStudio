@@ -60,7 +60,7 @@ function isRetryableInstallError(err) {
   )
 }
 
-async function closeUpdate(update) {
+export async function closeUpdate(update) {
   if (!update || typeof update.close !== 'function') return
   try {
     await update.close()
