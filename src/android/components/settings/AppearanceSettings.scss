@@ -1,15 +1,12 @@
 @use './settings-shared.scss';
+@use '@core/styles/appearance-settings-base.scss';
 
 .appearance-pane {
   align-items: stretch;
 }
 
 .appearance-wrap {
-  width: 100%;
   max-width: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .data-card .data-row {
@@ -29,12 +26,4 @@
 
 .context-extra-hint {
   margin-top: 8px;
-}
-
-.shortcut-list {
-  margin: 0;
-  padding-left: 18px;
-  font-size: var(--text-sm);
-  color: var(--text-2);
-  line-height: 1.7;
 }

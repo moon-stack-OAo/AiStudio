@@ -2,13 +2,7 @@
 defineOptions({name: 'ImageView'})
 
 import {computed, ref} from 'vue'
-import {
-  DownloadOutline,
-  ImageOutline,
-  OptionsOutline,
-  SparklesOutline,
-  TrashOutline,
-} from '@vicons/ionicons5'
+import {DownloadOutline, ImageOutline, OptionsOutline, SparklesOutline, TrashOutline} from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
 import PromptAssist from '@core/components/PromptAssist.vue'
@@ -74,6 +68,8 @@ const {
   useAsReference,
   useLightboxAsReference,
   resolveImageSrc,
+  resolveImageFallbackSrc,
+  resolveImageBlob,
   generate,
   stopGenerate,
   selectSession,
@@ -123,12 +119,13 @@ function onKeydown(e) {
 
 async function downloadImage(itemId, idx, img, name = 'image.png') {
   const src = await resolveImageSrc(itemId, idx, img)
-  if (!src) {
+  const fallbackSrc = resolveImageFallbackSrc(img)
+  if (!src && !fallbackSrc) {
     message.warning('图片不可用')
     return
   }
   await downloadMediaBlob({
-    src,
+    src: src || fallbackSrc,
     fileName: name,
     message,
     opts: {
@@ -136,6 +133,8 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
       shareTitle: name,
       defaultMime: 'image/png',
       mobileOpenHint: '请长按图片保存到相册',
+      fallbackSrc,
+      getBlob: () => resolveImageBlob(img),
     },
   })
 }

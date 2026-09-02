@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢参与 AI Studio。本文说明开发环境、常用命令、PR 约定与发版前检查项。架构细节见 [`docs/architecture.md`](./docs/architecture.md)。
+感谢参与 AI Studio。本文说明开发环境、常用命令、PR 约定与发版前检查项。架构细节见 [`docs/architecture.md`](./docs/architecture.md)；给 AI 编码助手的仓库约定见根目录 [`AGENTS.md`](./AGENTS.md)。
 
 ## 开发环境
 
@@ -45,6 +45,7 @@ git restore package-lock.json
 | `npm run lint` / `lint:fix`                                 | ESLint                                               |
 | `npm run test` / `test:watch`                               | Vitest                                               |
 | `npm run check:theme`                                       | 主题相关同步检查（CI 会跑）                          |
+| `npm run check:version`                                     | 四处版本号 + CHANGELOG 章节一致性（CI 会跑）         |
 | `npm run format` / `format:check`                           | Prettier；**提交前建议跑 `format:check`，CI 已强制** |
 | `npm run tauri:dev`                                         | Vite + Tauri 桌面窗口                                |
 | `npm run tauri:build` / `tauri:build:win`                   | 桌面打包；Windows 可用 NSIS+MSI                      |
@@ -56,14 +57,14 @@ git restore package-lock.json
 
 ## 分支与 Pull Request
 
-- 日常校验靠 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)（主题检查、lint、test、双端 Vite build、`cargo check`）。
+- 日常校验靠 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)（主题 / 版本检查、lint、`format:check`、test、双端 Vite build、`cargo check`）。
 - **不要**只依赖 [`.github/workflows/release.yml`](./.github/workflows/release.yml)（仅 `v*` tag 发版）来发现常规问题。
-- PR 合并前请本地至少：`npm run format:check`、`npm run lint`、`npm run test`、`npm run check:theme`；改动前端构建路径时再跑对应 `build:*`。
+- PR 合并前请本地至少：`npm run format:check`、`npm run lint`、`npm run test`、`npm run check:theme`、`npm run check:version`；改动前端构建路径时再跑对应 `build:*`。
 - 推送到 `main` / `master` / `dev` 或打开 PR 会触发 CI。
 
 ## 版本号四处同步清单
 
-发版或升版本时，以下四处与 Changelog **必须一致**（当前示例为 `1.0.0`）：
+发版或升版本时，以下四处与 Changelog **必须一致**（本地 / CI 可跑 `npm run check:version`）：
 
 1. [`package.json`](./package.json) → `"version"`
 2. [`src-tauri/tauri.conf.json`](./src-tauri/tauri.conf.json) → `"version"`
@@ -73,6 +74,8 @@ git restore package-lock.json
 并同时更新：
 
 5. [`CHANGELOG.md`](./CHANGELOG.md) → 增加 `## [x.y.z]` 章节（Release 正文由此截取）
+
+> `src-tauri/gen/android/**/tauri.conf.json` 内嵌 version 常被 `tauri android init` 覆盖，**不**纳入硬校验（脚本仅 warn）。正式 Android 构建前按下文同步原生源即可。
 
 然后打 tag 并推送，例如：
 

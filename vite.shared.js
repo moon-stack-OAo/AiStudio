@@ -3,48 +3,16 @@ import {Readable} from 'node:stream'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import {NaiveUiResolver} from 'unplugin-vue-components/resolvers'
+import {assertSafeHttpUrl} from './src/core/utils/urlSafety.js'
 
 // Tauri 开发时由 CLI 注入；普通 `npm run dev` 时为空
 export const host = process.env.TAURI_DEV_HOST
 
-/** 开发代理拒绝常见云元数据 / 链路本地地址，降低 SSRF 风险 */
-const BLOCKED_PROXY_HOSTS = new Set([
-  '169.254.169.254',
-  'metadata.google.internal',
-  'metadata.google',
-  'metadata',
-  'kubernetes.default',
-  'kubernetes.default.svc',
-])
-
-function isBlockedProxyHost(hostname) {
-  const host = String(hostname || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\.$/, '')
-  if (!host) return true
-  if (BLOCKED_PROXY_HOSTS.has(host)) return true
-  if (host.startsWith('169.254.')) return true
-  if (
-    host === '0.0.0.0' ||
-    host === '::' ||
-    host === '[::]' ||
-    host === '::1' ||
-    host === '[::1]'
-  ) {
-    return true
-  }
-  return false
-}
-
 function assertSafeProxyTarget(targetUrl) {
-  const protocol = String(targetUrl.protocol || '').toLowerCase()
-  if (protocol !== 'http:' && protocol !== 'https:') {
-    throw new Error('仅允许 http/https 代理目标')
-  }
-  if (isBlockedProxyHost(targetUrl.hostname)) {
-    throw new Error('拒绝代理到受保护/元数据地址')
-  }
+  assertSafeHttpUrl(targetUrl, {
+    protocolMessage: '仅允许 http/https 代理目标',
+    blockedMessage: '拒绝代理到受保护/元数据地址',
+  })
 }
 
 /** 开发态 CORS 代理：/api-proxy/* + Header X-Proxy-Target=真实BaseURL */

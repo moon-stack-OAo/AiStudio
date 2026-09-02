@@ -1,11 +1,5 @@
 import {ref} from 'vue'
-import {
-  createVideoJob,
-  generateVideo,
-  getVideoJob,
-  toErrorMessage,
-  waitVideoJob,
-} from '@core/api/client'
+import {createVideoJob, generateVideo, getVideoJob, toErrorMessage, waitVideoJob} from '@core/api/client'
 import {compressImageFile} from '@core/utils/imageCompress'
 import {useVideoStore} from '@core/stores/video'
 
@@ -155,9 +149,8 @@ export function useVideoGeneration() {
         if (!/^https?:\/\//i.test(String(playable)) && !String(playable).startsWith('blob:')) {
           console.warn('[video] completed without playable url', {
             jobId: job.jobId,
-            videoUrl: job.videoUrl,
+            hasVideoUrl: Boolean(job.videoUrl),
             rawKeys: job.raw && typeof job.raw === 'object' ? Object.keys(job.raw) : [],
-            rawVideo: job.raw?.video,
           })
         }
         videoStore.updateItem(sessionId, item.id, {
@@ -172,7 +165,11 @@ export function useVideoGeneration() {
         notifyTimeline?.()
       } else if (job.status === 'completed' && !job.videoUrl) {
         const msg = '视频已完成但未返回播放地址'
-        console.warn('[video] completed without videoUrl', job.raw)
+        console.warn('[video] completed without videoUrl', {
+          jobId: job.jobId,
+          status: job.status,
+          rawKeys: job.raw && typeof job.raw === 'object' ? Object.keys(job.raw) : [],
+        })
         videoStore.updateItem(sessionId, item.id, {
           status: 'error',
           jobId: job.jobId || item.jobId,

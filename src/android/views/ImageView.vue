@@ -24,8 +24,8 @@ import PromptBuilderPanel from '@core/components/PromptBuilderPanel.vue'
 import {useImageSession} from '@core/composables/useImageSession'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {getPromptPlaceholder} from '@core/prompts'
-import {appFetch} from '@core/utils/http'
-import {isAndroidTauri, isDesktopTauri} from '@core/utils/request'
+import {downloadMediaBlob, srcToBlob} from '@core/composables/useMediaDownload'
+import {isAndroidTauri} from '@core/utils/request'
 import {trySaveToAndroidGallery} from '@core/utils/androidMediaSave'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
@@ -78,6 +78,8 @@ const {
   useAsReference,
   useLightboxAsReference,
   resolveImageSrc,
+  resolveImageFallbackSrc,
+  resolveImageBlob,
   generate,
   stopGenerate,
   selectSession,
@@ -125,88 +127,49 @@ function clearItems() {
   clearItemsCore()
 }
 
-async function srcToBlob(src) {
-  if (src.startsWith('blob:')) {
-    const res = await fetch(src)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.blob()
-  }
-  if (src.startsWith('data:')) {
-    const res = await fetch(src)
-    return res.blob()
-  }
-  const res = await appFetch(src)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.blob()
-}
-
-function triggerAnchorDownload(href, name) {
-  const a = document.createElement('a')
-  a.href = href
-  a.download = name
-  a.rel = 'noopener'
-  a.click()
-}
-
 async function downloadImage(itemId, idx, img, name = 'image.png') {
   const src = await resolveImageSrc(itemId, idx, img)
-  if (!src) {
+  const fallbackSrc = resolveImageFallbackSrc(img)
+  if (!src && !fallbackSrc) {
     message.warning('图片不可用')
     return
   }
 
-  const mobileLike = !isDesktopTauri()
-
-  try {
-    const blob = await srcToBlob(src)
-    const mime = blob.type || 'image/png'
-
-    if (isAndroidTauri()) {
-      const saved = await trySaveToAndroidGallery({
-        src,
-        blob,
-        displayName: name,
-        mimeType: mime,
-        preferRemote: false,
-      })
-      if (saved.ok) {
-        message.success('已保存到相册')
-        return
+  if (isAndroidTauri()) {
+    try {
+      let blob = await resolveImageBlob(img)
+      if (!blob && src) {
+        try {
+          blob = await srcToBlob(src)
+        } catch {
+          blob = null
+        }
       }
-    }
-
-    const file = new File([blob], name, {type: mime})
-
-    if (
-      mobileLike &&
-      typeof navigator.canShare === 'function' &&
-      typeof navigator.share === 'function'
-    ) {
-      try {
-        if (navigator.canShare({files: [file]})) {
-          await navigator.share({files: [file], title: name})
-          message.success('已分享图片')
+      if (!blob && fallbackSrc && fallbackSrc !== src) {
+        blob = await srcToBlob(fallbackSrc)
+      }
+      if (blob) {
+        const mime = blob.type || 'image/png'
+        const saved = await trySaveToAndroidGallery({
+          src: src || fallbackSrc,
+          blob,
+          displayName: name,
+          mimeType: mime,
+          preferRemote: false,
+        })
+        if (saved.ok) {
+          message.success('已保存到相册')
           return
         }
-      } catch (err) {
-        if (err?.name === 'AbortError') return
       }
+    } catch {
+      // fall through to remote / shared download
     }
 
-    const objectUrl = URL.createObjectURL(blob)
-    try {
-      triggerAnchorDownload(objectUrl, name)
-      if (mobileLike) message.success('已开始下载')
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1500)
-    } catch {
-      window.open(objectUrl, '_blank', 'noopener')
-      message.warning(mobileLike ? '请长按图片保存到相册' : '下载失败，已尝试在新窗口打开')
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
-    }
-  } catch {
-    if (isAndroidTauri()) {
+    const remoteSrc = fallbackSrc || src
+    if (/^https?:\/\//i.test(String(remoteSrc || ''))) {
       const saved = await trySaveToAndroidGallery({
-        src,
+        src: remoteSrc,
         displayName: name,
         mimeType: 'image/png',
         preferRemote: true,
@@ -216,14 +179,21 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
         return
       }
     }
-    try {
-      triggerAnchorDownload(src, name)
-      if (mobileLike) message.success('已开始下载')
-    } catch {
-      window.open(src, '_blank', 'noopener')
-      message.warning(mobileLike ? '请长按图片保存到相册' : '下载失败，已尝试在新窗口打开')
-    }
   }
+
+  await downloadMediaBlob({
+    src: src || fallbackSrc,
+    fileName: name,
+    message,
+    opts: {
+      enableShare: true,
+      shareTitle: name,
+      defaultMime: 'image/png',
+      mobileOpenHint: '请长按图片保存到相册',
+      fallbackSrc,
+      getBlob: () => resolveImageBlob(img),
+    },
+  })
 }
 
 function openCardActions(item, idx, img) {

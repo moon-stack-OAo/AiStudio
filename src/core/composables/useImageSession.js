@@ -2,14 +2,8 @@ import {computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch}
 import {useDialog, useMessage} from 'naive-ui'
 import {useImageStore} from '@core/stores/image'
 import {useSettingsStore} from '@core/stores/settings'
-import {
-  editImage,
-  fileToPreview,
-  generateImage,
-  getCapabilities,
-  toErrorMessage,
-} from '@core/api/client'
-import {cacheGeneratedImages, getImageObjectUrl} from '@core/utils/imageCache'
+import {editImage, fileToPreview, generateImage, getCapabilities, toErrorMessage} from '@core/api/client'
+import {cacheGeneratedImages, getImageBlob, getImageObjectUrl} from '@core/utils/imageCache'
 import {resolveThumbStyle} from '@core/utils/imageThumb'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'
 import {useScrollToBottom} from '@core/composables/useScrollToBottom'
@@ -557,6 +551,23 @@ export function useImageSession(options = {}) {
     return src || ''
   }
 
+  function resolveImageFallbackSrc(img) {
+    const remote = typeof img?.remoteUrl === 'string' ? img.remoteUrl.trim() : ''
+    if (/^https?:\/\//i.test(remote)) return remote
+    const src = typeof img?.src === 'string' ? img.src.trim() : ''
+    if (/^https?:\/\//i.test(src) || src.startsWith('data:')) return src
+    return ''
+  }
+
+  async function resolveImageBlob(img) {
+    if (img?.type !== 'idb' || !img.id) return null
+    try {
+      return await getImageBlob(img.id)
+    } catch {
+      return null
+    }
+  }
+
   async function openLightbox(item, idx, img) {
     const src = await resolveImageSrc(item.id, idx, img)
     if (!src) {
@@ -589,12 +600,24 @@ export function useImageSession(options = {}) {
 
   async function useAsReference(item, idx, img) {
     const src = await resolveImageSrc(item.id, idx, img)
-    if (!src) {
+    const fallbackSrc = resolveImageFallbackSrc(img)
+    if (!src && !fallbackSrc) {
       message.warning('图片不可用')
       return
     }
     try {
-      const blob = await srcToBlob(src)
+      let blob = await resolveImageBlob(img)
+      if (!blob && src) {
+        try {
+          blob = await srcToBlob(src)
+        } catch {
+          blob = null
+        }
+      }
+      if (!blob && fallbackSrc && fallbackSrc !== src) {
+        blob = await srcToBlob(fallbackSrc)
+      }
+      if (!blob) throw new Error('图片不可用')
       const mime = String(blob.type || '').startsWith('image/') ? blob.type : 'image/png'
       const file = new File([blob], `ref-${item.id}-${idx}.png`, {type: mime})
       await setReferenceFromFile(file)
@@ -708,6 +731,8 @@ export function useImageSession(options = {}) {
     displaySrc,
     isTemporary,
     resolveImageSrc,
+    resolveImageFallbackSrc,
+    resolveImageBlob,
     openLightbox,
     openRefLightbox,
     closeLightbox,

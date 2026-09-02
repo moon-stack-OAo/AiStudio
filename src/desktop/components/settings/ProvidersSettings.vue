@@ -1,170 +1,41 @@
 <script setup>
-import {computed, onBeforeUnmount, ref, watch} from 'vue'
-import {useDialog, useMessage} from 'naive-ui'
+import {ref, watch} from 'vue'
 import {FlashOutline, HelpCircleOutline, RefreshOutline, TrashOutline} from '@vicons/ionicons5'
-import {isBuiltinProvider, useSettingsStore} from '@core/stores/settings'
-import {testProviderConnection} from '@core/api/client'
-import {useProviderModels} from '@core/composables/useProviderModels'
-import {filterModelsByKind, toSelectOptions} from '@core/utils/models'
-import {isTauri} from '@core/utils/request'
 import {renderSelectLabel} from '@core/utils/selectRender'
+import {useProvidersSettings} from '@core/composables/useProvidersSettings'
 
-const settings = useSettingsStore()
-const message = useMessage()
-const dialog = useDialog()
+const {
+  settings,
+  showViteCorsProxy,
+  selectedId,
+  testing,
+  current,
+  baseUrlRiskHint,
+  modelsLoading,
+  chatModelOptions,
+  imageModelOptions,
+  videoModelOptions,
+  canRemoveCurrent,
+  providerTypeOptions,
+  providerTypeLabel,
+  onSelect,
+  patch,
+  addCustom,
+  removeCurrent,
+  reset,
+  testConnection,
+  refreshModelLists,
+} = useProvidersSettings()
 
-const showViteCorsProxy = import.meta.env.DEV && !isTauri()
-
-const selectedId = ref(settings.activeProviderId)
-const testing = ref(false)
-// 默认展开：基本信息 / 连接 / 模型
 const expandedNames = ref(['basic', 'connection', 'models'])
 const tipsShow = ref(false)
-let persistTimer = null
 
 watch(
   () => settings.activeProviderId,
-  (id) => {
-    selectedId.value = id
+  () => {
     tipsShow.value = false
   },
 )
-
-const current = computed(() => settings.providers.find((p) => p.id === selectedId.value))
-
-const {
-  loading: modelsLoading,
-  models: providerModels,
-  refresh: refreshModels,
-} = useProviderModels(() => current.value, {kind: 'all'})
-
-function modelOptionsByKind(kind, currentModel) {
-  let filtered = filterModelsByKind(providerModels.value, kind)
-  // 中转站命名不规范时筛选可能为空，回退全量便于手动挑
-  if (!filtered.length && providerModels.value.length) {
-    filtered = providerModels.value
-  }
-  return toSelectOptions(filtered, {current: currentModel})
-}
-
-const chatModelOptions = computed(() => modelOptionsByKind('chat', current.value?.chatModel))
-const imageModelOptions = computed(() => modelOptionsByKind('image', current.value?.imageModel))
-const videoModelOptions = computed(() => modelOptionsByKind('video', current.value?.videoModel))
-
-async function refreshModelLists() {
-  try {
-    await refreshModels({force: true})
-    message.success('模型列表已刷新')
-  } catch (e) {
-    message.error(e?.message || '刷新模型失败')
-  }
-}
-
-const canRemoveCurrent = computed(() => Boolean(current.value) && !isBuiltinProvider(current.value))
-
-const providerTypeOptions = [
-  {label: 'OpenAI / 兼容接口', value: 'openai'},
-  {label: 'OpenAI 兼容（自定义）', value: 'openai-compatible'},
-  {label: 'xAI Grok', value: 'xai'},
-]
-
-function providerTypeLabel(type) {
-  return providerTypeOptions.find((o) => o.value === type)?.label || type || '未分类'
-}
-
-function onSelect(id) {
-  selectedId.value = id
-  settings.setActiveProvider(id)
-}
-
-function schedulePersist() {
-  if (persistTimer) clearTimeout(persistTimer)
-  persistTimer = setTimeout(() => {
-    persistTimer = null
-    settings.persist()
-  }, 400)
-}
-
-function flushPersist() {
-  if (!persistTimer) return
-  clearTimeout(persistTimer)
-  persistTimer = null
-  settings.persist()
-}
-
-function patch(field, value) {
-  if (!current.value) return
-  settings.updateProvider(current.value.id, {[field]: value}, {persist: false})
-  schedulePersist()
-}
-
-function addCustom() {
-  flushPersist()
-  const item = settings.addProvider({
-    name: '自定义接口',
-    baseUrl: '',
-    apiKey: '',
-    chatModel: '',
-    imageModel: '',
-    videoModel: '',
-    provider: 'openai-compatible',
-  })
-  selectedId.value = item.id
-  message.success('已添加自定义提供商')
-}
-
-function removeCurrent() {
-  if (!current.value) return
-  if (isBuiltinProvider(current.value)) {
-    message.warning('内置提供商不可删除，可「恢复预设」重置')
-    return
-  }
-  flushPersist()
-  const ok = settings.removeProvider(current.value.id)
-  if (!ok) {
-    message.warning('至少保留一个提供商')
-    return
-  }
-  selectedId.value = settings.activeProviderId
-  message.success('已删除自定义提供商')
-}
-
-function reset() {
-  dialog.warning({
-    title: '恢复预设',
-    content: '将恢复默认提供商配置，已填写的 API Key 等会丢失，是否继续？',
-    positiveText: '继续',
-    negativeText: '取消',
-    onPositiveClick: () => {
-      flushPersist()
-      settings.resetPresets()
-      selectedId.value = settings.activeProviderId
-      message.success('已恢复默认预设')
-    },
-  })
-}
-
-onBeforeUnmount(() => {
-  flushPersist()
-})
-
-async function testConnection() {
-  if (!current.value) return
-  if (!current.value.baseUrl) {
-    message.warning('请先填写 Base URL')
-    return
-  }
-  testing.value = true
-  try {
-    const result = await testProviderConnection(current.value)
-    message.success(result.detail || '连接成功')
-    refreshModels({force: true}).catch(() => {})
-  } catch (e) {
-    message.error(e?.message || '连接失败')
-  } finally {
-    testing.value = false
-  }
-}
 
 defineExpose({addCustom, reset})
 </script>
@@ -268,6 +139,7 @@ defineExpose({addCustom, reset})
                     size="small"
                     @update:value="(v) => patch('baseUrl', v)"
                   />
+                  <div v-if="baseUrlRiskHint" class="hint hint-warn">{{ baseUrlRiskHint }}</div>
                 </div>
                 <div class="field field-full">
                   <div class="field-label">API Key</div>
@@ -394,7 +266,6 @@ defineExpose({addCustom, reset})
 
 <style lang="scss" scoped src="./ProvidersSettings.scss"></style>
 <style lang="scss">
-/* Popover 内容 teleport 到 body，需非 scoped */
 .provider-tips-popover .tips {
   margin: 0;
   padding-left: 18px;

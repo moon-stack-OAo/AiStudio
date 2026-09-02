@@ -1,4 +1,5 @@
 @use './settings-shared.scss';
+@use '@core/styles/chat-settings-base.scss';
 
 .chat-pane {
   align-items: center;
@@ -7,11 +8,7 @@
 }
 
 .chat-wrap {
-  width: 100%;
   max-width: 640px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .data-card {
@@ -32,38 +29,12 @@
   margin-top: 10px;
 }
 
-.param-block {
-  & + & {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border-subtle);
-  }
-}
-
-.param-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.param-value {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-primary-hover);
-  font-variant-numeric: tabular-nums;
-}
-
 .select-turns {
   width: 140px;
 }
 
 .input-chars {
   width: 140px;
-}
-
-.file-hidden {
-  display: none;
 }
 
 .inline-actions {

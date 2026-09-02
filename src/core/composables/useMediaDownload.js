@@ -78,26 +78,21 @@ async function srcToBlobFromSources(sources) {
 }
 
 /**
- * 桌面端：系统另存为 + 写文件。
+ * 优先用 getBlob，再按候选地址依次转 Blob。
  * @param {string[]} sources
- * @param {string} fileName
- * @param {{ success: (msg: string) => void, warning: (msg: string) => void, error?: (msg: string) => void }} message
- * @param {string} defaultMime
- * @returns {Promise<boolean>} 是否已处理（含用户取消）
+ * @param {(() => Promise<Blob|null|undefined>)|null} getBlob
+ * @returns {Promise<Blob>}
  */
-async function saveWithDesktopDialog(sources, fileName, message, defaultMime) {
-  const path = await save({
-    title: '保存文件',
-    defaultPath: fileName,
-    filters: resolveSaveFilters(fileName, defaultMime),
-  })
-  if (!path) return true
-
-  const blob = await srcToBlobFromSources(sources)
-  const bytes = new Uint8Array(await blob.arrayBuffer())
-  await writeFile(path, bytes)
-  message.success('已保存')
-  return true
+async function resolveDownloadBlob(sources, getBlob) {
+  if (typeof getBlob === 'function') {
+    try {
+      const blob = await getBlob()
+      if (blob) return blob
+    } catch {
+      // fall through to src candidates
+    }
+  }
+  return srcToBlobFromSources(sources)
 }
 
 /**
@@ -107,7 +102,7 @@ async function saveWithDesktopDialog(sources, fileName, message, defaultMime) {
  * @param {string} options.src
  * @param {string} options.fileName
  * @param {{ success: (msg: string) => void, warning: (msg: string) => void, error?: (msg: string) => void }} options.message
- * @param {{ enableShare?: boolean, shareTitle?: string, defaultMime?: string, mobileOpenHint?: string, fallbackSrc?: string }} [options.opts]
+ * @param {{ enableShare?: boolean, shareTitle?: string, defaultMime?: string, mobileOpenHint?: string, fallbackSrc?: string, getBlob?: () => Promise<Blob|null|undefined> }} [options.opts]
  */
 export async function downloadMediaBlob({src, fileName, message, opts = {}}) {
   if (!src) {
@@ -122,13 +117,23 @@ export async function downloadMediaBlob({src, fileName, message, opts = {}}) {
     defaultMime = 'application/octet-stream',
     mobileOpenHint = '请长按保存到相册',
     fallbackSrc = '',
+    getBlob = null,
   } = opts
   const sources = [src]
   if (fallbackSrc && fallbackSrc !== src) sources.push(fallbackSrc)
 
   if (isDesktopTauri()) {
     try {
-      await saveWithDesktopDialog(sources, fileName, message, defaultMime)
+      const path = await save({
+        title: '保存文件',
+        defaultPath: fileName,
+        filters: resolveSaveFilters(fileName, defaultMime),
+      })
+      if (!path) return
+      const blob = await resolveDownloadBlob(sources, getBlob)
+      const bytes = new Uint8Array(await blob.arrayBuffer())
+      await writeFile(path, bytes)
+      message.success('已保存')
       return
     } catch (err) {
       const text = err?.message || '保存失败'
@@ -139,7 +144,7 @@ export async function downloadMediaBlob({src, fileName, message, opts = {}}) {
   }
 
   try {
-    const blob = await srcToBlobFromSources(sources)
+    const blob = await resolveDownloadBlob(sources, getBlob)
 
     if (
       enableShare &&

@@ -25,8 +25,8 @@ import PromptBuilderPanel from '@core/components/PromptBuilderPanel.vue'
 import {useVideoSession} from '@core/composables/useVideoSession'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {getPromptPlaceholder} from '@core/prompts'
-import {appFetch} from '@core/utils/http'
-import {isAndroidTauri, isDesktopTauri} from '@core/utils/request'
+import {downloadMediaBlob, srcToBlob} from '@core/composables/useMediaDownload'
+import {isAndroidTauri} from '@core/utils/request'
 import {trySaveToAndroidGallery} from '@core/utils/androidMediaSave'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
@@ -133,25 +133,6 @@ function openCardActions(item) {
   cardActionShow.value = true
 }
 
-function triggerAnchorDownload(href, name) {
-  const a = document.createElement('a')
-  a.href = href
-  a.download = name
-  a.rel = 'noopener'
-  a.click()
-}
-
-async function srcToBlob(src) {
-  if (src.startsWith('blob:') || src.startsWith('data:')) {
-    const res = await fetch(src)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.blob()
-  }
-  const res = await appFetch(src)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.blob()
-}
-
 async function downloadVideo(item, name) {
   const src = item?.videoUrl
   if (!src) {
@@ -159,7 +140,6 @@ async function downloadVideo(item, name) {
     return
   }
   const fileName = name || `video-${item.id}.mp4`
-  const mobileLike = !isDesktopTauri()
 
   if (isAndroidTauri()) {
     const preferRemote = /^https?:\/\//i.test(String(src).trim())
@@ -175,13 +155,9 @@ async function downloadVideo(item, name) {
         return
       }
     }
-  }
-
-  try {
-    const blob = await srcToBlob(src)
-    const mime = blob.type || 'video/mp4'
-
-    if (isAndroidTauri()) {
+    try {
+      const blob = await srcToBlob(src)
+      const mime = blob.type || 'video/mp4'
       const saved = await trySaveToAndroidGallery({
         src,
         blob,
@@ -193,45 +169,22 @@ async function downloadVideo(item, name) {
         message.success('已保存到相册')
         return
       }
-    }
-
-    const file = new File([blob], fileName, {type: mime})
-
-    if (
-      mobileLike &&
-      typeof navigator.canShare === 'function' &&
-      typeof navigator.share === 'function'
-    ) {
-      try {
-        if (navigator.canShare({files: [file]})) {
-          await navigator.share({files: [file], title: fileName})
-          message.success('已分享视频')
-          return
-        }
-      } catch (err) {
-        if (err?.name === 'AbortError') return
-      }
-    }
-
-    const objectUrl = URL.createObjectURL(blob)
-    try {
-      triggerAnchorDownload(objectUrl, fileName)
-      if (mobileLike) message.success('已开始下载')
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1500)
     } catch {
-      window.open(objectUrl, '_blank', 'noopener')
-      message.warning('下载失败，已尝试在新窗口打开')
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
-    }
-  } catch {
-    try {
-      triggerAnchorDownload(src, fileName)
-      if (mobileLike) message.success('已开始下载')
-    } catch {
-      window.open(src, '_blank', 'noopener')
-      message.warning('下载失败，已尝试在新窗口打开')
+      // fall through to shared download
     }
   }
+
+  await downloadMediaBlob({
+    src,
+    fileName,
+    message,
+    opts: {
+      enableShare: true,
+      shareTitle: fileName,
+      defaultMime: 'video/mp4',
+      mobileOpenHint: '下载失败，已尝试在新窗口打开',
+    },
+  })
 }
 
 async function onCardDownload() {

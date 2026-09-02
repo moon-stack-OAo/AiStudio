@@ -32,6 +32,7 @@
     "clean:dry": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1 -DryRun",
     "clean:all": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-cache.ps1 -IncludeNodeModules",
     "check:theme": "node ./scripts/check-theme-sync.mjs",
+    "check:version": "node ./scripts/check-version-sync.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

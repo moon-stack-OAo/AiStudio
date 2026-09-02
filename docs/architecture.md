@@ -26,15 +26,15 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 ### 2.1 `src/core`（应尽量收敛共享逻辑）
 
-| 路径                                                                | 职责                                                                                                                   |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `api/client.js`                                                     | 对话 / 生图 / 生视频 HTTP 调用；消费 image/video adapters                                                              |
-| `stores/`                                                           | `chat` · `image` · `video` · `settings`（Pinia）                                                                       |
-| `providers/profiles/`                                               | 协议能力声明（OpenAI / xAI / openai-compatible；部分网关如 Agnes 由 URL/模型自动识别）                                 |
-| `providers/adapters/image\|video/`                                  | 按 profile 组装请求体 / 路径 / 轮询方式                                                                                |
-| `providers/resolveProfile.js` · `capabilities.js`                   | 解析 profile、对外暴露能力                                                                                             |
-| `utils/`                                                            | `http`（`appFetch`）、`secret`、版本、更新、主题、存储等                                                               |
-| `composables/` · `components/` · `runtime/` · `styles/` · `router/` | 可复用组合式 API、共享 UI（如 `ComposerSendStop` / `ModelSelect`）、生成运行时、主题样式、共享路由表 `createAppRoutes` |
+| 路径                                                                                     | 职责                                                                                                                   |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `api/`（`client.js` 聚合导出；`chat` / `image` / `video` / `http` / `errors` / `probe`） | 对话 / 生图 / 生视频 HTTP；`client.js` 为兼容入口，实现已按模块拆分；消费 image/video adapters                         |
+| `stores/`                                                                                | `chat` · `image` · `video` · `settings`（Pinia）                                                                       |
+| `providers/profiles/`                                                                    | 协议能力声明（OpenAI / xAI / openai-compatible；部分网关如 Agnes 由 URL/模型自动识别）                                 |
+| `providers/adapters/image\|video/`                                                       | 按 profile 组装请求体 / 路径 / 轮询方式                                                                                |
+| `providers/resolveProfile.js` · `capabilities.js`                                        | 解析 profile、对外暴露能力                                                                                             |
+| `utils/`                                                                                 | `http`（`appFetch` + `urlSafety`）、`secret`、版本、更新、主题、存储、`chatPersist` 等                                 |
+| `composables/` · `components/` · `runtime/` · `styles/` · `router/`                      | 可复用组合式 API、共享 UI（如 `ComposerSendStop` / `ModelSelect`）、生成运行时、主题样式、共享路由表 `createAppRoutes` |
 
 别名：`@core` → `src/core`（见 `vite.desktop.config.js` / `vite.android.config.js`）。
 
@@ -73,12 +73,12 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 均在 `src/core/stores/`，双端共用：
 
-| Store  | 文件          | 要点                                                                        |
-| ------ | ------------- | --------------------------------------------------------------------------- |
-| 对话   | `chat.js`     | 会话列表、消息、本地 `localStorage`                                         |
-| 生图   | `image.js`    | 会话 / 气泡时间线；二进制可走 IndexedDB                                     |
-| 生视频 | `video.js`    | 任务进度、未完成恢复等                                                      |
-| 设置   | `settings.js` | 提供商列表、主题、更新偏好、上下文裁剪等；API Key 经 `secret.js` 混淆后落盘 |
+| Store  | 文件          | 要点                                                                                    |
+| ------ | ------------- | --------------------------------------------------------------------------------------- |
+| 对话   | `chat.js`     | 会话列表、消息、本地 `localStorage`；写入前体积守卫（会话/条数/字符预算），失败裁剪重试 |
+| 生图   | `image.js`    | 会话 / 气泡时间线；二进制可走 IndexedDB；sanitize 超长 `refPreview`                     |
+| 生视频 | `video.js`    | 任务进度、未完成恢复等；sanitize 超长 `refPreview`                                      |
+| 设置   | `settings.js` | 提供商列表、主题、更新偏好、上下文裁剪等；API Key 经 `secret.js` 混淆后落盘             |
 
 业务视图通过 Pinia 读写上述 store，经 `api/client.js` 访问上游。
 
@@ -119,7 +119,7 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 - **Tauri 运行时**：`@tauri-apps/plugin-http` 的 `fetch`，绕过 WebView CORS；并清空 `Origin`（避免部分上游拒请求）。
 - **浏览器**：原生 `fetch`。
-- 调用前执行 `assertSafeFetchUrl`：仅允许 `http`/`https`（相对路径、`blob:`、`data:` 放行）；拒绝常见云元数据主机（如 `169.254.169.254`、`metadata.google.internal`）。
+- 调用前执行 `assertSafeFetchUrl`（与 `vite.shared.js` 代理共用 `urlSafety.js`）：仅允许 `http`/`https`（相对路径、`blob:`、`data:` 放行）；拒绝云元数据 / 链路本地 `169.254.*` / IPv6 IMDS 等；localhost 与 RFC1918 为产品需要而放行。
 
 `api/client.js`、媒体下载、Android 更新清单拉取等统一走 `appFetch`。
 
@@ -153,10 +153,10 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 ## 8. 构建与发版流水线
 
-| 工作流                                                              | 触发                                  | 作用                                                                                                                                                      |
-| ------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)           | PR / 推送到 `main` · `master` · `dev` | Node 24：`check:theme`、`lint`、`test`、双端 Vite build；另 job `cargo check`（不做完整 Tauri 打包）。`format:check` 脚本已有，CI 中暂注释（待格式化 PR） |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | 推送 `v*` tag                         | Windows：NSIS/MSI + Updater 签名与 `latest.json`；Android：init → 同步原生源 → 正式签名 APK + `android-latest.json`；Release 正文从 `CHANGELOG.md` 截取   |
+| 工作流                                                              | 触发                                  | 作用                                                                                                                                                    |
+| ------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)           | PR / 推送到 `main` · `master` · `dev` | Node 24：`check:theme`、`check:version`、`lint`、`format:check`、`test`、双端 Vite build；另 job `cargo check`（不做完整 Tauri 打包）                   |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | 推送 `v*` tag                         | Windows：NSIS/MSI + Updater 签名与 `latest.json`；Android：init → 同步原生源 → 正式签名 APK + `android-latest.json`；Release 正文从 `CHANGELOG.md` 截取 |
 
 日常开发与合入**依赖 ci.yml**；不要指望只靠发版流水线发现前端 / 主题 / lint 问题。
 

@@ -1,11 +1,12 @@
 /**
  * 对话会话 Pinia store：多会话 CRUD、消息追加/更新、用户消息撤回。
- * 持久化键：chat_sessions
+ * 持久化键：chat_sessions；写入前做体积守卫，失败时降级裁剪后重试。
  */
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
-import {notifyStorageError} from '@core/utils/toast'
+import {notifyStorageError, notifyStorageWarning} from '@core/utils/toast'
+import {CHAT_PAYLOAD_RETRY_CHARS, prepareChatPersistPayload, sanitizeChatSession} from '@core/utils/chatPersist'
 
 function normalizeOverrides(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
@@ -37,20 +38,28 @@ function createSession(title = '新对话') {
 }
 
 function hydrateSession(s) {
-  return {
+  return sanitizeChatSession({
     ...s,
     overrides: normalizeOverrides(s?.overrides),
-  }
+  })
 }
 
 export const useChatStore = defineStore('chat', {
   state: () => {
     const saved = loadJSON('chat_sessions', null)
     if (saved?.sessions?.length) {
-      const sessions = saved.sessions.map(hydrateSession)
+      const prepared = prepareChatPersistPayload({
+        sessions: saved.sessions.map(hydrateSession),
+        activeId: saved.activeId,
+      })
+      const {sessions, activeId} = prepared.payload
+      const resolvedActive = activeId || sessions[0]?.id
+      if (prepared.trimmed) {
+        saveJSON('chat_sessions', {sessions, activeId: resolvedActive})
+      }
       return {
         sessions,
-        activeId: saved.activeId || sessions[0].id,
+        activeId: resolvedActive,
       }
     }
     const session = createSession()
@@ -68,13 +77,50 @@ export const useChatStore = defineStore('chat', {
     },
   },
   actions: {
+    /**
+     * 写入 localStorage：先标准裁剪；失败则更激进裁剪后重试一次，并同步内存态。
+     * @returns {boolean}
+     */
     persist() {
-      const ok = saveJSON('chat_sessions', {
+      const beforeSessionCount = this.sessions.length
+      const first = prepareChatPersistPayload({
         sessions: this.sessions,
         activeId: this.activeId,
       })
-      if (!ok) notifyStorageError('对话记录写入本地失败，刷新后可能丢失')
-      return ok
+      let payload = first.payload
+      let usedRetry = false
+      let ok = saveJSON('chat_sessions', payload)
+
+      if (!ok) {
+        const retry = prepareChatPersistPayload(
+          {sessions: this.sessions, activeId: this.activeId},
+          {maxPayloadChars: CHAT_PAYLOAD_RETRY_CHARS, maxMessagesPerSession: 80, maxSessions: 20},
+        )
+        payload = retry.payload
+        usedRetry = true
+        ok = saveJSON('chat_sessions', payload)
+      }
+
+      if (ok) {
+        const didTrim = first.trimmed || usedRetry
+        // 仅在实际裁剪时回写内存，避免无谓替换消息对象引用打断流式更新
+        if (didTrim) {
+          this.sessions = payload.sessions
+          this.activeId = payload.activeId || payload.sessions[0]?.id || this.activeId
+          const parts = []
+          if (payload.sessions.length < beforeSessionCount || first.droppedSessions > 0) {
+            parts.push('已清理部分旧会话')
+          }
+          parts.push(
+            usedRetry ? '写入失败后已强制精简并重试成功' : '已自动精简过长或过多的旧内容以便保存',
+          )
+          notifyStorageWarning(`会话过多或过长，${parts.join('；')}。建议手动删除不用的会话`)
+        }
+        return true
+      }
+
+      notifyStorageError('对话记录写入本地失败，已尝试裁剪仍无法保存，请删除旧会话后重试')
+      return false
     },
     createSession(title) {
       const session = createSession(title)

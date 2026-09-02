@@ -36,6 +36,9 @@ jobs:
       - name: Check theme sync
         run: npm run check:theme
 
+      - name: Check version sync
+        run: npm run check:version
+
       - name: Lint
         run: npm run lint
 

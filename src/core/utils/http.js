@@ -1,5 +1,8 @@
 import {fetch as tauriFetch} from '@tauri-apps/plugin-http'
 import {isTauri} from '@core/utils/request'
+import {assertSafeHttpUrl} from '@core/utils/urlSafety'
+
+export {warnUnsafeUrl} from '@core/utils/urlSafety'
 
 /**
  * 合并请求头，并清空 Origin（plugin-http 会删除空 Origin）。
@@ -43,8 +46,8 @@ function resolveRequestUrl(input) {
 }
 
 /**
- * 拒绝明显危险目标。
- * 自定义中转 Base URL 是产品需求，capabilities 仍需较宽；此处做前端兜底校验。
+ * 拒绝明显危险目标（与开发代理黑名单对齐）。
+ * 自定义中转 Base URL 是产品需求：localhost / RFC1918 仍放行，见 warnUnsafeUrl。
  */
 export function assertSafeFetchUrl(input) {
   const raw = resolveRequestUrl(input)
@@ -57,13 +60,10 @@ export function assertSafeFetchUrl(input) {
   } catch {
     throw new Error('无效的请求地址')
   }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('仅允许 http/https 请求')
-  }
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  if (host === '169.254.169.254' || host === 'metadata.google.internal' || host === 'metadata') {
-    throw new Error('拒绝访问云元数据地址')
-  }
+  assertSafeHttpUrl(url, {
+    protocolMessage: '仅允许 http/https 请求',
+    blockedMessage: '拒绝访问云元数据或受保护地址',
+  })
 }
 
 /**
