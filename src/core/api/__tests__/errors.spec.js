@@ -50,4 +50,17 @@ describe('toErrorMessage', () => {
     expect(toErrorMessage(null, '兜底')).toBe('兜底')
     expect(toErrorMessage(undefined)).toBe('未知错误')
   })
+
+  it('无 Bearer 前缀的裸 sk-/xai-/gsk_ Key 也脱敏', () => {
+    expect(toErrorMessage('invalid key sk-proj-AbCdEfGhIjKlMnOpQrSt')).not.toContain(
+      'sk-proj-AbCdEfGhIjKlMnOpQrSt',
+    )
+    expect(toErrorMessage('bad xai-AbCdEfGhIjKlMnOpQr123')).not.toContain(
+      'xai-AbCdEfGhIjKlMnOpQr123',
+    )
+    expect(toErrorMessage('denied gsk_AbCdEfGhIjKlMnOpQrStUv')).not.toContain(
+      'gsk_AbCdEfGhIjKlMnOpQrStUv',
+    )
+    expect(toErrorMessage('invalid key sk-proj-AbCdEfGhIjKlMnOpQrSt')).toContain('***')
+  })
 })

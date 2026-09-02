@@ -5,6 +5,7 @@ import {
   extractApiErrorMessage,
   httpStatusErrorMessage,
   isAbortLike,
+  sanitizeErrorText,
   toAbortError,
   toErrorMessage,
 } from './errors.js'
@@ -106,7 +107,10 @@ export async function streamChatCompletions(
     })
   } catch (error) {
     if (isAbortLike(error, signal)) throw toAbortError()
-    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+    throw new Error(
+      sanitizeErrorText(formatNetworkError(error, useCorsProxy) || toErrorMessage(error), '') ||
+        '请求失败，请稍后重试',
+    )
   }
 
   if (!res.ok) {
@@ -121,7 +125,10 @@ export async function streamChatCompletions(
     } catch {
       // ignore
     }
-    throw new Error(httpStatusErrorMessage(res.status, message) || message)
+    throw new Error(
+      sanitizeErrorText(httpStatusErrorMessage(res.status, message) || message, '') ||
+        `HTTP ${res.status}`,
+    )
   }
 
   const reader = res.body?.getReader()
@@ -151,7 +158,7 @@ export async function streamChatCompletions(
       const json = JSON.parse(payload)
       const streamErr = extractApiErrorMessage(json)
       if (streamErr && (json.error || json.code || !json.choices)) {
-        throw new Error(streamErr)
+        throw new Error(sanitizeErrorText(streamErr, '') || '流式响应错误')
       }
       const choice = json.choices?.[0]
       const delta =

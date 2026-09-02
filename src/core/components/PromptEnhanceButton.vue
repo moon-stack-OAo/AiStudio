@@ -2,6 +2,7 @@
 import {computed} from 'vue'
 import {SparklesOutline} from '@vicons/ionicons5'
 import {useMessage} from 'naive-ui'
+import {toErrorMessage} from '@core/api/client'
 import {usePromptEnhance} from '@core/composables/usePromptEnhance'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 
@@ -49,10 +50,10 @@ async function onClick() {
       return
     }
     if (err?.name === 'TimeoutError') {
-      message.error(err.message || '优化超时，请稍后重试')
+      message.error(toErrorMessage(err, '优化超时，请稍后重试'))
       return
     }
-    message.error(err?.message || '优化失败')
+    message.error(toErrorMessage(err, '优化失败'))
   }
 }
 </script>

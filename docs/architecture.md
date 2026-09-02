@@ -119,7 +119,7 @@ src-tauri/        # Tauri 配置、Rust、持久 Android 原生源（android/）
 
 - **Tauri 运行时**：`@tauri-apps/plugin-http` 的 `fetch`，绕过 WebView CORS；并清空 `Origin`（避免部分上游拒请求）。
 - **浏览器**：原生 `fetch`。
-- 调用前执行 `assertSafeFetchUrl`（与 `vite.shared.js` 代理共用 `urlSafety.js`）：仅允许 `http`/`https`（相对路径、`blob:`、`data:` 放行）；拒绝云元数据 / 链路本地 `169.254.*` / IPv6 IMDS 等；localhost 与 RFC1918 为产品需要而放行。
+- 调用前执行 `assertSafeFetchUrl`（与 `vite.shared.js` 代理共用 `urlSafety.js`）：仅允许 `http`/`https`（相对路径、`blob:`、`data:` 放行）；拒绝云元数据 / 链路本地 `169.254.*` / IPv6 IMDS 等；localhost 与 RFC1918 为产品需要而放行。打包态另有 `capabilities` `http:default` 的 `deny` 硬拦（与 JS 同目标；redirect 不复验，见 `SECURITY.md`）。
 
 `api/client.js`、媒体下载、Android 更新清单拉取等统一走 `appFetch`。
 

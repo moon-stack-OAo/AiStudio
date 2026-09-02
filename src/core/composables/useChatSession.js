@@ -407,7 +407,15 @@ export function useChatSession(options = {}) {
       content: '确定清空当前会话的所有消息？',
       positiveText: '清空',
       negativeText: '取消',
-      onPositiveClick: () => chatStore.clearMessages(session.value.id),
+      onPositiveClick: () => {
+        const sessionId = session.value.id
+        cancelStreamUiSchedule()
+        if (gen.isCurrent(sessionId)) {
+          gen.abort()
+          gen.end(sessionId)
+        }
+        chatStore.clearMessages(sessionId)
+      },
     })
   }
 

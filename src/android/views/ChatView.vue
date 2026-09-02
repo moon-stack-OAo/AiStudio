@@ -2,11 +2,11 @@
 defineOptions({name: 'ChatView'})
 
 import {computed, ref} from 'vue'
-import {AddOutline, ArrowUndoOutline, EllipsisHorizontalOutline} from '@vicons/ionicons5'
+import {AddOutline, ArrowUndoOutline} from '@vicons/ionicons5'
 import {useMessage} from 'naive-ui'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
-import SessionHistoryButton from '@/components/SessionHistoryButton.vue'
+import SessionTopBar from '@/components/SessionTopBar.vue'
 import MarkdownRenderer from '@core/components/MarkdownRenderer.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
@@ -105,20 +105,12 @@ function focusComposerInput() {
     @select="selectSession"
   >
     <template #toolbar="{openHistory}">
-      <div class="chat-toolbar app-top">
-        <SessionHistoryButton :count="chatStore.sessions.length" @click="openHistory" />
-        <div class="top-title-block">
-          <h1 class="top-title">{{ sessionTitle || '对话' }}</h1>
-        </div>
-        <button
-          aria-label="更多"
-          class="top-more touch-target"
-          type="button"
-          @click="moreShow = true"
-        >
-          <n-icon :component="EllipsisHorizontalOutline" :size="18" />
-        </button>
-      </div>
+      <SessionTopBar
+        :history-count="chatStore.sessions.length"
+        :title="sessionTitle || '对话'"
+        @more="moreShow = true"
+        @open-history="openHistory"
+      />
     </template>
 
     <div ref="listRef" class="message-list">

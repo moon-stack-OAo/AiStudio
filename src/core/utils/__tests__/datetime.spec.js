@@ -1,10 +1,29 @@
 import {describe, expect, it, vi, afterEach} from 'vitest'
-import {formatBatchSectionLabel, formatClockTime, formatRelativeSessionTime} from '../datetime'
+import {
+  formatBatchSectionLabel,
+  formatClockTime,
+  formatDayLabel,
+  formatRelativeSessionTime,
+} from '../datetime'
 
 describe('formatClockTime', () => {
   it('formats HH:mm', () => {
     expect(formatClockTime(new Date(2026, 0, 1, 9, 5).getTime())).toBe('09:05')
     expect(formatClockTime(new Date(2026, 0, 1, 23, 59).getTime())).toBe('23:59')
+  })
+})
+
+describe('formatDayLabel', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('labels today / yesterday / M/D', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 8, 2, 12, 0, 0))
+    expect(formatDayLabel(new Date(2026, 8, 2, 10, 24).getTime())).toBe('今天')
+    expect(formatDayLabel(new Date(2026, 8, 1, 22, 10).getTime())).toBe('昨天')
+    expect(formatDayLabel(new Date(2026, 7, 15, 8, 0).getTime())).toBe('8/15')
   })
 })
 

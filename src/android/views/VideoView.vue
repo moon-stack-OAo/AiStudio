@@ -13,7 +13,7 @@ import {
   TrashOutline,
 } from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
-import SessionHistoryButton from '@/components/SessionHistoryButton.vue'
+import SessionTopBar from '@/components/SessionTopBar.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
 import CopyIconButton from '@core/components/CopyIconButton.vue'
 import ComposerSendStop from '@core/components/ComposerSendStop.vue'
@@ -23,9 +23,19 @@ import PromptBuilderPanel from '@core/components/PromptBuilderPanel.vue'
 import {useVideoSession} from '@core/composables/useVideoSession'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {getPromptPlaceholder} from '@core/prompts'
-import {downloadMediaBlob, srcToBlob} from '@core/composables/useMediaDownload'
+import {
+  downloadMediaBlob,
+  resolveVideoDownloadSrc,
+  resolveVideoFallbackSrc,
+  srcToBlob,
+} from '@core/composables/useMediaDownload'
 import {isAndroidTauri} from '@core/utils/request'
 import {trySaveToAndroidGallery} from '@core/utils/androidMediaSave'
+import {
+  buildBubbleMetaParts,
+  buildCardHdMeta,
+  buildDayGroupedTimelineRows,
+} from '@core/utils/mediaTimeline'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
 
@@ -121,37 +131,7 @@ const durationCapLabel = computed(() => {
 
 const sizeCapLabel = computed(() => sizeLabel.value || '画幅')
 
-const timelineRows = computed(() => {
-  const rows = []
-  let lastDay = null
-  for (const item of timelineItems.value) {
-    const label = formatDayLabel(item.createdAt)
-    if (label !== lastDay) {
-      rows.push({kind: 'day', id: `day-${label}-${item.id}`, label})
-      lastDay = label
-    }
-    rows.push({kind: 'item', id: item.id, item})
-  }
-  return rows
-})
-
-function formatDayLabel(ts) {
-  const t = Number(ts) || Date.now()
-  const d = new Date(t)
-  const now = new Date()
-  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const startYesterday = startToday - 86400000
-  if (t >= startToday) return '今天'
-  if (t >= startYesterday) return '昨天'
-  return `${d.getMonth() + 1}/${d.getDate()}`
-}
-
-function formatItemTime(ts) {
-  const d = new Date(Number(ts) || Date.now())
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  return `${hh}:${mm}`
-}
+const timelineRows = computed(() => buildDayGroupedTimelineRows(timelineItems.value))
 
 function progressLabel(item) {
   const p = Number(item?.progress)
@@ -160,25 +140,15 @@ function progressLabel(item) {
 }
 
 function cardHdMeta(item) {
-  const parts = []
-  parts.push(formatItemTime(item.createdAt))
-  const summary = paramSummary(item)
-  if (summary) parts.push(summary)
-  return parts.join(' · ')
+  return buildCardHdMeta({createdAt: item?.createdAt, summary: paramSummary(item)})
 }
 
 function bubbleMetaParts(item) {
-  const parts = [
-    item?.mode === 'img2video' ? '图生视频' : '文生视频',
-    formatItemTime(item?.createdAt),
-  ]
-  const summary = paramSummary(item)
-  if (summary) {
-    for (const part of String(summary).split(' · ')) {
-      if (part) parts.push(part)
-    }
-  }
-  return parts
+  return buildBubbleMetaParts({
+    modeLabel: item?.mode === 'img2video' ? '图生视频' : '文生视频',
+    createdAt: item?.createdAt,
+    summary: paramSummary(item),
+  })
 }
 
 function onToolbarCreate() {
@@ -217,12 +187,13 @@ function openCardActions(item) {
 }
 
 async function downloadVideo(item, name) {
-  const src = item?.videoUrl
+  const src = resolveVideoDownloadSrc(item)
   if (!src) {
     message.warning('视频不可用，请重新生成')
     return
   }
   const fileName = name || `video-${item.id}.mp4`
+  const fallbackSrc = resolveVideoFallbackSrc(item)
 
   if (isAndroidTauri()) {
     const preferRemote = /^https?:\/\//i.test(String(src).trim())
@@ -266,6 +237,7 @@ async function downloadVideo(item, name) {
       shareTitle: fileName,
       defaultMime: 'video/mp4',
       mobileOpenHint: '下载失败，已尝试在新窗口打开',
+      fallbackSrc,
     },
   })
 }
@@ -328,20 +300,12 @@ async function onAgainBatch(item) {
     @select="selectSession"
   >
     <template #toolbar="{openHistory}">
-      <div class="video-toolbar app-top">
-        <SessionHistoryButton :count="videoStore.sessions.length" @click="openHistory" />
-        <div class="top-title-block">
-          <h1 class="top-title">{{ sessionTitle || '视频' }}</h1>
-        </div>
-        <button
-          aria-label="更多"
-          class="top-more touch-target"
-          type="button"
-          @click="moreShow = true"
-        >
-          <n-icon :component="EllipsisHorizontalOutline" :size="18" />
-        </button>
-      </div>
+      <SessionTopBar
+        :history-count="videoStore.sessions.length"
+        :title="sessionTitle || '视频'"
+        @more="moreShow = true"
+        @open-history="openHistory"
+      />
     </template>
 
     <div class="param-capsule" aria-label="参数胶囊">

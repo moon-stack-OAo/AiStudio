@@ -4,6 +4,32 @@ import {appFetch} from '@core/utils/http'
 import {isDesktopTauri} from '@core/utils/request'
 
 /**
+ * 视频下载主地址：优先 videoUrl，否则可用的 https remoteVideoUrl。
+ * @param {{ videoUrl?: string, remoteVideoUrl?: string }|null|undefined} item
+ * @returns {string}
+ */
+export function resolveVideoDownloadSrc(item) {
+  const primary = typeof item?.videoUrl === 'string' ? item.videoUrl.trim() : ''
+  const remote = typeof item?.remoteVideoUrl === 'string' ? item.remoteVideoUrl.trim() : ''
+  const remoteOk = /^https?:\/\//i.test(remote) ? remote : ''
+  if (primary) return primary
+  return remoteOk
+}
+
+/**
+ * 视频下载回退地址：与主地址不同的 https remoteVideoUrl。
+ * @param {{ videoUrl?: string, remoteVideoUrl?: string }|null|undefined} item
+ * @returns {string}
+ */
+export function resolveVideoFallbackSrc(item) {
+  const primary = typeof item?.videoUrl === 'string' ? item.videoUrl.trim() : ''
+  const remote = typeof item?.remoteVideoUrl === 'string' ? item.remoteVideoUrl.trim() : ''
+  const remoteOk = /^https?:\/\//i.test(remote) ? remote : ''
+  if (remoteOk && remoteOk !== primary) return remoteOk
+  return ''
+}
+
+/**
  * 将图片/视频 src（blob / data / http）转为 Blob。
  * @param {string} src
  * @returns {Promise<Blob>}

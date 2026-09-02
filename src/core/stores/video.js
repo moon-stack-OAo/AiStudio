@@ -1,12 +1,18 @@
 /**
  * 视频会话 Pinia store：任务条目、进度与未完成任务恢复（resumePendingJobs）。
- * 持久化键：video_sessions；hydrate 时有 jobId 的 loading → pending_resume。
+ * 持久化键：video_sessions；写入前做体积守卫，hydrate 时有 jobId 的 loading → pending_resume。
  */
 import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
-import {notifyStorageError} from '@core/utils/toast'
+import {notifyStorageError, notifyStorageWarning} from '@core/utils/toast'
 import {toErrorMessage, waitVideoJob} from '@core/api/client'
+import {
+  VIDEO_PERSIST_LIMITS,
+  VIDEO_PERSIST_RETRY,
+  collectDroppedMediaItems,
+  prepareMediaPersistPayload,
+} from '@core/utils/mediaPersist'
 
 function createSession(title = '新视频') {
   return {
@@ -81,13 +87,6 @@ function hydrateVideoUrls(sessions) {
   }))
 }
 
-function sanitizeSessions(sessions) {
-  return (sessions || []).map((session) => ({
-    ...session,
-    items: (session.items || []).map(sanitizeItem),
-  }))
-}
-
 /** hydrate：有 jobId 的 loading 标为 pending_resume；无 jobId 标 error */
 function hydrateLoadingItems(sessions) {
   return (sessions || []).map((session) => ({
@@ -111,19 +110,38 @@ function hydrateLoadingItems(sessions) {
   }))
 }
 
+function prepareVideoPayload(raw, limits = VIDEO_PERSIST_LIMITS) {
+  return prepareMediaPersistPayload(raw, {
+    ...limits,
+    sanitizeItem,
+  })
+}
+
 export const useVideoStore = defineStore('video', {
   state: () => {
     const saved = loadJSON('video_sessions', null)
     if (saved?.sessions?.length) {
-      const sessions = hydrateVideoUrls(hydrateLoadingItems(sanitizeSessions(saved.sessions)))
-      const activeId = saved.activeId || saved.sessions[0].id
+      const hydrated = hydrateVideoUrls(
+        hydrateLoadingItems(
+          (saved.sessions || []).map((session) => ({
+            ...session,
+            items: (session.items || []).map(sanitizeItem),
+          })),
+        ),
+      )
+      const prepared = prepareVideoPayload({
+        sessions: hydrated,
+        activeId: saved.activeId,
+      })
+      const {sessions, activeId} = prepared.payload
+      const resolvedActive = activeId || sessions[0]?.id
       const changed = (saved.sessions || []).some((s) =>
         (s.items || []).some((i) => i?.status === 'loading'),
       )
-      if (changed) {
-        saveJSON('video_sessions', {sessions, activeId})
+      if (prepared.trimmed || changed) {
+        saveJSON('video_sessions', {sessions, activeId: resolvedActive})
       }
-      return {sessions, activeId}
+      return {sessions, activeId: resolvedActive}
     }
     const session = createSession()
     return {
@@ -151,13 +169,52 @@ export const useVideoStore = defineStore('video', {
     },
   },
   actions: {
+    /**
+     * 写入 localStorage：先标准裁剪；失败则更激进裁剪后重试一次，并同步内存态。
+     * @returns {boolean}
+     */
     persist() {
-      const ok = saveJSON('video_sessions', {
+      const beforeSessions = this.sessions
+      const beforeSessionCount = beforeSessions.length
+      const first = prepareVideoPayload({
         sessions: this.sessions,
         activeId: this.activeId,
       })
-      if (!ok) notifyStorageError('视频记录写入本地失败，刷新后可能丢失')
-      return ok
+      let payload = first.payload
+      let usedRetry = false
+      let ok = saveJSON('video_sessions', payload)
+
+      if (!ok) {
+        const retry = prepareVideoPayload(
+          {sessions: this.sessions, activeId: this.activeId},
+          VIDEO_PERSIST_RETRY,
+        )
+        payload = retry.payload
+        usedRetry = true
+        ok = saveJSON('video_sessions', payload)
+      }
+
+      if (ok) {
+        const didTrim = first.trimmed || usedRetry
+        if (didTrim) {
+          const dropped = collectDroppedMediaItems(beforeSessions, payload.sessions)
+          dropped.forEach(revokeItemVideoUrl)
+          this.sessions = payload.sessions
+          this.activeId = payload.activeId || payload.sessions[0]?.id || this.activeId
+          const parts = []
+          if (payload.sessions.length < beforeSessionCount || first.droppedSessions > 0) {
+            parts.push('已清理部分旧会话')
+          }
+          parts.push(
+            usedRetry ? '写入失败后已强制精简并重试成功' : '已自动精简过长或过多的旧内容以便保存',
+          )
+          notifyStorageWarning(`视频记录过多，${parts.join('；')}。建议手动删除不用的会话`)
+        }
+        return true
+      }
+
+      notifyStorageError('视频记录写入本地失败，已尝试裁剪仍无法保存，请删除旧会话后重试')
+      return false
     },
     createSession(title) {
       const session = createSession(title)
@@ -349,10 +406,11 @@ export const useVideoStore = defineStore('video', {
             this.updateItem(sessionId, item.id, {
               status: 'pending_resume',
               needsResume: true,
-              // 优先保留 stopGenerate 等已写入的说明
               errorMessage: live?.errorMessage || item.errorMessage || '已停止轮询，可手动恢复',
             })
-            throw e
+            results.push({sessionId, itemId: item.id, error: e})
+            // 共享 signal 中止：结束本批，未开始的项仍保持 pending_resume，不整批抛错
+            break
           }
           const isTimeout = e?.name === 'TimeoutError' || e?.code === 'VIDEO_JOB_TIMEOUT'
           if (isTimeout) {

@@ -104,8 +104,11 @@ fn assert_download_url(url: &str) -> Result<reqwest::Url, String> {
     if parsed.scheme() != "https" && parsed.scheme() != "http" {
         return Err("仅允许 http/https 下载".into());
     }
-    if parsed.host_str().is_none() {
+    let Some(host) = parsed.host_str() else {
         return Err("下载地址缺少 host".into());
+    };
+    if crate::url_safety::is_blocked_fetch_host(host) {
+        return Err("拒绝访问云元数据或受保护地址".into());
     }
     Ok(parsed)
 }

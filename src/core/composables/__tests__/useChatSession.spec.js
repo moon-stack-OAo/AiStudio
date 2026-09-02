@@ -1,5 +1,53 @@
-import {describe, expect, it} from 'vitest'
-import {formatChatContextHint} from '@core/composables/useChatSession'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {createPinia, setActivePinia} from 'pinia'
+import {effectScope} from 'vue'
+import {formatChatContextHint, useChatSession} from '@core/composables/useChatSession'
+import {chatGeneration} from '@core/runtime/generationRuntime'
+import {useChatStore} from '@core/stores/chat'
+
+const dialogState = vi.hoisted(() => ({
+  lastWarning: null,
+}))
+
+vi.mock('vue', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    onMounted: vi.fn(),
+    onActivated: vi.fn(),
+    onBeforeUnmount: vi.fn(),
+  }
+})
+
+vi.mock('naive-ui', () => ({
+  useMessage: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
+  useDialog: () => ({
+    warning: (opts) => {
+      dialogState.lastWarning = opts
+      return {}
+    },
+  }),
+}))
+
+vi.mock('@core/utils/storage', () => ({
+  loadJSON: vi.fn((_key, fallback = null) => fallback),
+  saveJSON: vi.fn(() => true),
+}))
+
+vi.mock('@core/utils/toast', () => ({
+  notifyStorageError: vi.fn(),
+  notifyStorageWarning: vi.fn(),
+}))
+
+vi.mock('@core/api/client', () => ({
+  streamChatCompletions: vi.fn(),
+  toErrorMessage: (e, fb) => e?.message || fb || 'err',
+}))
 
 describe('formatChatContextHint', () => {
   it('full: truncated', () => {
@@ -152,5 +200,35 @@ describe('formatChatContextHint', () => {
         'full',
       ),
     ).toBe('')
+  })
+})
+
+describe('useChatSession clearMessages', () => {
+  beforeEach(() => {
+    dialogState.lastWarning = null
+    chatGeneration.end(chatGeneration.sessionId)
+    setActivePinia(createPinia())
+  })
+
+  it('清空确认时 abort 当前会话流并释放 busy', () => {
+    const chatStore = useChatStore()
+    const sessionId = chatStore.activeId
+    chatStore.appendMessage(sessionId, {role: 'user', content: 'hi'})
+    chatStore.appendMessage(sessionId, {role: 'assistant', content: '…', streaming: true})
+
+    const controller = new AbortController()
+    chatGeneration.begin(sessionId, controller)
+    expect(chatGeneration.busy).toBe(true)
+
+    const scope = effectScope(true)
+    const api = scope.run(() => useChatSession())
+    api.clearMessages()
+    expect(dialogState.lastWarning?.positiveText).toBe('清空')
+    dialogState.lastWarning.onPositiveClick()
+
+    expect(controller.signal.aborted).toBe(true)
+    expect(chatGeneration.busy).toBe(false)
+    expect(chatStore.activeSession.messages).toEqual([])
+    scope.stop()
   })
 })

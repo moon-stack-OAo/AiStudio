@@ -12,6 +12,23 @@ export function formatClockTime(ts) {
 }
 
 /**
+ * 时间线日分隔：今天 / 昨天 / M/D
+ * @param {number|string|Date} [ts]
+ * @returns {string}
+ */
+export function formatDayLabel(ts) {
+  const t = Number(ts) || Date.now()
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startYesterday = startToday - 86_400_000
+  if (t >= startToday) return '今天'
+  if (t >= startYesterday) return '昨天'
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+/**
  * 生图画廊批次分区标题：今日批次 · HH:mm / 昨天 · HH:mm / M/D · HH:mm
  * @param {number|string|Date} [ts]
  * @returns {string}

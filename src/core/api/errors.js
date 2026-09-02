@@ -34,6 +34,9 @@ export function sanitizeErrorText(text, fallback = '') {
   s = s
     .replace(/Bearer\s+[A-Za-z0-9._\-]+/gi, 'Bearer ***')
     .replace(/(api[_-]?key["']?\s*[:=]\s*["']?)[A-Za-z0-9._\-]+/gi, '$1***')
+    .replace(/\bsk-[A-Za-z0-9_-]{10,}\b/gi, '***')
+    .replace(/\bxai-[A-Za-z0-9_-]{10,}\b/gi, '***')
+    .replace(/\bgsk_[A-Za-z0-9_-]{10,}\b/gi, '***')
   if (s.length > MAX_ERROR_TEXT_LEN) {
     s = `${s.slice(0, MAX_ERROR_TEXT_LEN)}…`
   }

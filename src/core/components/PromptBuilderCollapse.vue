@@ -93,29 +93,8 @@ function toggle() {
 }
 
 .prompt-builder-collapse-body {
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 0 10px 10px;
+  padding: 10px;
   border-top: 1px solid var(--border-muted);
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-
-  &::-webkit-scrollbar {
-    width: var(--scrollbar-size);
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border-radius: 999px;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover);
-  }
-
-  &::-webkit-scrollbar-thumb:active {
-    background: var(--scrollbar-thumb-active);
-  }
 }
 
 .prompt-builder-collapse.compact {
@@ -128,8 +107,7 @@ function toggle() {
   }
 
   .prompt-builder-collapse-body {
-    max-height: 180px;
-    padding: 0 8px 8px;
+    padding: 8px;
   }
 }
 </style>

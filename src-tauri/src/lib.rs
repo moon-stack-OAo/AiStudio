@@ -1,5 +1,7 @@
 //! AI Studio 入口：桌面端含托盘与关闭行为；移动端仅保留 HTTP 等通用能力
 
+mod url_safety;
+
 #[cfg(desktop)]
 mod tray;
 

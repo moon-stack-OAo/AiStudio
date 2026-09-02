@@ -21,7 +21,11 @@ import GenerateParamsPanel from '@/components/generate/GenerateParamsPanel.vue'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {useVideoSession} from '@core/composables/useVideoSession'
-import {downloadMediaBlob} from '@core/composables/useMediaDownload'
+import {
+  downloadMediaBlob,
+  resolveVideoDownloadSrc,
+  resolveVideoFallbackSrc,
+} from '@core/composables/useMediaDownload'
 import {useManualDropdown} from '@/composables/useManualDropdown'
 import {getPromptPlaceholder} from '@core/prompts'
 import {renderSelectLabel} from '@core/utils/selectRender'
@@ -226,22 +230,6 @@ function onKeydown(e) {
     e.preventDefault()
     generate()
   }
-}
-
-function resolveVideoDownloadSrc(item) {
-  const primary = typeof item?.videoUrl === 'string' ? item.videoUrl.trim() : ''
-  const remote = typeof item?.remoteVideoUrl === 'string' ? item.remoteVideoUrl.trim() : ''
-  const remoteOk = /^https?:\/\//i.test(remote) ? remote : ''
-  if (primary) return primary
-  return remoteOk
-}
-
-function resolveVideoFallbackSrc(item) {
-  const primary = typeof item?.videoUrl === 'string' ? item.videoUrl.trim() : ''
-  const remote = typeof item?.remoteVideoUrl === 'string' ? item.remoteVideoUrl.trim() : ''
-  const remoteOk = /^https?:\/\//i.test(remote) ? remote : ''
-  if (remoteOk && remoteOk !== primary) return remoteOk
-  return ''
 }
 
 async function downloadVideo(item, name) {

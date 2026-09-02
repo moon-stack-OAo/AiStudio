@@ -12,6 +12,7 @@ import {
   HTTP_413_HINT,
   httpStatusErrorMessage,
   isAbortLike,
+  sanitizeErrorText,
   toAbortError,
   toErrorMessage,
 } from './errors.js'
@@ -149,11 +150,19 @@ export async function materializeRemoteVideoUrl(url, signal) {
     })
   } catch (error) {
     if (isAbortLike(error, signal)) throw toAbortError()
-    throw new Error(formatNetworkError(error, false) || toErrorMessage(error, '下载视频失败'))
+    throw new Error(
+      sanitizeErrorText(
+        formatNetworkError(error, false) || toErrorMessage(error, '下载视频失败'),
+        '',
+      ) || '下载视频失败',
+    )
   }
   if (!res.ok) {
     throw new Error(
-      httpStatusErrorMessage(res.status, `HTTP ${res.status}`) || `HTTP ${res.status}`,
+      sanitizeErrorText(
+        httpStatusErrorMessage(res.status, `HTTP ${res.status}`) || `HTTP ${res.status}`,
+        '',
+      ) || `HTTP ${res.status}`,
     )
   }
 
@@ -316,7 +325,10 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
     })
   } catch (error) {
     if (isAbortLike(error, signal)) throw toAbortError()
-    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+    throw new Error(
+      sanitizeErrorText(formatNetworkError(error, useCorsProxy) || toErrorMessage(error), '') ||
+        '请求失败，请稍后重试',
+    )
   }
   if (!res.ok) {
     let message = `HTTP ${res.status}`
@@ -330,7 +342,10 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
     } catch {
       // ignore
     }
-    throw new Error(httpStatusErrorMessage(res.status, message) || message)
+    throw new Error(
+      sanitizeErrorText(httpStatusErrorMessage(res.status, message) || message, '') ||
+        `HTTP ${res.status}`,
+    )
   }
   const blob = await res.blob()
   if (!blob || blob.size === 0) {

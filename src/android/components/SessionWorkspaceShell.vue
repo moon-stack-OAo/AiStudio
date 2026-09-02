@@ -87,8 +87,8 @@ defineExpose({openHistory})
   min-height: calc(44px + var(--safe-top));
   display: flex;
   align-items: center;
-  padding: var(--safe-top) calc(14px + var(--safe-right)) 8px calc(14px + var(--safe-left));
-  border-bottom: 0;
+  padding: var(--safe-top) calc(14px + var(--safe-right)) 6px calc(14px + var(--safe-left));
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
   background: var(--color-bg, var(--color-titlebar));
 }
 </style>

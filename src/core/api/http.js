@@ -1,6 +1,6 @@
 import axios from 'axios'
 import {appFetch} from '@core/utils/http'
-import {formatNetworkError, isTauri, proxyHeaders, resolveBaseUrl} from '@core/utils/request'
+import {formatNetworkError, proxyHeaders, resolveBaseUrl} from '@core/utils/request'
 import {API_TIMEOUT_MS} from '@core/utils/constants'
 import {
   extractApiErrorMessage,
@@ -24,7 +24,7 @@ export function authHeaders(apiKey, extra = {}) {
 
 export function buildAxiosConfig(provider) {
   const useCorsProxy = Boolean(provider.useCorsProxy)
-  const config = {
+  return {
     baseURL: resolveBaseUrl(provider.baseUrl, useCorsProxy),
     timeout: API_TIMEOUT_MS,
     headers: proxyHeaders(
@@ -34,20 +34,15 @@ export function buildAxiosConfig(provider) {
         'Content-Type': 'application/json',
       }),
     ),
-  }
-
-  // 桌面端：axios 走 Tauri Rust HTTP，不受 WebView CORS 限制
-  if (isTauri()) {
-    config.adapter = 'fetch'
-    config.env = {
+    // 双端统一走 appFetch，确保 assertSafeFetchUrl 对 JSON API 路径也生效
+    adapter: 'fetch',
+    env: {
       fetch: appFetch,
       Request,
       Response,
       Headers,
-    }
+    },
   }
-
-  return config
 }
 
 /**
@@ -78,8 +73,14 @@ export function createApiClient(provider) {
       msg = sanitizeErrorText(msg, '') || '请求失败，请稍后重试'
       const wrapped = new Error(msg)
       wrapped.status = status
-      wrapped.response = error.response
       wrapped.code = error.code
+      const safeData = sanitizeErrorText(fromBody, '')
+      if (status != null || safeData) {
+        wrapped.response = {
+          status,
+          ...(safeData ? {data: safeData} : {}),
+        }
+      }
       return Promise.reject(wrapped)
     },
   )
@@ -110,7 +111,10 @@ export async function postMultipart(provider, path, form, signal, timeout = API_
     })
   } catch (error) {
     if (isAbortLike(error, signal)) throw toAbortError()
-    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+    throw new Error(
+      sanitizeErrorText(formatNetworkError(error, useCorsProxy) || toErrorMessage(error), '') ||
+        '请求失败，请稍后重试',
+    )
   }
 
   if (!res.ok) {
@@ -121,7 +125,10 @@ export async function postMultipart(provider, path, form, signal, timeout = API_
     } catch {
       // ignore
     }
-    throw new Error(httpStatusErrorMessage(res.status, message) || message)
+    throw new Error(
+      sanitizeErrorText(httpStatusErrorMessage(res.status, message) || message, '') ||
+        `HTTP ${res.status}`,
+    )
   }
 
   return res.json()
@@ -139,7 +146,10 @@ export async function getJsonByUrl(provider, url, signal) {
     })
   } catch (error) {
     if (isAbortLike(error, signal)) throw toAbortError()
-    throw new Error(formatNetworkError(error, useCorsProxy) || toErrorMessage(error))
+    throw new Error(
+      sanitizeErrorText(formatNetworkError(error, useCorsProxy) || toErrorMessage(error), '') ||
+        '请求失败，请稍后重试',
+    )
   }
   if (!res.ok) {
     let message = `HTTP ${res.status}`
@@ -149,7 +159,10 @@ export async function getJsonByUrl(provider, url, signal) {
     } catch {
       // ignore
     }
-    throw new Error(httpStatusErrorMessage(res.status, message) || message)
+    throw new Error(
+      sanitizeErrorText(httpStatusErrorMessage(res.status, message) || message, '') ||
+        `HTTP ${res.status}`,
+    )
   }
   return res.json()
 }

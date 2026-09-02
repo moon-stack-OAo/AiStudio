@@ -10,10 +10,10 @@ defineProps({
 
 <template>
   <aside class="params-panel">
+    <div class="params-head">
+      <h3>{{ title }}</h3>
+    </div>
     <div class="params-scroll">
-      <div class="params-head">
-        <h3>{{ title }}</h3>
-      </div>
       <slot />
     </div>
     <div v-if="$slots.actions" class="params-actions">
