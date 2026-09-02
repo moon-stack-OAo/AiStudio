@@ -34,9 +34,7 @@ describe('createApiClient', () => {
       apiKey: 'sk-test',
       useCorsProxy: false,
     })
-    await expect(client.get('/latest/meta-data/')).rejects.toThrow(
-      '拒绝访问云元数据或受保护地址',
-    )
+    await expect(client.get('/latest/meta-data/')).rejects.toThrow('拒绝访问云元数据或受保护地址')
   })
 
   it('拦截器不挂完整 axios response/config（无 Authorization）', async () => {

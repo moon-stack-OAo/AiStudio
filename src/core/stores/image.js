@@ -72,10 +72,12 @@ export const useImageStore = defineStore('image', {
   state: () => {
     const saved = loadJSON('image_sessions', null)
     if (saved?.sessions?.length) {
-      const hydrated = clearStaleLoading(saved.sessions.map((s) => ({
-        ...s,
-        items: (s.items || []).map(sanitizeItem),
-      })))
+      const hydrated = clearStaleLoading(
+        saved.sessions.map((s) => ({
+          ...s,
+          items: (s.items || []).map(sanitizeItem),
+        })),
+      )
       const prepared = prepareImagePayload({
         sessions: hydrated,
         activeId: saved.activeId,

@@ -110,19 +110,14 @@ export function useVideoSession(options = {}) {
     getSession: () => session.value,
   })
 
-  const {
-    isResuming,
-    abortResumeOnly,
-    startResumeIfNeeded,
-    resumeItem,
-    abandonPendingItem,
-  } = useVideoResume({
-    videoStore,
-    gen,
-    message,
-    getProviderById,
-    getSessionId: () => session.value?.id,
-  })
+  const {isResuming, abortResumeOnly, startResumeIfNeeded, resumeItem, abandonPendingItem} =
+    useVideoResume({
+      videoStore,
+      gen,
+      message,
+      getProviderById,
+      getSessionId: () => session.value?.id,
+    })
 
   const timelineItems = computed(() => {
     const items = session.value?.items || []

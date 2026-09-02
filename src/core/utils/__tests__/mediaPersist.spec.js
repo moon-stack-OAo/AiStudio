@@ -82,10 +82,7 @@ describe('mediaPersist', () => {
   })
 
   it('collectDroppedMediaItems 识别被裁掉的条目', () => {
-    const before = [
-      session('s1', 1, [item('a'), item('b')]),
-      session('s2', 2, [item('c')]),
-    ]
+    const before = [session('s1', 1, [item('a'), item('b')]), session('s2', 2, [item('c')])]
     const after = [session('s1', 1, [item('b')])]
     const dropped = collectDroppedMediaItems(before, after)
     expect(dropped.map((x) => x.id).sort()).toEqual(['a', 'c'])

@@ -19,12 +19,7 @@ const emit = defineEmits(['open-history', 'more'])
       <h1 class="top-title">{{ title }}</h1>
     </div>
     <div class="top-side top-side-right">
-      <button
-        aria-label="更多"
-        class="top-more touch-target"
-        type="button"
-        @click="emit('more')"
-      >
+      <button aria-label="更多" class="top-more touch-target" type="button" @click="emit('more')">
         <n-icon :component="EllipsisHorizontalOutline" :size="18" />
       </button>
     </div>

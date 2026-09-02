@@ -75,12 +75,7 @@ export function useVideoJobRunner(deps) {
   /**
    * generate / retry 共用：begin → runGenerate → 记 remote/ref → toast → end
    */
-  async function executeJob({
-    sessionId,
-    runOptions,
-    afterItem,
-    errorFallback = '生成失败',
-  }) {
+  async function executeJob({sessionId, runOptions, afterItem, errorFallback = '生成失败'}) {
     gen.abort()
     const controller = new AbortController()
     gen.begin(sessionId, controller)

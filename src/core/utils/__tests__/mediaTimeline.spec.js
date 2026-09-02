@@ -1,9 +1,5 @@
 import {describe, expect, it, vi, afterEach} from 'vitest'
-import {
-  buildBubbleMetaParts,
-  buildCardHdMeta,
-  buildDayGroupedTimelineRows,
-} from '../mediaTimeline'
+import {buildBubbleMetaParts, buildCardHdMeta, buildDayGroupedTimelineRows} from '../mediaTimeline'
 
 describe('buildDayGroupedTimelineRows', () => {
   afterEach(() => {
