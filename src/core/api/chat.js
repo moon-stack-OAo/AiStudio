@@ -1,7 +1,13 @@
 import {appFetch} from '@core/utils/http'
 import {formatNetworkError, proxyHeaders, resolveBaseUrl} from '@core/utils/request'
 import {API_TIMEOUT_MS, DEFAULT_TEMPERATURE} from '@core/utils/constants'
-import {extractApiErrorMessage, httpStatusErrorMessage, isAbortLike, toAbortError, toErrorMessage} from './errors.js'
+import {
+  extractApiErrorMessage,
+  httpStatusErrorMessage,
+  isAbortLike,
+  toAbortError,
+  toErrorMessage,
+} from './errors.js'
 import {authHeaders, createApiClient} from './http.js'
 
 /**

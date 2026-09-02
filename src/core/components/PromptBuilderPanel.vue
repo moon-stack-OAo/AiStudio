@@ -162,8 +162,8 @@ function onEnhanceApply(text) {
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--color-primary) 65%, transparent);
-    outline-offset: 1px;
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
 
   &:disabled {

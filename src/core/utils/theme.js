@@ -7,28 +7,28 @@ import {getCurrentWebview} from '@tauri-apps/api/webview'
  */
 const PALETTE = {
   dark: {
-    bg: '#0f1115', // --color-bg
-    primary: '#7c9cff', // --color-primary
-    primaryHover: '#9bb2ff', // --color-primary-hover
-    primaryPressed: '#5f7fe6', // --color-primary-pressed
-    card: 'rgba(16, 18, 24, 0.72)', // --color-bg-elevated
-    border: 'rgba(255, 255, 255, 0.08)', // --border-muted
-    text1: 'rgba(255, 255, 255, 0.92)', // --text-1
-    text2: 'rgba(255, 255, 255, 0.72)', // --text-2
-    text3: 'rgba(255, 255, 255, 0.55)', // --text-3
-    radius: '10px', // --radius-md
+    bg: '#0b1020', // --color-bg
+    primary: '#60a5fa', // --color-primary
+    primaryHover: '#7eb6fb', // --color-primary-hover
+    primaryPressed: '#4f8fe8', // --color-primary-pressed
+    card: '#131b2f', // --color-bg-elevated
+    border: '#293653', // --border-muted
+    text1: 'rgba(248, 250, 252, 0.96)', // --text-1
+    text2: '#cbd5e1', // --text-2
+    text3: '#8ea0b8', // --text-3
+    radius: '12px', // --radius-md
   },
   light: {
-    bg: '#f4f6fb', // --color-bg
-    primary: '#5b7cfa', // --color-primary
-    primaryHover: '#7c9cff', // --color-primary-hover
-    primaryPressed: '#4a68e0', // --color-primary-pressed
-    card: 'rgba(255, 255, 255, 0.86)', // --color-bg-elevated
-    border: 'rgba(15, 23, 42, 0.1)', // --border-muted
-    text1: 'rgba(15, 23, 42, 0.92)', // --text-1
-    text2: 'rgba(15, 23, 42, 0.72)', // --text-2
-    text3: 'rgba(15, 23, 42, 0.58)', // --text-3
-    radius: '10px', // --radius-md
+    bg: '#f4efe6', // --color-bg
+    primary: '#c45c26', // --color-primary
+    primaryHover: '#d46b35', // --color-primary-hover
+    primaryPressed: '#a34b1f', // --color-primary-pressed
+    card: '#fffaf3', // --color-bg-elevated
+    border: '#e2d5c3', // --border-muted
+    text1: '#2a2118', // --text-1
+    text2: '#5c4f42', // --text-2
+    text3: '#8a7b6b', // --text-3
+    radius: '14px', // --radius-md
   },
 }
 

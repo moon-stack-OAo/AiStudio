@@ -1,23 +1,61 @@
 @use '@/styles/session-workspace.scss';
 
-.chat-toolbar {
+.chat-toolbar,
+.app-top {
   flex: 1;
   min-width: 0;
   min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
-.chat-title {
+.top-title-block {
   flex: 1;
   min-width: 0;
-  font-weight: 600;
-  font-size: 15px;
-  text-align: center;
+}
+
+.top-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.top-more {
+  appearance: none;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border-muted);
+  background: var(--surface-1);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  &:active {
+    background: var(--surface-2);
+  }
+}
+
+.chat-toolbar :deep(.history-btn.n-button) {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-muted);
+  background: var(--surface-1);
+  color: var(--text-2);
 }
 
 .message-list {
@@ -47,4 +85,64 @@
 
 .context-hint {
   color: var(--color-warning);
+}
+
+.message-list .empty-card {
+  margin-top: 12vh;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 360px;
+  border: 1px dashed var(--border-muted);
+  border-radius: var(--radius-lg);
+  padding: 28px 18px;
+  text-align: center;
+  background: var(--surface-1);
+  box-sizing: border-box;
+}
+
+.message-list .empty-card .empty-art {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border-muted);
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--color-primary);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.message-list .empty-card .empty-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.message-list .empty-card .empty-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+.message-list .empty-cta {
+  appearance: none;
+  margin-top: 16px;
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--on-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.message-list .empty-cta:active {
+  filter: brightness(0.94);
 }

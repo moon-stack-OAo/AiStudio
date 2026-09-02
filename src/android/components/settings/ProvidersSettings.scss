@@ -8,10 +8,10 @@
 
 .picker-card,
 .form-card {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 12px 14px;
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--border-muted);
 }
 
 .picker-label {

@@ -28,6 +28,9 @@ defineProps({
   sendIcon: {type: [Object, Function], default: () => SparklesOutline},
   /** 发送按钮 tooltip */
   sendTooltip: {type: String, default: '生成'},
+  /** ComposerSendStop 皮肤：circle | label | gen */
+  sendVariant: {type: String, default: 'label'},
+  sendLabel: {type: String, default: '生成'},
 })
 
 const emit = defineEmits(['update:prompt', 'send', 'stop', 'focus', 'keydown'])
@@ -69,6 +72,8 @@ const emit = defineEmits(['update:prompt', 'send', 'stop', 'focus', 'keydown'])
           <slot name="footer">
             <ComposerSendStop
               with-tooltip
+              :variant="sendVariant"
+              :send-label="sendLabel"
               :disabled="disabled"
               :loading="loading"
               :send-icon="sendIcon"

@@ -18,12 +18,8 @@
   pointer-events: none;
 }
 
-.context-hint {
+.composer-foot-hint.is-warning {
   color: var(--color-warning);
-}
-
-.context-meta {
-  color: var(--text-3);
 }
 
 .overrides-modal-desc {
@@ -46,15 +42,27 @@
     overscroll-behavior: contain;
   }
 
+  /* 窄屏：回到紧凑横排输入 + 发送 */
   .composer-card {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: flex-end;
     gap: 8px;
   }
 
   .composer-field {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
+  }
+
+  .composer-foot {
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: auto;
+  }
+
+  .composer-foot-hint {
+    display: none;
   }
 
   .composer-actions {

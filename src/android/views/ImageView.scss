@@ -15,43 +15,51 @@
   font-size: 13px;
 }
 
+/* 方案 2：结果网格贴边、弱边框、圆角约 14 */
 .imgs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
   width: 100%;
   max-width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+
+.imgs:has(.img-wrap:only-child) {
+  grid-template-columns: 1fr;
 }
 
 .img-wrap {
   position: relative;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   overflow: hidden;
   background: var(--color-bg);
-  border: 1px solid var(--border-subtle);
-  /* 宽高由 thumbStyle 注入；此处仅兜底 */
-  width: min(100%, 320px);
-  height: auto;
-  aspect-ratio: 1;
-  flex: 0 1 auto;
+  border: none;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1 !important;
   max-width: 100%;
+  flex: none;
 
   .img-actions {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 6px;
+    right: 6px;
     z-index: var(--z-overlay);
     display: flex;
     pointer-events: none;
 
     :deep(.touch-target.n-button) {
       pointer-events: auto;
-      width: var(--touch-min);
-      height: var(--touch-min);
-      min-width: var(--touch-min);
-      min-height: var(--touch-min);
-      color: var(--on-primary);
-      background: var(--overlay-scrim);
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(8px);
     }
   }
 
@@ -67,15 +75,16 @@
 
 .temp-tip {
   position: absolute;
-  left: 6px;
-  bottom: 6px;
-  right: 6px;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
+  left: 8px;
+  bottom: 8px;
+  right: auto;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
   text-align: center;
-  color: var(--on-primary);
-  background: var(--chip-warning-bg);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(8px);
   pointer-events: none;
 }
 

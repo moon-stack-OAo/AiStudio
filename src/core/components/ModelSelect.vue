@@ -1,6 +1,6 @@
 <script setup>
 import {computed} from 'vue'
-import {RefreshOutline} from '@vicons/ionicons5'
+import {ChevronDownOutline, RefreshOutline} from '@vicons/ionicons5'
 import {useProviderModels} from '@core/composables/useProviderModels'
 import {useSettingsStore} from '@core/stores/settings'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
@@ -27,6 +27,11 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  /** 顶栏胶囊触发器皮肤（非 sheet 默认开启） */
+  pill: {
+    type: Boolean,
+    default: undefined,
+  },
   placeholder: {
     type: String,
     default: '',
@@ -39,6 +44,8 @@ const {isMobile} = useBreakpoints()
 
 /** sheet 模式始终尊重 showRefresh；桌面非 sheet 在窄屏隐藏刷新 */
 const showRefreshBtn = computed(() => props.showRefresh && (props.sheet || !isMobile.value))
+
+const usePill = computed(() => (props.pill === undefined ? !props.sheet : props.pill))
 
 const field = computed(() => {
   if (props.kind === 'image') return 'imageModel'
@@ -79,7 +86,7 @@ async function onRefresh() {
 </script>
 
 <template>
-  <div :class="{sheet}" class="model-select-wrap">
+  <div :class="{sheet, pill: usePill}" class="model-select-wrap">
     <n-select
       :loading="loading"
       :options="options"
@@ -91,14 +98,18 @@ async function onRefresh() {
       filterable
       tag
       @update:value="onUpdate"
-    />
+    >
+      <template v-if="usePill" #arrow>
+        <n-icon :component="ChevronDownOutline" :size="14" class="model-pill-caret" />
+      </template>
+    </n-select>
     <n-button
       v-if="showRefreshBtn"
       :loading="loading"
       :size="size"
       aria-label="刷新模型列表"
       circle
-      class="touch-target"
+      class="touch-target model-refresh"
       quaternary
       @click="onRefresh"
     >
@@ -125,11 +136,89 @@ async function onRefresh() {
       min-width: 0;
     }
   }
+
+  &.pill {
+    position: relative;
+
+    .model-select {
+      width: auto;
+      min-width: 0;
+      max-width: 220px;
+    }
+
+    :deep(.n-base-selection) {
+      --n-height: 32px !important;
+      --n-border-radius: var(--radius-pill) !important;
+      --n-padding-single: 0 28px 0 12px !important;
+      height: 32px;
+      min-height: 32px;
+      border-radius: var(--radius-pill);
+      background: var(--color-bg-elevated);
+      box-shadow: none;
+    }
+
+    :deep(.n-base-selection-label) {
+      height: 32px !important;
+      padding-left: 12px !important;
+      padding-right: 8px !important;
+    }
+
+    :deep(.n-base-selection-input) {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    :deep(.n-base-selection-tags) {
+      padding: 0;
+    }
+
+    :deep(.n-base-selection__border),
+    :deep(.n-base-selection__state-border) {
+      border-radius: var(--radius-pill) !important;
+    }
+
+    :deep(.n-base-selection:not(.n-base-selection--disabled):hover) {
+      --n-border: 1px solid color-mix(in srgb, var(--color-primary) 40%, var(--border-muted)) !important;
+    }
+
+    :deep(.n-base-suffix) {
+      right: 8px;
+    }
+
+    .model-pill-caret {
+      color: var(--text-3);
+    }
+
+    .model-refresh {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      opacity: 0.72;
+    }
+  }
 }
 
 .model-select {
   width: 200px;
   min-width: 140px;
+
+  :deep(.n-base-selection) {
+    --n-border-radius: var(--radius-pill) !important;
+    border-radius: var(--radius-pill);
+    background: var(--color-bg-elevated);
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      box-shadow var(--motion-fast) var(--ease-standard);
+  }
+
+  :deep(.n-base-selection:not(.n-base-selection--disabled):hover) {
+    --n-border: 1px solid color-mix(in srgb, var(--color-primary) 40%, var(--border-muted)) !important;
+  }
+
+  :deep(.n-base-selection-label) {
+    padding-left: 12px;
+    padding-right: 10px;
+  }
 }
 
 @media (max-width: 767.98px) {
@@ -141,6 +230,7 @@ async function onRefresh() {
   .model-select-wrap:not(.sheet) .model-select {
     width: 100%;
     min-width: 0;
+    max-width: none;
   }
 }
 </style>

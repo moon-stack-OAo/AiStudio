@@ -5,6 +5,10 @@
   gap: 12px;
 }
 
+.accent-row {
+  margin-top: 10px;
+}
+
 .shortcut-list {
   margin: 0;
   padding-left: 18px;
@@ -20,6 +24,6 @@
   border: 1px solid var(--border-muted);
   background: var(--surface-2);
   font-size: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   color: var(--text-1);
 }

@@ -2,6 +2,7 @@
 defineOptions({name: 'ImageView'})
 
 import {computed, ref} from 'vue'
+import {useRouter} from 'vue-router'
 import {
   AddOutline,
   CreateOutline,
@@ -9,8 +10,6 @@ import {
   EllipsisHorizontalOutline,
   GridOutline,
   ImageOutline,
-  OptionsOutline,
-  SparklesOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
@@ -29,6 +28,8 @@ import {isAndroidTauri} from '@core/utils/request'
 import {trySaveToAndroidGallery} from '@core/utils/androidMediaSave'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
+
+const router = useRouter()
 
 const {
   imageStore,
@@ -50,6 +51,7 @@ const {
   lightboxTitle,
   lightboxPayload,
   session,
+  provider,
   supportsQuality,
   supportsN,
   showSize,
@@ -60,7 +62,8 @@ const {
   sizeOptions,
   aspectOptions,
   qualityOptions,
-  paramsSummary,
+  sizeLabel,
+  qualityLabel,
   drawerHeight,
   sessionTitle,
   sendTooltip,
@@ -86,6 +89,7 @@ const {
   createSession,
   removeSession,
   copyPrompt,
+  copyErrorText,
   clearItems: clearItemsCore,
   onComposerFocus,
 } = useImageSession({notifyCreateSession: true})
@@ -107,6 +111,47 @@ const promptPlaceholder = computed(() =>
   getPromptPlaceholder('image', mode.value, {isMobile: true}),
 )
 
+const modelCapLabel = computed(() => {
+  const raw = String(provider.value?.imageModel || '').trim()
+  if (!raw) return '未选模型'
+  const parts = raw.split(/[/:]/)
+  return parts[parts.length - 1] || raw
+})
+
+const sizeCapLabel = computed(() => sizeLabel.value || '尺寸')
+
+const timelineRows = computed(() => {
+  const rows = []
+  let lastDay = null
+  for (const item of timelineItems.value) {
+    const label = formatDayLabel(item.createdAt)
+    if (label !== lastDay) {
+      rows.push({kind: 'day', id: `day-${label}-${item.id}`, label})
+      lastDay = label
+    }
+    rows.push({kind: 'item', id: item.id, item})
+  }
+  return rows
+})
+
+function formatDayLabel(ts) {
+  const t = Number(ts) || Date.now()
+  const d = new Date(t)
+  const now = new Date()
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startYesterday = startToday - 86400000
+  if (t >= startToday) return '今天'
+  if (t >= startYesterday) return '昨天'
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+function formatItemTime(ts) {
+  const d = new Date(Number(ts) || Date.now())
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
+}
+
 function onApplyPrompt(text) {
   prompt.value = text
 }
@@ -120,6 +165,15 @@ function onRefillPrompt(item) {
   const text = String(item?.prompt || '')
   if (!text.trim()) return
   prompt.value = text
+}
+
+function applyItemParams(item) {
+  if (!item) return
+  if (item.mode === 'img2img' || item.mode === 'txt2img') mode.value = item.mode
+  if (item.n != null && supportsN.value) n.value = Math.min(4, Math.max(1, Number(item.n) || 1))
+  if (item.size && showSize.value) size.value = item.size
+  if (item.aspectRatio && useAspectRatio.value) aspectRatio.value = item.aspectRatio
+  if (item.quality && supportsQuality.value) quality.value = item.quality
 }
 
 function clearItems() {
@@ -214,6 +268,93 @@ async function onCardUseAsReference() {
   if (!t) return
   await useAsReference(t.item, t.idx, t.img)
 }
+
+async function onBatchDownload(item) {
+  const images = item?.images || []
+  if (!images.length) {
+    message.warning('暂无图片')
+    return
+  }
+  for (let idx = 0; idx < images.length; idx += 1) {
+    await downloadImage(item.id, idx, images[idx], `gen-${item.id}-${idx}.png`)
+  }
+}
+
+async function onUseFirstAsReference(item) {
+  const img = item?.images?.[0]
+  if (!img) {
+    message.warning('暂无图片')
+    return
+  }
+  await useAsReference(item, 0, img)
+}
+
+function onMakeVideo(item) {
+  const img = item?.images?.[0]
+  if (!img) {
+    message.warning('暂无图片')
+    return
+  }
+  message.info('请到「生视频」页上传参考图后继续')
+  router.push('/video')
+}
+
+async function onAgainBatch(item) {
+  const text = String(item?.prompt || '').trim()
+  if (!text) {
+    message.warning('缺少提示词')
+    return
+  }
+  applyItemParams(item)
+  prompt.value = text
+  await generate()
+}
+
+async function onRetryItem(item) {
+  const text = String(item?.prompt || '').trim()
+  if (!text) {
+    message.warning('缺少提示词，无法重试')
+    return
+  }
+  if (
+    item.mode === 'img2img' &&
+    !previewUrl.value &&
+    !(refThumbMap.value[item.id] || item.refPreview)
+  ) {
+    message.warning('图生图请先重新选择参考图')
+    paramsDrawerShow.value = true
+    applyItemParams(item)
+    prompt.value = text
+    return
+  }
+  applyItemParams(item)
+  prompt.value = text
+  await generate()
+}
+
+function cardHdMeta(item) {
+  const parts = []
+  parts.push(formatItemTime(item.createdAt))
+  const summary = paramSummary(item)
+  if (summary) parts.push(summary)
+  return parts.join(' · ')
+}
+
+function bubbleMetaParts(item) {
+  const parts = [item?.mode === 'img2img' ? '图生图' : '文生图', formatItemTime(item?.createdAt)]
+  const summary = paramSummary(item)
+  if (summary) {
+    for (const part of String(summary).split(' · ')) {
+      if (part) parts.push(part)
+    }
+  }
+  return parts
+}
+
+function onToolbarCreate() {
+  moreShow.value = false
+  createSession()
+}
 </script>
 
 <template>
@@ -227,134 +368,192 @@ async function onCardUseAsReference() {
     @select="selectSession"
   >
     <template #toolbar="{openHistory}">
-      <div class="image-toolbar">
+      <div class="image-toolbar app-top">
         <SessionHistoryButton :count="imageStore.sessions.length" @click="openHistory" />
-
-        <div class="image-title">{{ sessionTitle }}</div>
-
-        <n-button
-          aria-label="新建会话"
-          circle
-          class="touch-target"
-          quaternary
-          @click="createSession"
+        <div class="top-title-block">
+          <h1 class="top-title">{{ sessionTitle || '图片' }}</h1>
+        </div>
+        <button
+          aria-label="更多"
+          class="top-more touch-target"
+          type="button"
+          @click="moreShow = true"
         >
-          <template #icon>
-            <n-icon :component="AddOutline" />
-          </template>
-        </n-button>
-
-        <n-button aria-label="更多" circle class="touch-target" quaternary @click="moreShow = true">
-          <template #icon>
-            <n-icon :component="EllipsisHorizontalOutline" />
-          </template>
-        </n-button>
+          <n-icon :component="EllipsisHorizontalOutline" :size="18" />
+        </button>
       </div>
     </template>
 
+    <div class="param-capsule" aria-label="参数胶囊">
+      <button class="param-cap" type="button" @click="moreShow = true">
+        <strong>{{ modelCapLabel }}</strong>
+      </button>
+      <button class="param-cap" type="button" @click="paramsDrawerShow = true">
+        尺寸 <strong>{{ sizeCapLabel }}</strong>
+      </button>
+      <button v-if="supportsN" class="param-cap" type="button" @click="paramsDrawerShow = true">
+        张数 <strong>{{ n }}</strong>
+      </button>
+      <button
+        v-if="mode === 'img2img'"
+        class="param-cap"
+        type="button"
+        @click="paramsDrawerShow = true"
+      >
+        参考 · <strong>{{ previewUrl ? '1' : '0' }}</strong>
+      </button>
+      <button
+        v-if="supportsQuality"
+        class="param-cap"
+        type="button"
+        @click="paramsDrawerShow = true"
+      >
+        质量 <strong>{{ qualityLabel }}</strong>
+      </button>
+      <button class="param-cap-more" type="button" @click="paramsDrawerShow = true">更多</button>
+    </div>
+
     <div ref="listRef" class="gallery">
-      <div v-if="!timelineItems.length" class="empty">
-        <div class="empty-title">开始创作</div>
-        <div class="empty-desc">输入提示词即可生成</div>
+      <div v-if="!timelineItems.length" class="empty-card empty-state">
+        <div class="empty-art art" aria-hidden="true">◇</div>
+        <div class="empty-title">从一句话开始</div>
+        <p class="empty-desc">像聊天一样生成图片。提示词进时间线，结果以卡片回传。</p>
       </div>
 
-      <template v-for="item in timelineItems" :key="item.id">
-        <div class="msg user">
-          <div class="role">你</div>
-          <div class="msg-body">
-            <div class="bubble user-bubble">
-              <div class="bubble-tags">
-                <n-tag :bordered="false" size="tiny">
-                  {{ item.mode === 'txt2img' ? '文生图' : '图生图' }}
-                </n-tag>
-                <n-tag v-if="paramSummary(item)" :bordered="false" size="tiny" type="info">
-                  {{ paramSummary(item) }}
-                </n-tag>
-              </div>
-              <div
-                v-if="item.mode === 'img2img' && (refThumbMap[item.id] || item.refPreview)"
-                class="ref-thumb"
-              >
-                <img
-                  :src="refThumbMap[item.id] || item.refPreview"
-                  alt="reference"
-                  title="点击预览"
-                  @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
-                />
-              </div>
-              <div class="prompt-text">{{ item.prompt }}</div>
-            </div>
-            <div v-if="item.prompt" class="msg-actions">
-              <CopyIconButton
-                :active="copiedId === item.id"
-                tooltip="复制提示词"
-                @click="copyPrompt(item)"
-              />
-              <n-tooltip :trigger="tooltipTrigger" placement="bottom">
-                <template #trigger>
-                  <n-button
-                    aria-label="填回编辑"
-                    circle
-                    class="touch-target"
-                    quaternary
-                    size="tiny"
-                    @click="onRefillPrompt(item)"
-                  >
-                    <template #icon>
-                      <n-icon :component="CreateOutline" :size="14" />
-                    </template>
-                  </n-button>
-                </template>
-                填回编辑
-              </n-tooltip>
-            </div>
-          </div>
-        </div>
+      <template v-for="row in timelineRows" :key="row.id">
+        <div v-if="row.kind === 'day'" class="tl-day">{{ row.label }}</div>
 
-        <div :class="['msg', 'assistant', {error: itemStatus(item) === 'error'}]">
-          <div class="role">AI</div>
-          <div class="msg-body">
-            <div class="bubble ai-bubble">
-              <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
-                <n-spin size="small" />
-                <span>生成中…</span>
-              </div>
-              <div v-else-if="itemStatus(item) === 'error'" class="ai-error">
-                {{ item.errorMessage || '生成失败' }}
-              </div>
-              <div v-else-if="!item.images?.length" class="ai-error">暂无图片</div>
-              <div v-else class="imgs">
+        <div v-else class="tl-turn">
+          <div class="msg user">
+            <div class="msg-body">
+              <div class="bubble user-bubble">
                 <div
-                  v-for="(img, idx) in item.images"
-                  :key="img.id || idx"
-                  class="img-wrap"
-                  :style="thumbStyle(item, idx, 320)"
+                  v-if="
+                    row.item.mode === 'img2img' && (refThumbMap[row.item.id] || row.item.refPreview)
+                  "
+                  class="ref-thumb"
                 >
-                  <div class="img-actions">
+                  <img
+                    :src="refThumbMap[row.item.id] || row.item.refPreview"
+                    alt="reference"
+                    title="点击预览"
+                    @click="openRefLightbox(refThumbMap[row.item.id] || row.item.refPreview)"
+                  />
+                </div>
+                <div class="prompt-text">{{ row.item.prompt }}</div>
+                <span class="bubble-meta">
+                  <em v-for="(part, mi) in bubbleMetaParts(row.item)" :key="mi">{{ part }}</em>
+                </span>
+              </div>
+              <div v-if="row.item.prompt" class="msg-actions">
+                <CopyIconButton
+                  :active="copiedId === row.item.id"
+                  tooltip="复制提示词"
+                  @click="copyPrompt(row.item)"
+                />
+                <n-tooltip :trigger="tooltipTrigger" placement="bottom">
+                  <template #trigger>
                     <n-button
-                      aria-label="更多操作"
+                      aria-label="填回编辑"
                       circle
                       class="touch-target"
                       quaternary
                       size="tiny"
-                      @click.stop="openCardActions(item, idx, img)"
+                      @click="onRefillPrompt(row.item)"
                     >
                       <template #icon>
-                        <n-icon :component="EllipsisHorizontalOutline" :size="16" />
+                        <n-icon :component="CreateOutline" :size="14" />
                       </template>
                     </n-button>
-                  </div>
-                  <img
-                    :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
-                    alt="generated"
-                    @click="openLightbox(item, idx, img)"
-                    @load="onThumbLoad(item, idx, $event)"
-                  />
-                  <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
-                    临时链接，可能过期
-                  </div>
+                  </template>
+                  填回编辑
+                </n-tooltip>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="itemStatus(row.item) === 'error'" class="err-card error-state">
+            <div class="error-art art" aria-hidden="true">!</div>
+            <div class="empty-title">生成失败</div>
+            <p class="empty-desc">{{ row.item.errorMessage || '生成失败' }}</p>
+            <div class="tl-actions">
+              <button class="mini" type="button" @click="copyErrorText(row.item)">复制错误</button>
+              <button
+                class="mini primary"
+                type="button"
+                :disabled="isGeneratingCurrent"
+                @click="onRetryItem(row.item)"
+              >
+                重试这条
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="tl-card">
+            <div class="tl-card-hd">
+              <strong>
+                {{ itemStatus(row.item) === 'loading' ? '结果 · 生成中' : '结果 · 本批' }}
+              </strong>
+              <span class="tl-card-hd-grow" />
+              <span v-if="itemStatus(row.item) === 'loading'" class="tl-pill run"> 生成中 </span>
+              <span v-else class="tl-card-meta">{{ cardHdMeta(row.item) }}</span>
+            </div>
+
+            <div v-if="itemStatus(row.item) === 'loading'" class="ai-loading">
+              <n-spin size="small" />
+              <span>生成中…</span>
+            </div>
+            <div v-else-if="!row.item.images?.length" class="ai-error">暂无图片</div>
+            <div v-else class="imgs">
+              <div
+                v-for="(img, idx) in row.item.images"
+                :key="img.id || idx"
+                class="img-wrap"
+                :style="thumbStyle(row.item, idx, 480)"
+              >
+                <div class="img-actions">
+                  <n-button
+                    aria-label="更多操作"
+                    circle
+                    class="touch-target"
+                    quaternary
+                    size="tiny"
+                    @click.stop="openCardActions(row.item, idx, img)"
+                  >
+                    <template #icon>
+                      <n-icon :component="EllipsisHorizontalOutline" :size="16" />
+                    </template>
+                  </n-button>
+                </div>
+                <img
+                  :src="displaySrc(row.item.id, idx, img) || img.remoteUrl || img.src || ''"
+                  alt="generated"
+                  @click="openLightbox(row.item, idx, img)"
+                  @load="onThumbLoad(row.item, idx, $event)"
+                />
+                <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
+                  临时链接，可能过期
                 </div>
               </div>
+            </div>
+
+            <div
+              v-if="itemStatus(row.item) !== 'loading' && row.item.images?.length"
+              class="tl-actions"
+            >
+              <button class="mini" type="button" @click="onBatchDownload(row.item)">下载</button>
+              <button class="mini" type="button" @click="onUseFirstAsReference(row.item)">
+                用作参考
+              </button>
+              <button class="mini" type="button" @click="onMakeVideo(row.item)">做视频</button>
+              <button
+                class="mini primary"
+                type="button"
+                :disabled="isGeneratingCurrent"
+                @click="onAgainBatch(row.item)"
+              >
+                再来一批
+              </button>
             </div>
           </div>
         </div>
@@ -365,23 +564,7 @@ async function onCardUseAsReference() {
     <template #composer>
       <div class="composer">
         <div v-if="isGeneratingCurrent" class="composer-hint is-critical">生成中可点击停止</div>
-        <div class="composer-card">
-          <button class="params-summary" type="button" @click="paramsDrawerShow = true">
-            <n-icon :component="OptionsOutline" :size="16" class="params-summary-icon" />
-            <span class="params-summary-text">{{ paramsSummary }}</span>
-            <span class="params-summary-action">设置</span>
-          </button>
-
-          <button
-            v-if="mode === 'img2img' && previewUrl"
-            class="ref-chip ref-chip-mobile"
-            type="button"
-            @click="paramsDrawerShow = true"
-          >
-            <img :src="previewUrl" alt="reference" />
-            <span class="ref-name">参考图已选，点击可更换</span>
-          </button>
-
+        <div class="composer-card compose-box">
           <PromptAssist
             domain="image"
             :mode="mode"
@@ -400,9 +583,20 @@ async function onCardUseAsReference() {
               type="textarea"
               @focus="onComposerFocus"
             />
+            <div class="composer-actions">
+              <ComposerSendStop
+                variant="label"
+                send-label="生成"
+                :disabled="!canGenerate"
+                :loading="isGeneratingCurrent"
+                :send-tooltip="sendTooltip"
+                @send="generate"
+                @stop="stopGenerate"
+              />
+            </div>
           </div>
 
-          <div class="prompt-tools">
+          <div class="compose-tools">
             <PromptEnhanceButton
               domain="image"
               :mode="mode"
@@ -420,15 +614,6 @@ async function onCardUseAsReference() {
               <n-icon :component="GridOutline" :size="14" class="builder-entry-icon" />
               <span>结构化</span>
             </button>
-            <div class="prompt-tools-spacer" />
-            <ComposerSendStop
-              :disabled="!canGenerate"
-              :loading="isGeneratingCurrent"
-              :send-icon="SparklesOutline"
-              :send-tooltip="sendTooltip"
-              @send="generate"
-              @stop="stopGenerate"
-            />
           </div>
         </div>
       </div>
@@ -633,6 +818,12 @@ async function onCardUseAsReference() {
           <div class="more-label">模型</div>
           <ModelSelect kind="image" sheet size="medium" />
         </div>
+        <n-button block secondary @click="onToolbarCreate">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
+          新建会话
+        </n-button>
         <n-button
           :disabled="!session?.items?.length"
           block

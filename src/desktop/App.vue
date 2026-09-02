@@ -4,6 +4,10 @@ import {useRoute, useRouter} from 'vue-router'
 import {darkTheme, dateZhCN, NIcon, zhCN} from 'naive-ui'
 import {ChatbubblesOutline, ImageOutline, SettingsOutline, VideocamOutline} from '@vicons/ionicons5'
 import {useSettingsStore} from '@core/stores/settings'
+import {useChatStore} from '@core/stores/chat'
+import {useImageStore} from '@core/stores/image'
+import {useVideoStore} from '@core/stores/video'
+import {chatGeneration, imageGeneration, videoGeneration} from '@core/runtime/generationRuntime'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useVisualViewport} from '@core/composables/useVisualViewport'
 import {isDesktopTauri} from '@core/utils/request'
@@ -18,10 +22,14 @@ import UpdateChecker from '@/components/UpdateChecker.vue'
 import CloseConfirm from '@/components/CloseConfirm.vue'
 import TrayActionListener from '@/components/TrayActionListener.vue'
 import AppMobileChrome from '@/components/AppMobileChrome.vue'
+import SessionList from '@/components/SessionList.vue'
 
 const route = useRoute()
 const router = useRouter()
 const settings = useSettingsStore()
+const chatStore = useChatStore()
+const imageStore = useImageStore()
+const videoStore = useVideoStore()
 const {isMobile, isCompact} = useBreakpoints()
 const desktopFrame = isDesktopTauri()
 if (!desktopFrame) useVisualViewport()
@@ -33,6 +41,9 @@ const isWorkspaceRoute = computed(() => {
   return name === 'chat' || name === 'image' || name === 'video'
 })
 const showAppMobileTopbar = computed(() => isMobile.value && !isWorkspaceRoute.value)
+const showSidebarSessions = computed(() => !isMobile.value && isWorkspaceRoute.value)
+/** 桌面窄屏（<1024）自动收成图标轨；移动端隐藏侧栏走 AppMobileChrome */
+const collapsed = computed(() => isCompact.value && !isMobile.value)
 
 function openMobileNav() {
   mobileChromeRef.value?.open()
@@ -43,6 +54,7 @@ provide('openMobileNav', openMobileNav)
 const resolvedTheme = computed(() => settings.resolvedTheme)
 const naiveTheme = computed(() => (resolvedTheme.value === 'dark' ? darkTheme : null))
 const themeOverrides = computed(() => THEME_OVERRIDES[resolvedTheme.value] || THEME_OVERRIDES.dark)
+const brandMark = computed(() => (resolvedTheme.value === 'light' ? 'B' : 'A'))
 
 function syncSystemThemeWatch() {
   if (stopWatchSystem) {
@@ -83,7 +95,30 @@ const menuOptions = computed(() => {
 })
 
 const activeKey = computed(() => String(route.name || 'chat'))
-const collapsed = computed(() => isCompact.value && !isMobile.value)
+const sidebarSessions = computed(() => {
+  if (activeKey.value === 'image') return imageStore.sortedSessions
+  if (activeKey.value === 'video') return videoStore.sortedSessions
+  return chatStore.sortedSessions
+})
+
+const sidebarActiveId = computed(() => {
+  if (activeKey.value === 'image') return imageStore.activeId
+  if (activeKey.value === 'video') return videoStore.activeId
+  return chatStore.activeId
+})
+
+const newSessionLabel = computed(() => {
+  if (activeKey.value === 'image') return '＋ 新建生图'
+  if (activeKey.value === 'video') return '＋ 新建视频'
+  return '＋ 新建对话'
+})
+
+const userFootName = computed(() => settings.activeProvider?.name || '本地工作区')
+const userFootMeta = computed(() => (settings.activeProvider ? '密钥仅保存在本机' : '未配置提供商'))
+const userFootAvatar = computed(() => {
+  const name = String(userFootName.value || '本').trim()
+  return name.slice(0, 1).toUpperCase() || '本'
+})
 
 watch(resolvedTheme, (theme) => applyDocumentTheme(theme), {immediate: true})
 
@@ -114,6 +149,69 @@ onBeforeUnmount(() => {
 
 function onMenuUpdate(key) {
   router.push(`/${key}`)
+}
+
+function ensureWorkspaceRoute(kind) {
+  if (activeKey.value === kind) return
+  router.push(`/${kind}`)
+}
+
+function onCreateSession() {
+  const kind = activeKey.value
+  if (kind === 'image') {
+    imageStore.createSession()
+    ensureWorkspaceRoute('image')
+    return
+  }
+  if (kind === 'video') {
+    videoStore.createSession()
+    ensureWorkspaceRoute('video')
+    return
+  }
+  chatStore.createSession()
+  ensureWorkspaceRoute('chat')
+}
+
+function onSelectSession(id) {
+  const kind = activeKey.value
+  if (kind === 'image') {
+    imageStore.setActive(id)
+    return
+  }
+  if (kind === 'video') {
+    videoStore.setActive(id)
+    return
+  }
+  chatStore.setActive(id)
+}
+
+function onRenameSession(id, title) {
+  const kind = activeKey.value
+  if (kind === 'image') {
+    imageStore.renameSession(id, title)
+    return
+  }
+  if (kind === 'video') {
+    videoStore.renameSession(id, title)
+    return
+  }
+  chatStore.renameSession(id, title)
+}
+
+function onRemoveSession(id) {
+  const kind = activeKey.value
+  if (kind === 'image') {
+    imageGeneration.abortIfSession(id)
+    imageStore.removeSession(id)
+    return
+  }
+  if (kind === 'video') {
+    videoGeneration.abortIfSession(id)
+    videoStore.removeSession(id)
+    return
+  }
+  chatGeneration.abortIfSession(id)
+  chatStore.removeSession(id)
 }
 </script>
 
@@ -152,12 +250,31 @@ function onMenuUpdate(key) {
 
               <aside v-if="!isMobile" :class="{collapsed}" class="sidebar">
                 <div class="brand">
-                  <div class="logo">AI</div>
+                  <div class="logo">{{ brandMark }}</div>
                   <div v-if="!collapsed" class="brand-text">
                     <div class="title">AI Studio</div>
-                    <div class="sub">对话 · 生图 · 生视频</div>
+                    <div class="sub">本地 · 多模态</div>
                   </div>
                 </div>
+
+                <n-button
+                  v-if="!collapsed"
+                  class="new-session-btn"
+                  type="primary"
+                  @click="onCreateSession"
+                >
+                  {{ newSessionLabel }}
+                </n-button>
+                <n-button
+                  v-else
+                  aria-label="新建会话"
+                  circle
+                  class="new-session-btn-collapsed"
+                  type="primary"
+                  @click="onCreateSession"
+                >
+                  ＋
+                </n-button>
 
                 <n-menu
                   :collapsed="collapsed"
@@ -168,12 +285,26 @@ function onMenuUpdate(key) {
                   @update:value="onMenuUpdate"
                 />
 
+                <div v-if="!collapsed && showSidebarSessions" class="sidebar-sessions">
+                  <SessionList
+                    :active-id="sidebarActiveId"
+                    :sessions="sidebarSessions"
+                    variant="sidebar"
+                    @create="onCreateSession"
+                    @remove="onRemoveSession"
+                    @rename="onRenameSession"
+                    @select="onSelectSession"
+                  />
+                </div>
+
                 <div v-if="!collapsed" class="sidebar-footer">
-                  <div v-if="settings.activeProvider" class="provider-chip">
-                    <span class="dot" />
-                    <span class="name">{{ settings.activeProvider.name }}</span>
+                  <div class="user-foot">
+                    <div class="avatar">{{ userFootAvatar }}</div>
+                    <div class="user-meta">
+                      <strong>{{ userFootName }}</strong>
+                      <span>{{ userFootMeta }}</span>
+                    </div>
                   </div>
-                  <div class="hint">密钥仅保存在本机</div>
                 </div>
               </aside>
 
@@ -198,9 +329,7 @@ function onMenuUpdate(key) {
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background:
-    radial-gradient(1200px 600px at 10% -10%, var(--glow-primary), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, var(--glow-accent), transparent 55%), var(--color-bg);
+  background: var(--color-bg);
 
   &.framed {
     border: 1px solid var(--border-muted);
@@ -220,18 +349,29 @@ function onMenuUpdate(key) {
 
 .sidebar {
   width: var(--sidebar-width);
-  flex-shrink: 0;
+  min-width: var(--sidebar-width);
+  max-width: var(--sidebar-width);
+  flex: 0 0 var(--sidebar-width);
   display: flex;
   flex-direction: column;
-  padding: 18px 12px;
+  padding: 14px 10px 12px;
   border-right: 1px solid var(--border-subtle);
-  background: var(--color-bg-elevated);
-  backdrop-filter: blur(10px);
-  transition: width 0.2s ease;
+  background: var(--sidebar-bg, var(--color-bg-elevated));
+  transition:
+    width var(--motion-base, 0.2s) var(--ease-standard, ease),
+    min-width var(--motion-base, 0.2s) var(--ease-standard, ease),
+    max-width var(--motion-base, 0.2s) var(--ease-standard, ease),
+    flex-basis var(--motion-base, 0.2s) var(--ease-standard, ease);
+  min-height: 0;
+  box-sizing: border-box;
 
   &.collapsed {
     width: var(--sidebar-collapsed-width);
+    min-width: var(--sidebar-collapsed-width);
+    max-width: var(--sidebar-collapsed-width);
+    flex: 0 0 var(--sidebar-collapsed-width);
     padding: 14px 0;
+    align-items: center;
   }
 }
 
@@ -239,69 +379,122 @@ function onMenuUpdate(key) {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 6px 10px 18px;
+  padding: 4px 8px 12px;
+  flex-shrink: 0;
+
+  .sidebar.collapsed & {
+    padding: 4px 0 12px;
+    justify-content: center;
+  }
 }
 
 .logo {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   font-weight: 700;
+  font-size: 13px;
   color: var(--on-primary);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  background: var(--color-primary);
   flex-shrink: 0;
 }
 
 .brand-text .title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .brand-text .sub {
   font-size: 11px;
   color: var(--text-3);
   margin-top: 2px;
+  line-height: 1.2;
+}
+
+.new-session-btn {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: auto;
+  max-width: none;
+  margin: 0 4px 10px;
+  height: 36px;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+
+.new-session-btn-collapsed {
+  flex: 0 0 auto;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+.sidebar-sessions {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+  overflow: hidden;
 }
 
 .sidebar-footer {
   margin-top: auto;
-  padding: 12px 10px;
+  padding: 10px 4px 2px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-subtle);
 }
 
-.provider-chip {
+.user-foot {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  margin-bottom: 8px;
+  gap: 10px;
+  padding: 8px 6px;
+  min-width: 0;
 }
 
-.provider-chip .dot {
-  width: 8px;
-  height: 8px;
+.avatar {
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--color-success);
-  box-shadow: 0 0 8px rgba(52, 211, 153, 0.55);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 70%, transparent);
-}
-
-.provider-chip .name {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
   font-size: 12px;
-  color: var(--text-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 700;
+  color: var(--on-primary);
+  background: var(--color-primary);
 }
 
-.hint {
-  font-size: 11px;
-  color: var(--text-4);
-  padding-left: 4px;
+.user-meta {
+  min-width: 0;
+
+  strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    display: block;
+    font-size: 11px;
+    color: var(--text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .main {
@@ -318,12 +511,6 @@ function onMenuUpdate(key) {
 .app-shell.mobile.has-mobile-topbar .main {
   /* 与 AppMobileChrome .mobile-topbar 高度（touch-min + safe-top）对齐 */
   height: calc(100% - var(--touch-min) - var(--safe-top));
-}
-
-@media (max-width: 1279.98px) and (min-width: 768px) {
-  .sidebar:not(.collapsed) {
-    width: var(--sidebar-width-compact);
-  }
 }
 </style>
 
@@ -365,11 +552,28 @@ function onMenuUpdate(key) {
   height: 7px;
   border-radius: 50%;
   background: var(--color-primary);
-  box-shadow: 0 0 0 1.5px var(--color-bg-elevated, transparent);
+  box-shadow: 0 0 0 1.5px var(--sidebar-bg, var(--color-bg-elevated, transparent));
   pointer-events: none;
 }
 
 .sidebar:not(.collapsed) .menu-icon-dot {
   display: none;
+}
+
+/* 主侧栏选中态：soft accent，贴近 redesign preview */
+.app-shell .sidebar .n-menu .n-menu-item-content.n-menu-item-content--selected {
+  border-radius: var(--radius-md);
+}
+
+.app-shell .sidebar .n-menu .n-menu-item-content.n-menu-item-content--selected::before {
+  background: var(--primary-soft) !important;
+  inset: 0 4px !important;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.app-shell .sidebar .n-menu .n-menu-item-content:not(.n-menu-item-content--disabled):hover::before {
+  border-radius: var(--radius-md);
+  inset: 0 4px !important;
 }
 </style>

@@ -1,5 +1,11 @@
 import {ref} from 'vue'
-import {createVideoJob, generateVideo, getVideoJob, toErrorMessage, waitVideoJob} from '@core/api/client'
+import {
+  createVideoJob,
+  generateVideo,
+  getVideoJob,
+  toErrorMessage,
+  waitVideoJob,
+} from '@core/api/client'
 import {compressImageFile} from '@core/utils/imageCompress'
 import {useVideoStore} from '@core/stores/video'
 

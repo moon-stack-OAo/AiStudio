@@ -7,10 +7,12 @@
   --gap-msg-body: var(--space-2);
   --space-msg-y: 22px;
   --mt-msg-actions: var(--space-1);
-  --pad-bubble-y: 14px;
-  --pad-bubble-x: var(--space-4);
+  --pad-bubble-y: 12px;
+  --pad-bubble-x: var(--space-3);
   --radius-bubble: var(--radius-xl);
   --line-bubble: 1.55;
+  --size-avatar-sm: 28px;
+  --radius-avatar-sm: 8px;
   --pad-composer-y: var(--space-2);
   --pad-composer-x: var(--space-3);
   --pad-composer-bottom: 10px;
@@ -24,9 +26,9 @@
   --line-empty-desc: 1.55;
   --msg-body-max: 100%;
 
-  --pad-gallery-y: 18px;
-  --pad-gallery-x: var(--space-4);
-  --pad-gallery-bottom: var(--space-6);
+  --pad-gallery-y: 12px;
+  --pad-gallery-x: 14px;
+  --pad-gallery-bottom: 16px;
   --gap-user-bubble: 10px;
   --gap-composer-card-gen: 8px;
   --pad-composer-card-gen: 8px;
@@ -39,6 +41,10 @@
   --pad-mode-item: var(--space-2) 14px;
   --fs-composer-input: var(--text-sm);
   --pad-composer-input-y: var(--space-1);
+}
+
+[data-theme='light'] {
+  --bubble-ai-bg: #ffffff;
 }
 
 /* 扩大圆形 / tiny / small 图标按钮可点热区（Android 全局默认） */

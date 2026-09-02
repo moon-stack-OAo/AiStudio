@@ -2,7 +2,13 @@ import {computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch}
 import {useDialog, useMessage} from 'naive-ui'
 import {useImageStore} from '@core/stores/image'
 import {useSettingsStore} from '@core/stores/settings'
-import {editImage, fileToPreview, generateImage, getCapabilities, toErrorMessage} from '@core/api/client'
+import {
+  editImage,
+  fileToPreview,
+  generateImage,
+  getCapabilities,
+  toErrorMessage,
+} from '@core/api/client'
 import {cacheGeneratedImages, getImageBlob, getImageObjectUrl} from '@core/utils/imageCache'
 import {resolveThumbStyle} from '@core/utils/imageThumb'
 import {useCopyFeedback} from '@core/composables/useCopyFeedback'

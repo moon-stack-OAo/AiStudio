@@ -1,25 +1,14 @@
 @use '@/styles/generate-workspace.scss';
 
-.msg.assistant .ai-bubble {
-  width: fit-content;
-  max-width: 80%;
-  padding: 0;
-  overflow: hidden;
-}
-
-.msg.assistant .ai-bubble:has(.video-wrap) {
-  width: 80%;
-}
-
 .ai-loading {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 12px 4px;
   color: var(--text-3);
   font-size: 13px;
   box-sizing: border-box;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
 }
 
@@ -31,60 +20,87 @@
 }
 
 .video-progress {
-  width: 180px;
+  width: 100%;
   max-width: 100%;
 }
 
-.progress-text {
-  font-size: 12px;
-  color: var(--text-4);
-}
-
-.ai-error-block {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
-  box-sizing: border-box;
+.tl-video {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-1);
   width: 100%;
+  max-width: 100%;
 }
 
-.error-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.tl-video.is-loading {
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--color-primary) 22%, transparent),
+      transparent 55%
+    ),
+    var(--surface-2);
+
+  .ai-loading {
+    position: relative;
+    z-index: 1;
+    padding: 16px;
+  }
 }
 
-.retry-btn {
-  min-height: var(--touch-min);
+.gen-skel {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    color-mix(in srgb, var(--text-1) 8%, transparent) 48%,
+    transparent 66%
+  );
+  background-size: 200% 100%;
+  animation: gen-skel-shine 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes gen-skel-shine {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .video-wrap {
   position: relative;
-  border-radius: 0;
+  border-radius: 14px;
   overflow: hidden;
-  background: var(--color-bg);
+  background: var(--surface-1);
   border: none;
   width: 100%;
   max-width: 100%;
 
   .video-actions {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 6px;
+    right: 6px;
     z-index: var(--z-overlay);
     display: flex;
     pointer-events: none;
 
     :deep(.touch-target.n-button) {
       pointer-events: auto;
-      width: var(--touch-min);
-      height: var(--touch-min);
-      min-width: var(--touch-min);
-      min-height: var(--touch-min);
-      color: var(--on-primary);
-      background: var(--overlay-scrim);
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(8px);
     }
   }
 }
@@ -92,8 +108,8 @@
 .video-player {
   display: block;
   width: 100%;
-  max-height: 280px;
-  aspect-ratio: 16 / 9;
+  max-height: none;
+  aspect-ratio: 16 / 10;
   object-fit: contain;
   background: var(--video-surface);
   vertical-align: middle;

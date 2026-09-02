@@ -43,6 +43,7 @@ const props = defineProps({
   content: {type: String, default: ''},
   /** 流式输出时的占位文案 */
   placeholder: {type: String, default: '思考中…'},
+  streaming: {type: Boolean, default: false},
 })
 
 const md = new MarkdownIt({
@@ -103,8 +104,13 @@ const html = computed(() => {
 </script>
 
 <template>
-  <div v-if="!content" class="md-placeholder">{{ placeholder }}</div>
-  <div v-else class="markdown-body" v-html="html" />
+  <div v-if="!content" class="md-placeholder">
+    <span :class="{'stream-cursor': streaming}">{{ placeholder }}</span>
+  </div>
+  <div v-else class="markdown-stream">
+    <div class="markdown-body" v-html="html" />
+    <span v-if="streaming" class="stream-cursor" aria-hidden="true" />
+  </div>
 </template>
 
 <style lang="scss" scoped>
@@ -112,6 +118,10 @@ const html = computed(() => {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-3);
+}
+
+.markdown-stream {
+  display: flow-root;
 }
 
 .markdown-body {
@@ -236,7 +246,7 @@ const html = computed(() => {
     color: var(--code-inline-fg);
   }
 
-  /* 代码块（highlight 输出）：横向滚动限制在代码块内，避免撑出页面底栏滚动条 */
+  /* 代码块（highlight 输出）：卡片感 + 横向滚动限制在块内 */
   :deep(pre.hljs),
   :deep(pre) {
     margin: 0.75em 0;
@@ -246,6 +256,7 @@ const html = computed(() => {
     overflow-x: auto;
     background: var(--code-bg) !important;
     border: 1px solid var(--border-muted);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-1) 6%, transparent);
     line-height: 1.55;
 
     code {

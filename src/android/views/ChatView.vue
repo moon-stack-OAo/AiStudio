@@ -1,13 +1,8 @@
 <script setup>
 defineOptions({name: 'ChatView'})
 
-import {ref} from 'vue'
-import {
-  AddOutline,
-  ArrowUndoOutline,
-  EllipsisHorizontalOutline,
-  SendOutline,
-} from '@vicons/ionicons5'
+import {computed, ref} from 'vue'
+import {AddOutline, ArrowUndoOutline, EllipsisHorizontalOutline} from '@vicons/ionicons5'
 import {useMessage} from 'naive-ui'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
@@ -19,6 +14,7 @@ import ComposerSendStop from '@core/components/ComposerSendStop.vue'
 import SessionOverridesPanel from '@core/components/SessionOverridesPanel.vue'
 import {useChatSession} from '@core/composables/useChatSession'
 import {countChatTurns} from '@core/utils/chatContext'
+import {formatClockTime} from '@core/utils/datetime'
 import {renderSelectLabel} from '@core/utils/selectRender'
 import {useBackCloseLayer} from '@/composables/useBackCloseLayer'
 
@@ -32,6 +28,7 @@ const {
   listRef,
   bottomRef,
   session,
+  provider,
   isStreamingCurrent,
   contextInfo,
   contextHint,
@@ -50,6 +47,21 @@ const {
   notifyCreateSession: true,
 })
 
+const assistantLabel = computed(() => {
+  const model = String(provider.value?.chatModel || '').trim()
+  if (model) return model
+  return String(provider.value?.name || 'AI').trim() || 'AI'
+})
+
+function msgRoleName(msg) {
+  return msg?.role === 'user' ? '你' : assistantLabel.value
+}
+
+function msgRoleMeta(msg) {
+  if (msg?.streaming) return ''
+  return formatClockTime(msg?.createdAt)
+}
+
 const moreShow = ref(false)
 const overridesShow = ref(false)
 useBackCloseLayer(moreShow)
@@ -60,6 +72,11 @@ function clearMessages() {
   clearMessagesCore()
 }
 
+function onToolbarCreate() {
+  moreShow.value = false
+  createSession()
+}
+
 function openOverrides() {
   moreShow.value = false
   overridesShow.value = true
@@ -68,6 +85,12 @@ function openOverrides() {
 function onOverridesSaved() {
   overridesShow.value = false
   uiMessage.success('已保存本会话参数')
+}
+
+function focusComposerInput() {
+  const root = document.querySelector('.composer-field textarea, .composer-field input')
+  if (root && typeof root.focus === 'function') root.focus()
+  onComposerFocus()
 }
 </script>
 
@@ -82,35 +105,28 @@ function onOverridesSaved() {
     @select="selectSession"
   >
     <template #toolbar="{openHistory}">
-      <div class="chat-toolbar">
+      <div class="chat-toolbar app-top">
         <SessionHistoryButton :count="chatStore.sessions.length" @click="openHistory" />
-
-        <div class="chat-title">{{ sessionTitle }}</div>
-
-        <n-button
-          aria-label="新建会话"
-          circle
-          class="touch-target"
-          quaternary
-          @click="createSession"
+        <div class="top-title-block">
+          <h1 class="top-title">{{ sessionTitle || '对话' }}</h1>
+        </div>
+        <button
+          aria-label="更多"
+          class="top-more touch-target"
+          type="button"
+          @click="moreShow = true"
         >
-          <template #icon>
-            <n-icon :component="AddOutline" />
-          </template>
-        </n-button>
-
-        <n-button aria-label="更多" circle class="touch-target" quaternary @click="moreShow = true">
-          <template #icon>
-            <n-icon :component="EllipsisHorizontalOutline" />
-          </template>
-        </n-button>
+          <n-icon :component="EllipsisHorizontalOutline" :size="18" />
+        </button>
       </div>
     </template>
 
     <div ref="listRef" class="message-list">
-      <div v-if="!session?.messages?.length" class="empty">
-        <div class="empty-title">开始对话</div>
-        <div class="empty-desc">在设置中配置接口后即可发送消息</div>
+      <div v-if="!session?.messages?.length" class="empty-card empty-state">
+        <div class="empty-art" aria-hidden="true">◇</div>
+        <div class="empty-title">开始一段新对话</div>
+        <div class="empty-desc">支持多轮对话、代码块与多模态附件。选择模型后直接输入即可。</div>
+        <button class="empty-cta" type="button" @click="focusComposerInput">写第一条消息</button>
       </div>
 
       <div
@@ -119,13 +135,23 @@ function onOverridesSaved() {
         :class="[msg.role, {error: msg.error}]"
         class="msg"
       >
-        <div class="role">{{ msg.role === 'user' ? '你' : 'AI' }}</div>
+        <div :class="{ai: msg.role !== 'user'}" class="avatar-sm" aria-hidden="true">
+          {{ msg.role === 'user' ? '你' : 'AI' }}
+        </div>
         <div class="msg-body">
           <div class="bubble">
+            <div class="bubble-role">
+              <strong class="bubble-role-name">{{ msgRoleName(msg) }}</strong>
+              <span v-if="msg.streaming" class="status-pill run">生成中</span>
+              <span v-else-if="msgRoleMeta(msg)" class="bubble-role-meta">{{
+                msgRoleMeta(msg)
+              }}</span>
+            </div>
             <MarkdownRenderer
               v-if="msg.content || msg.streaming"
               :content="msg.content"
               :placeholder="msg.streaming ? '思考中…' : ''"
+              :streaming="!!msg.streaming"
             />
             <div v-else-if="msg.error" class="bubble-error">
               {{ msg.errorMessage || '请求失败' }}
@@ -193,9 +219,10 @@ function onOverridesSaved() {
           />
           <div class="composer-actions">
             <ComposerSendStop
+              variant="label"
+              send-label="发送"
               :disabled="!input.trim()"
               :loading="isStreamingCurrent"
-              :send-icon="SendOutline"
               @send="send"
               @stop="stop"
             />
@@ -228,6 +255,12 @@ function onOverridesSaved() {
           <div class="more-label">模型</div>
           <ModelSelect kind="chat" sheet size="medium" />
         </div>
+        <n-button block secondary @click="onToolbarCreate">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
+          新建会话
+        </n-button>
         <n-button block secondary @click="openOverrides">本会话参数</n-button>
         <n-button
           :disabled="!session?.messages?.length"

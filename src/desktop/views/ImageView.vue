@@ -2,30 +2,36 @@
 defineOptions({name: 'ImageView'})
 
 import {computed, ref} from 'vue'
-import {DownloadOutline, ImageOutline, OptionsOutline, SparklesOutline, TrashOutline} from '@vicons/ionicons5'
+import {
+  DownloadOutline,
+  ImageOutline,
+  OptionsOutline,
+  SparklesOutline,
+  TrashOutline,
+} from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
 import ModelSelect from '@core/components/ModelSelect.vue'
 import PromptAssist from '@core/components/PromptAssist.vue'
 import PromptEnhanceButton from '@core/components/PromptEnhanceButton.vue'
 import PromptBuilderCollapse from '@core/components/PromptBuilderCollapse.vue'
-import GenerateTimelineUserBubble from '@/components/generate/GenerateTimelineUserBubble.vue'
 import GenerateComposerCard from '@/components/generate/GenerateComposerCard.vue'
 import GenerateParamsDrawer from '@/components/generate/GenerateParamsDrawer.vue'
+import GenerateParamsPanel from '@/components/generate/GenerateParamsPanel.vue'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {useImageSession} from '@core/composables/useImageSession'
 import {downloadMediaBlob} from '@core/composables/useMediaDownload'
 import {useManualDropdown} from '@/composables/useManualDropdown'
 import {getPromptPlaceholder} from '@core/prompts'
+import {formatBatchSectionLabel} from '@core/utils/datetime'
 import {renderSelectLabel} from '@core/utils/selectRender'
 
-const {isMobile, isCompact} = useBreakpoints()
+const {isMobile, isCompact, isWide} = useBreakpoints()
 const {tooltipTrigger} = useTooltipTrigger()
 const {
   imageStore,
   settings,
   message,
-  copiedId,
   mode,
   prompt,
   n,
@@ -35,7 +41,6 @@ const {
   previewUrl,
   listRef,
   bottomRef,
-  refThumbMap,
   lightboxShow,
   lightboxSrc,
   lightboxTitle,
@@ -55,15 +60,12 @@ const {
   drawerHeight,
   sendTooltip,
   itemStatus,
-  thumbStyle,
   onThumbLoad,
-  paramSummary,
   onUpload,
   clearUpload,
   displaySrc,
   isTemporary,
   openLightbox,
-  openRefLightbox,
   closeLightbox,
   useAsReference,
   useLightboxAsReference,
@@ -75,17 +77,76 @@ const {
   selectSession,
   createSession,
   removeSession,
-  copyPrompt,
-  copyErrorText,
   clearItems,
+  copyErrorText,
   onComposerFocus,
 } = useImageSession()
 
 const paramsDrawerShow = ref(false)
+const useStudioSplit = computed(() => isWide.value)
 
 const promptPlaceholder = computed(() =>
   getPromptPlaceholder('image', mode.value, {isMobile: isMobile.value}),
 )
+
+const generateLabel = computed(() => {
+  if (supportsN.value && Number(n.value) > 1) return `生成 ${n.value} 张`
+  return '生成'
+})
+
+const galleryBatches = computed(() => {
+  const groups = new Map()
+  for (const item of timelineItems.value) {
+    const t = Number(item?.createdAt) || 0
+    const d = new Date(t || Date.now())
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+    if (!groups.has(key)) {
+      groups.set(key, {key, createdAt: t || Date.now(), items: []})
+    }
+    const g = groups.get(key)
+    g.items.push(item)
+    if (t && (!g.createdAt || t < g.createdAt)) g.createdAt = t
+  }
+  return [...groups.values()].map((g) => ({
+    ...g,
+    label: formatBatchSectionLabel(g.createdAt),
+    cells: g.items.flatMap((item) => buildGalleryCells(item)),
+  }))
+})
+
+function buildGalleryCells(item) {
+  const status = itemStatus(item)
+  if (status === 'loading') {
+    const count = Math.max(1, Number(item?.n) || Number(n.value) || 1)
+    return Array.from({length: count}, (_, idx) => ({
+      key: `${item.id}:loading:${idx}`,
+      kind: 'loading',
+      item,
+      idx,
+      label: idx === 0 ? '生成中…' : '排队',
+    }))
+  }
+  if (status === 'error' || !item?.images?.length) {
+    return [
+      {
+        key: `${item.id}:error`,
+        kind: 'error',
+        item,
+        idx: 0,
+        label: '失败',
+        errorMessage: item?.errorMessage || '生成失败',
+      },
+    ]
+  }
+  return item.images.map((img, idx) => ({
+    key: `${item.id}:${img.id || idx}`,
+    kind: 'done',
+    item,
+    img,
+    idx,
+    label: `${String(idx + 1).padStart(2, '0')} · 完成`,
+  }))
+}
 
 const {
   show: ctxShow,
@@ -99,12 +160,6 @@ const {
 } = useManualDropdown()
 
 function onApplyPrompt(text) {
-  prompt.value = text
-}
-
-function onRefillPrompt(item) {
-  const text = String(item?.prompt || '')
-  if (!text.trim()) return
   prompt.value = text
 }
 
@@ -139,45 +194,25 @@ async function downloadImage(itemId, idx, img, name = 'image.png') {
   })
 }
 
-function onUserBubbleContextMenu(e, item) {
-  if (!String(item?.prompt || '').trim()) return
-  openCtxMenu(
-    e,
-    [
-      {label: '复制提示词', key: 'copy'},
-      {label: '填回编辑', key: 'refill'},
-    ],
-    (key) => {
-      if (key === 'copy') copyPrompt(item)
-      else if (key === 'refill') onRefillPrompt(item)
-    },
-  )
-}
-
-function onAiBubbleContextMenu(e, item) {
-  const status = itemStatus(item)
-  if (status === 'loading') return
-
-  if (status === 'error' || !item?.images?.length) {
+function onThumbContextMenu(e, cell) {
+  if (cell.kind === 'loading') return
+  if (cell.kind === 'error') {
     openCtxMenu(e, [{label: '复制错误信息', key: 'copy-error'}], (key) => {
-      if (key === 'copy-error') copyErrorText(item)
+      if (key === 'copy-error') copyErrorText(cell.item)
     })
     return
   }
-
   openCtxMenu(
     e,
     [
-      {label: '下载全部', key: 'download-all'},
-      {label: '设为首图为参考图', key: 'ref-first'},
+      {label: '下载', key: 'download'},
+      {label: '设为参考图', key: 'ref'},
     ],
     (key) => {
-      if (key === 'download-all') {
-        item.images.forEach((img, idx) => {
-          downloadImage(item.id, idx, img, `gen-${item.id}-${idx}.png`)
-        })
-      } else if (key === 'ref-first') {
-        useAsReference(item, 0, item.images[0])
+      if (key === 'download') {
+        downloadImage(cell.item.id, cell.idx, cell.img, `gen-${cell.item.id}-${cell.idx}.png`)
+      } else if (key === 'ref') {
+        useAsReference(cell.item, cell.idx, cell.img)
       }
     },
   )
@@ -198,18 +233,18 @@ function onAiBubbleContextMenu(e, item) {
     @select="selectSession"
   >
     <template #toolbar-right>
+      <ModelSelect kind="image" />
       <n-select
         :options="settings.providerOptions"
         :render-label="renderSelectLabel"
         :value="settings.activeProviderId"
-        class="provider-select"
+        class="provider-select provider-select-muted"
         size="small"
         @update:value="settings.setActiveProvider"
       />
-      <ModelSelect kind="image" />
       <n-button
         :disabled="!session?.items?.length"
-        aria-label="清空时间线"
+        aria-label="清空画廊"
         quaternary
         size="small"
         class="toolbar-clear"
@@ -219,106 +254,278 @@ function onAiBubbleContextMenu(e, item) {
       </n-button>
     </template>
 
-    <div class="content">
+    <div :class="['content', {'gen-split': useStudioSplit}]">
       <div ref="listRef" class="gallery">
-        <div v-if="!timelineItems.length" class="empty">
+        <div v-if="!timelineItems.length" class="empty empty-state gallery-empty">
+          <div class="empty-art" aria-hidden="true">▦</div>
           <div class="empty-title">开始创作</div>
-          <div class="empty-desc">在下方输入提示词，生成结果将以时间线展示</div>
+          <div class="empty-desc">
+            {{
+              useStudioSplit
+                ? '在右侧填写提示词，生成结果将显示在画廊中'
+                : '在下方输入提示词，生成结果将显示在画廊中'
+            }}
+          </div>
         </div>
 
-        <template v-for="item in timelineItems" :key="item.id">
-          <GenerateTimelineUserBubble
-            :mode-label="item.mode === 'txt2img' ? '文生图' : '图生图'"
-            :param-summary="paramSummary(item)"
-            :prompt="item.prompt"
-            :ref-thumb-src="
-              item.mode === 'img2img' ? refThumbMap[item.id] || item.refPreview || null : null
-            "
-            ref-previewable
-            :copied="copiedId === item.id"
-            show-refill
-            @copy="copyPrompt(item)"
-            @refill="onRefillPrompt(item)"
-            @preview-ref="openRefLightbox"
-            @contextmenu="onUserBubbleContextMenu($event, item)"
-          />
-
-          <div :class="['msg', 'assistant', {error: itemStatus(item) === 'error'}]">
-            <div class="role">AI</div>
-            <div class="msg-body">
-              <div class="bubble ai-bubble" @contextmenu="onAiBubbleContextMenu($event, item)">
-                <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
-                  <n-spin size="small" />
-                  <span>生成中…</span>
-                </div>
-                <div v-else-if="itemStatus(item) === 'error'" class="ai-error">
-                  {{ item.errorMessage || '生成失败' }}
-                </div>
-                <div v-else-if="!item.images?.length" class="ai-error">暂无图片</div>
-                <div v-else class="imgs">
-                  <div
-                    v-for="(img, idx) in item.images"
-                    :key="img.id || idx"
-                    class="img-wrap"
-                    :style="thumbStyle(item, idx, isMobile ? 320 : isCompact ? 128 : 148)"
-                  >
-                    <div class="img-actions">
-                      <n-tooltip :trigger="tooltipTrigger" placement="bottom">
-                        <template #trigger>
-                          <n-button
-                            circle
-                            quaternary
-                            size="tiny"
-                            aria-label="下载图片"
-                            class="touch-target"
-                            @click.stop="
-                              downloadImage(item.id, idx, img, `gen-${item.id}-${idx}.png`)
-                            "
-                          >
-                            <template #icon>
-                              <n-icon :component="DownloadOutline" :size="14" />
-                            </template>
-                          </n-button>
+        <div v-for="batch in galleryBatches" :key="batch.key" class="gallery-batch">
+          <div class="section-label">{{ batch.label }}</div>
+          <div class="gallery-grid">
+            <div
+              v-for="cell in batch.cells"
+              :key="cell.key"
+              :class="[
+                'gallery-thumb',
+                {
+                  'is-generating': cell.kind === 'loading',
+                  'is-error': cell.kind === 'error',
+                },
+              ]"
+              @contextmenu="onThumbContextMenu($event, cell)"
+            >
+              <template v-if="cell.kind === 'done'">
+                <div class="gallery-thumb-actions">
+                  <n-tooltip :trigger="tooltipTrigger" placement="bottom">
+                    <template #trigger>
+                      <n-button
+                        circle
+                        quaternary
+                        size="tiny"
+                        aria-label="下载图片"
+                        class="touch-target"
+                        @click.stop="
+                          downloadImage(
+                            cell.item.id,
+                            cell.idx,
+                            cell.img,
+                            `gen-${cell.item.id}-${cell.idx}.png`,
+                          )
+                        "
+                      >
+                        <template #icon>
+                          <n-icon :component="DownloadOutline" :size="14" />
                         </template>
-                        下载
-                      </n-tooltip>
-                      <n-tooltip :trigger="tooltipTrigger" placement="bottom">
-                        <template #trigger>
-                          <n-button
-                            circle
-                            quaternary
-                            size="tiny"
-                            aria-label="设为参考图"
-                            class="touch-target"
-                            @click.stop="useAsReference(item, idx, img)"
-                          >
-                            <template #icon>
-                              <n-icon :component="ImageOutline" :size="14" />
-                            </template>
-                          </n-button>
+                      </n-button>
+                    </template>
+                    下载
+                  </n-tooltip>
+                  <n-tooltip :trigger="tooltipTrigger" placement="bottom">
+                    <template #trigger>
+                      <n-button
+                        circle
+                        quaternary
+                        size="tiny"
+                        aria-label="设为参考图"
+                        class="touch-target"
+                        @click.stop="useAsReference(cell.item, cell.idx, cell.img)"
+                      >
+                        <template #icon>
+                          <n-icon :component="ImageOutline" :size="14" />
                         </template>
-                        设为参考图
-                      </n-tooltip>
-                    </div>
-                    <img
-                      :src="displaySrc(item.id, idx, img) || img.remoteUrl || img.src || ''"
-                      alt="generated"
-                      @click="openLightbox(item, idx, img)"
-                      @load="onThumbLoad(item, idx, $event)"
-                    />
-                    <div v-if="isTemporary(img)" class="temp-tip" title="临时链接，可能过期">
-                      临时链接，可能过期
-                    </div>
-                  </div>
+                      </n-button>
+                    </template>
+                    设为参考图
+                  </n-tooltip>
                 </div>
-              </div>
+                <img
+                  :src="
+                    displaySrc(cell.item.id, cell.idx, cell.img) ||
+                    cell.img.remoteUrl ||
+                    cell.img.src ||
+                    ''
+                  "
+                  alt="generated"
+                  @click="openLightbox(cell.item, cell.idx, cell.img)"
+                  @load="onThumbLoad(cell.item, cell.idx, $event)"
+                />
+                <div v-if="isTemporary(cell.img)" class="temp-tip" title="临时链接，可能过期">
+                  临时
+                </div>
+              </template>
+              <template v-else-if="cell.kind === 'error'">
+                <div class="gallery-thumb-error">{{ cell.errorMessage }}</div>
+              </template>
+              <span class="gallery-thumb-label">{{ cell.label }}</span>
             </div>
           </div>
-        </template>
+        </div>
         <div ref="bottomRef" class="gallery-anchor" aria-hidden="true" />
       </div>
 
+      <GenerateParamsPanel v-if="useStudioSplit" title="参数">
+        <div class="params-field">
+          <div class="params-field-label">模式</div>
+          <div class="mode-switch mode-switch-full">
+            <button
+              :class="{active: mode === 'txt2img'}"
+              class="mode-item"
+              type="button"
+              @click="mode = 'txt2img'"
+            >
+              文生图
+            </button>
+            <button
+              :class="{active: mode === 'img2img'}"
+              class="mode-item"
+              type="button"
+              @click="mode = 'img2img'"
+            >
+              图生图
+            </button>
+          </div>
+        </div>
+
+        <div class="params-field">
+          <div class="params-field-label">提示词</div>
+          <n-input
+            v-model:value="prompt"
+            :autosize="{minRows: 3, maxRows: 8}"
+            :disabled="isGeneratingCurrent"
+            :placeholder="promptPlaceholder"
+            type="textarea"
+            @focus="onComposerFocus"
+            @keydown="onKeydown"
+          />
+          <div class="params-prompt-tools">
+            <PromptEnhanceButton
+              domain="image"
+              :mode="mode"
+              :text="prompt"
+              :disabled="isGeneratingCurrent"
+              @apply="onApplyPrompt"
+            />
+            <PromptAssist
+              domain="image"
+              :mode="mode"
+              :disabled="isGeneratingCurrent"
+              @apply="onApplyPrompt"
+            />
+          </div>
+          <PromptBuilderCollapse
+            domain="image"
+            :mode="mode"
+            :disabled="isGeneratingCurrent"
+            @apply="onApplyPrompt"
+          />
+        </div>
+
+        <div v-if="mode === 'img2img'" class="params-field">
+          <div class="params-field-label">参考图</div>
+          <n-upload
+            v-if="!previewUrl"
+            :custom-request="onUpload"
+            :show-file-list="false"
+            accept="image/*"
+          >
+            <n-button block dashed>
+              <template #icon>
+                <n-icon :component="ImageOutline" />
+              </template>
+              上传 / 粘贴参考图
+            </n-button>
+          </n-upload>
+          <div v-else class="ref-chip ref-chip-drawer">
+            <img :src="previewUrl" alt="reference" />
+            <div class="ref-chip-meta">
+              <span class="ref-name">参考图已选</span>
+              <span class="ref-hint">可清除后重新选择</span>
+            </div>
+            <n-button
+              aria-label="清除参考图"
+              class="touch-target"
+              quaternary
+              size="small"
+              @click="clearUpload"
+            >
+              <template #icon>
+                <n-icon :component="TrashOutline" />
+              </template>
+            </n-button>
+          </div>
+        </div>
+
+        <div v-if="supportsN" class="params-field">
+          <div class="params-field-label">数量</div>
+          <div class="chip-row">
+            <button
+              v-for="count in [1, 2, 3, 4]"
+              :key="count"
+              :class="['opt-chip', {'is-active': n === count}]"
+              type="button"
+              @click="n = count"
+            >
+              ×{{ count }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="useAspectRatio" class="params-field">
+          <div class="params-field-label">比例</div>
+          <div class="chip-row">
+            <button
+              v-for="opt in aspectOptions"
+              :key="opt.value"
+              :class="['opt-chip', {'is-active': aspectRatio === opt.value}]"
+              type="button"
+              @click="aspectRatio = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="showSize" class="params-field">
+          <div class="params-field-label">尺寸</div>
+          <div class="chip-row">
+            <button
+              v-for="opt in sizeOptionsDesktop"
+              :key="opt.value"
+              :class="['opt-chip', {'is-active': size === opt.value}]"
+              type="button"
+              @click="size = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="supportsQuality" class="params-field">
+          <div class="params-field-label">质量</div>
+          <div class="chip-row">
+            <button
+              v-for="opt in qualityOptionsDesktop"
+              :key="opt.value"
+              :class="['opt-chip', {'is-active': quality === opt.value}]"
+              type="button"
+              @click="quality = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+
+        <template #actions>
+          <n-button
+            v-if="isGeneratingCurrent"
+            class="params-action-btn params-action-stop"
+            @click="stopGenerate"
+          >
+            停止
+          </n-button>
+          <n-button
+            class="params-action-btn"
+            type="primary"
+            :disabled="!canGenerate"
+            :loading="isGeneratingCurrent"
+            @click="generate"
+          >
+            {{ generateLabel }}
+          </n-button>
+        </template>
+      </GenerateParamsPanel>
+
       <GenerateComposerCard
+        v-if="!useStudioSplit"
         v-model:prompt="prompt"
         :is-mobile="isMobile"
         :loading="isGeneratingCurrent"
@@ -328,6 +535,8 @@ function onAiBubbleContextMenu(e, item) {
         :placeholder="promptPlaceholder"
         :send-icon="SparklesOutline"
         :send-tooltip="sendTooltip"
+        send-variant="label"
+        :send-label="generateLabel"
         @send="generate"
         @stop="stopGenerate"
         @focus="onComposerFocus"
@@ -469,7 +678,11 @@ function onAiBubbleContextMenu(e, item) {
       </GenerateComposerCard>
     </div>
 
-    <GenerateParamsDrawer v-model:show="paramsDrawerShow" :height="drawerHeight">
+    <GenerateParamsDrawer
+      v-if="!useStudioSplit"
+      v-model:show="paramsDrawerShow"
+      :height="drawerHeight"
+    >
       <div class="params-section">
         <div class="params-label">模式</div>
         <div class="mode-switch mode-switch-full">

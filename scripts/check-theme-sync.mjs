@@ -103,7 +103,7 @@ const checks = [
   ['light', 'text1', '--text-1', lightVars],
   ['light', 'text2', '--text-2', lightVars],
   ['light', 'text3', '--text-3', lightVars],
-  ['light', 'radius', '--radius-md', darkVars],
+  ['light', 'radius', '--radius-md', lightVars],
 ]
 
 const mismatches = []

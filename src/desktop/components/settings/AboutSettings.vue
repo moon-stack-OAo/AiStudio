@@ -167,6 +167,10 @@ function onClearAll() {
             <div class="section-title">更新</div>
             <div class="section-desc">检查新版本并安装</div>
           </div>
+          <span v-if="updateResult && !updateResult.hasUpdate" class="settings-status-pill ok">
+            最新
+          </span>
+          <span v-else-if="updateResult?.hasUpdate" class="settings-status-pill run"> 有更新 </span>
         </div>
 
         <div class="update-row">

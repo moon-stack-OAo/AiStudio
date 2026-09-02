@@ -15,10 +15,10 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-2);
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--border-muted);
   overflow: hidden;
 }
 
@@ -54,8 +54,8 @@
   background: transparent;
   color: inherit;
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
 
   &:hover {
     background: var(--surface-2);
@@ -68,8 +68,8 @@
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--color-primary) 65%, transparent);
-    outline-offset: 1px;
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
 
   &:focus:not(:focus-visible) {
@@ -98,9 +98,7 @@
   padding: 1px 6px;
   border-radius: var(--radius-pill);
   color: var(--color-success);
-  background: rgba(52, 211, 153, 0.14);
-  background: color-mix(in srgb, var(--color-success) 14%, transparent);
-  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-bg-elevated));
   border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
 }
 
@@ -149,12 +147,13 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 10px var(--space-3);
+  padding: 0 var(--space-3) 10px;
   overflow: visible;
 }
 
 .form-card .section-head {
-  margin-bottom: var(--space-2);
+  margin: 0 calc(-1 * var(--space-3)) var(--space-2);
+  padding: 12px var(--space-3);
 }
 
 .form-card .section-desc {
@@ -239,7 +238,7 @@
 }
 
 .tip-muted {
-  background: var(--surface-1);
+  background: var(--color-bg-elevated);
   border: 1px solid var(--border-subtle);
 }
 
@@ -316,7 +315,12 @@
   .form-card {
     height: auto;
     overflow: visible;
-    padding: var(--space-3) 14px;
+    padding: 0 14px var(--space-3);
+  }
+
+  .form-card .section-head {
+    margin: 0 -14px var(--space-2);
+    padding: 12px 14px;
   }
 
   .form-card .section-desc {

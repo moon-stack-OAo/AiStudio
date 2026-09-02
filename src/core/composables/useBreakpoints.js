@@ -25,10 +25,13 @@ export function useBreakpoints() {
 
   const isMobile = computed(() => width.value < 768)
   const isCompact = computed(() => width.value < 1024)
+  /** 桌面生图/视频双栏工作室（画廊|参数）仅在宽屏启用，避免与侧栏挤成三栏 */
+  const isWide = computed(() => width.value >= 1280)
 
   return {
     width,
     isMobile,
     isCompact,
+    isWide,
   }
 }

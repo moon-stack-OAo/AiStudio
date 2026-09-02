@@ -37,17 +37,6 @@ function onSelect(id) {
 
 <template>
   <div :class="{compact: isCompact, mobile: isMobile}" class="page">
-    <SessionList
-      v-if="!isCompact"
-      :active-id="activeId"
-      :sessions="sessions"
-      :title="historyTitle"
-      @create="emit('create')"
-      @remove="(id) => emit('remove', id)"
-      @rename="(id, title) => emit('rename', id, title)"
-      @select="(id) => emit('select', id)"
-    />
-
     <n-drawer v-model:show="historyShow" :width="isMobile ? '86%' : 280" placement="left">
       <n-drawer-content closable :title="historyTitle">
         <SessionList

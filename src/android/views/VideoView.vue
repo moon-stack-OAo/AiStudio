@@ -9,9 +9,7 @@ import {
   EllipsisHorizontalOutline,
   GridOutline,
   ImageOutline,
-  OptionsOutline,
   RefreshOutline,
-  SparklesOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
 import SessionWorkspaceShell from '@/components/SessionWorkspaceShell.vue'
@@ -48,6 +46,7 @@ const {
   bottomRef,
   refThumbMap,
   session,
+  provider,
   showSize,
   showAspectRatio,
   showResolution,
@@ -60,11 +59,11 @@ const {
   aspectOptions,
   durationOptions,
   resolutionOptions,
-  paramsSummary,
+  sizeLabel,
+  durationLabel,
   drawerHeight,
   sessionTitle,
   sendTooltip,
-  emptyDesc,
   itemStatus,
   paramSummary,
   onUpload,
@@ -108,6 +107,85 @@ const promptPlaceholder = computed(() =>
   getPromptPlaceholder('video', mode.value, {isMobile: true}),
 )
 
+const modelCapLabel = computed(() => {
+  const raw = String(provider.value?.videoModel || '').trim()
+  if (!raw) return '未选模型'
+  const parts = raw.split(/[/:]/)
+  return parts[parts.length - 1] || raw
+})
+
+const durationCapLabel = computed(() => {
+  const raw = String(durationLabel.value || '').replace(/\s/g, '')
+  return raw || `${seconds.value}s`
+})
+
+const sizeCapLabel = computed(() => sizeLabel.value || '画幅')
+
+const timelineRows = computed(() => {
+  const rows = []
+  let lastDay = null
+  for (const item of timelineItems.value) {
+    const label = formatDayLabel(item.createdAt)
+    if (label !== lastDay) {
+      rows.push({kind: 'day', id: `day-${label}-${item.id}`, label})
+      lastDay = label
+    }
+    rows.push({kind: 'item', id: item.id, item})
+  }
+  return rows
+})
+
+function formatDayLabel(ts) {
+  const t = Number(ts) || Date.now()
+  const d = new Date(t)
+  const now = new Date()
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startYesterday = startToday - 86400000
+  if (t >= startToday) return '今天'
+  if (t >= startYesterday) return '昨天'
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+function formatItemTime(ts) {
+  const d = new Date(Number(ts) || Date.now())
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
+}
+
+function progressLabel(item) {
+  const p = Number(item?.progress)
+  if (!Number.isFinite(p) || p <= 0) return '生成中'
+  return `${Math.min(100, Math.round(p))}%`
+}
+
+function cardHdMeta(item) {
+  const parts = []
+  parts.push(formatItemTime(item.createdAt))
+  const summary = paramSummary(item)
+  if (summary) parts.push(summary)
+  return parts.join(' · ')
+}
+
+function bubbleMetaParts(item) {
+  const parts = [
+    item?.mode === 'img2video' ? '图生视频' : '文生视频',
+    formatItemTime(item?.createdAt),
+  ]
+  const summary = paramSummary(item)
+  if (summary) {
+    for (const part of String(summary).split(' · ')) {
+      if (part) parts.push(part)
+    }
+  }
+  return parts
+}
+
+function onToolbarCreate() {
+  moreShow.value = false
+  createSession()
+}
+
 function onApplyPrompt(text) {
   prompt.value = text
 }
@@ -121,6 +199,11 @@ function onRefillPrompt(item) {
   const text = String(item?.prompt || '')
   if (!text.trim()) return
   prompt.value = text
+}
+
+function onContinueShot(item) {
+  onRefillPrompt(item)
+  message.info('已填回提示词，可续写镜头后生成')
 }
 
 function clearItems() {
@@ -228,6 +311,10 @@ function onCardAbandon() {
   if (!item) return
   abandonPendingItem(item)
 }
+
+async function onAgainBatch(item) {
+  await retryItem(item)
+}
 </script>
 
 <template>
@@ -241,223 +328,246 @@ function onCardAbandon() {
     @select="selectSession"
   >
     <template #toolbar="{openHistory}">
-      <div class="video-toolbar">
+      <div class="video-toolbar app-top">
         <SessionHistoryButton :count="videoStore.sessions.length" @click="openHistory" />
-
-        <div class="video-title">{{ sessionTitle }}</div>
-
-        <n-button
-          aria-label="新建会话"
-          circle
-          class="touch-target"
-          quaternary
-          @click="createSession"
+        <div class="top-title-block">
+          <h1 class="top-title">{{ sessionTitle || '视频' }}</h1>
+        </div>
+        <button
+          aria-label="更多"
+          class="top-more touch-target"
+          type="button"
+          @click="moreShow = true"
         >
-          <template #icon>
-            <n-icon :component="AddOutline" />
-          </template>
-        </n-button>
-
-        <n-button aria-label="更多" circle class="touch-target" quaternary @click="moreShow = true">
-          <template #icon>
-            <n-icon :component="EllipsisHorizontalOutline" />
-          </template>
-        </n-button>
+          <n-icon :component="EllipsisHorizontalOutline" :size="18" />
+        </button>
       </div>
     </template>
 
+    <div class="param-capsule" aria-label="参数胶囊">
+      <button class="param-cap" type="button" @click="moreShow = true">
+        <strong>{{ modelCapLabel }}</strong>
+      </button>
+      <button class="param-cap" type="button" @click="paramsDrawerShow = true">
+        时长 <strong>{{ durationCapLabel }}</strong>
+      </button>
+      <button class="param-cap" type="button" @click="paramsDrawerShow = true">
+        画幅 <strong>{{ sizeCapLabel }}</strong>
+      </button>
+      <button
+        v-if="mode === 'img2video'"
+        class="param-cap"
+        type="button"
+        @click="paramsDrawerShow = true"
+      >
+        起始帧 · <strong>{{ previewUrl ? '已选' : '未选' }}</strong>
+      </button>
+      <button class="param-cap-more" type="button" @click="paramsDrawerShow = true">更多</button>
+    </div>
+
     <div ref="listRef" class="gallery">
-      <div v-if="!timelineItems.length" class="empty">
-        <div class="empty-title">开始创作</div>
-        <div class="empty-desc">{{ emptyDesc }}</div>
+      <div v-if="!timelineItems.length" class="empty-card empty-state">
+        <div class="empty-art art" aria-hidden="true">▶</div>
+        <div class="empty-title">从一句话开始</div>
+        <p class="empty-desc">像聊天一样生成视频。提示词进时间线，结果以卡片回传。</p>
       </div>
 
-      <template v-for="item in timelineItems" :key="item.id">
-        <div class="msg user">
-          <div class="role">你</div>
-          <div class="msg-body">
-            <div class="bubble user-bubble">
-              <div class="bubble-tags">
-                <n-tag :bordered="false" size="tiny">
-                  {{ item.mode === 'img2video' ? '图生视频' : '文生视频' }}
-                </n-tag>
-                <n-tag v-if="paramSummary(item)" :bordered="false" size="tiny" type="info">
-                  {{ paramSummary(item) }}
-                </n-tag>
+      <template v-for="row in timelineRows" :key="row.id">
+        <div v-if="row.kind === 'day'" class="tl-day">{{ row.label }}</div>
+
+        <div v-else class="tl-turn">
+          <div class="msg user">
+            <div class="msg-body">
+              <div class="bubble user-bubble">
+                <div
+                  v-if="
+                    row.item.mode === 'img2video' &&
+                    (refThumbMap[row.item.id] || row.item.refPreview)
+                  "
+                  class="ref-thumb"
+                >
+                  <img
+                    :src="refThumbMap[row.item.id] || row.item.refPreview"
+                    alt="reference"
+                    title="点击预览"
+                    @click="openRefLightbox(refThumbMap[row.item.id] || row.item.refPreview)"
+                  />
+                </div>
+                <div class="prompt-text">{{ row.item.prompt }}</div>
+                <span class="bubble-meta">
+                  <em v-for="(part, mi) in bubbleMetaParts(row.item)" :key="mi">{{ part }}</em>
+                </span>
               </div>
-              <div
-                v-if="item.mode === 'img2video' && (refThumbMap[item.id] || item.refPreview)"
-                class="ref-thumb"
-              >
-                <img
-                  :src="refThumbMap[item.id] || item.refPreview"
-                  alt="reference"
-                  title="点击预览"
-                  @click="openRefLightbox(refThumbMap[item.id] || item.refPreview)"
+              <div v-if="row.item.prompt" class="msg-actions">
+                <CopyIconButton
+                  :active="copiedId === row.item.id"
+                  tooltip="复制提示词"
+                  @click="copyPrompt(row.item)"
                 />
+                <n-tooltip :trigger="tooltipTrigger" placement="bottom">
+                  <template #trigger>
+                    <n-button
+                      aria-label="填回编辑"
+                      circle
+                      class="touch-target"
+                      quaternary
+                      size="tiny"
+                      @click="onRefillPrompt(row.item)"
+                    >
+                      <template #icon>
+                        <n-icon :component="CreateOutline" :size="14" />
+                      </template>
+                    </n-button>
+                  </template>
+                  填回编辑
+                </n-tooltip>
               </div>
-              <div class="prompt-text">{{ item.prompt }}</div>
-            </div>
-            <div v-if="item.prompt" class="msg-actions">
-              <CopyIconButton
-                :active="copiedId === item.id"
-                tooltip="复制提示词"
-                @click="copyPrompt(item)"
-              />
-              <n-tooltip :trigger="tooltipTrigger" placement="bottom">
-                <template #trigger>
-                  <n-button
-                    aria-label="填回编辑"
-                    circle
-                    class="touch-target"
-                    quaternary
-                    size="tiny"
-                    @click="onRefillPrompt(item)"
-                  >
-                    <template #icon>
-                      <n-icon :component="CreateOutline" :size="14" />
-                    </template>
-                  </n-button>
-                </template>
-                填回编辑
-              </n-tooltip>
             </div>
           </div>
-        </div>
 
-        <div :class="['msg', 'assistant', {error: itemStatus(item) === 'error'}]">
-          <div class="role">AI</div>
-          <div class="msg-body">
-            <div class="bubble ai-bubble">
-              <div v-if="itemStatus(item) === 'loading'" class="ai-loading">
+          <div v-if="itemStatus(row.item) === 'error'" class="err-card error-state">
+            <div class="error-art art" aria-hidden="true">!</div>
+            <div class="empty-title">生成失败</div>
+            <p class="empty-desc">{{ row.item.errorMessage || '生成失败' }}</p>
+            <div class="tl-actions">
+              <button class="mini" type="button" @click="copyErrorText(row.item)">复制错误</button>
+              <button
+                class="mini primary"
+                type="button"
+                :disabled="gen.busy"
+                @click="retryItem(row.item)"
+              >
+                重试这条
+              </button>
+            </div>
+          </div>
+
+          <div v-else-if="itemStatus(row.item) === 'pending_resume'" class="err-card error-state">
+            <div class="error-art art" aria-hidden="true">…</div>
+            <div class="empty-title">任务未完成</div>
+            <p class="empty-desc">
+              {{ row.item.errorMessage || '任务未完成，可恢复轮询或放弃' }}
+            </p>
+            <div class="tl-actions">
+              <button
+                class="mini primary"
+                type="button"
+                :disabled="gen.busy"
+                @click="resumeItem(row.item)"
+              >
+                恢复轮询
+              </button>
+              <button class="mini" type="button" @click="abandonPendingItem(row.item)">放弃</button>
+              <button
+                v-if="row.item.errorMessage"
+                class="mini"
+                type="button"
+                @click="copyErrorText(row.item)"
+              >
+                复制错误
+              </button>
+            </div>
+          </div>
+
+          <div
+            v-else-if="!row.item.videoUrl || isVideoBroken(row.item)"
+            class="err-card error-state"
+          >
+            <div class="error-art art" aria-hidden="true">!</div>
+            <div class="empty-title">无法播放</div>
+            <p class="empty-desc">{{ videoPlaybackErrorText(row.item) }}</p>
+            <div class="tl-actions">
+              <button class="mini" type="button" @click="copyErrorText(row.item)">复制错误</button>
+              <button
+                v-if="canReloadVideo(row.item)"
+                class="mini"
+                type="button"
+                @click="reloadVideo(row.item)"
+              >
+                重新加载
+              </button>
+              <button
+                class="mini primary"
+                type="button"
+                :disabled="gen.busy"
+                @click="retryItem(row.item)"
+              >
+                重试这条
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="tl-card">
+            <div class="tl-card-hd">
+              <strong>
+                {{ itemStatus(row.item) === 'loading' ? '结果 · 生成中' : '结果 · 本批' }}
+              </strong>
+              <span class="tl-card-hd-grow" />
+              <span v-if="itemStatus(row.item) === 'loading'" class="tl-pill run">
+                {{ progressLabel(row.item) }}
+              </span>
+              <span v-else class="tl-card-meta">{{ cardHdMeta(row.item) }}</span>
+            </div>
+
+            <div v-if="itemStatus(row.item) === 'loading'" class="tl-video is-loading">
+              <div class="gen-skel" aria-hidden="true" />
+              <div class="ai-loading">
                 <n-spin size="small" />
                 <div class="loading-meta">
                   <span>生成中…</span>
                   <n-progress
-                    v-if="item.progress != null && item.progress > 0"
-                    :percentage="Math.min(100, Math.round(Number(item.progress) || 0))"
+                    v-if="row.item.progress != null && row.item.progress > 0"
+                    :percentage="Math.min(100, Math.round(Number(row.item.progress) || 0))"
                     :show-indicator="true"
                     class="video-progress"
                     processing
                     type="line"
                   />
-                  <span v-else-if="item.progress != null" class="progress-text">
-                    {{ Math.round(Number(item.progress) || 0) }}%
-                  </span>
                 </div>
               </div>
-              <div v-else-if="itemStatus(item) === 'pending_resume'" class="ai-error-block">
-                <div class="ai-error">
-                  {{ item.errorMessage || '任务未完成，可恢复轮询或放弃' }}
-                </div>
-                <div class="error-actions">
-                  <n-button
-                    :disabled="gen.busy"
-                    class="retry-btn"
-                    secondary
-                    size="tiny"
-                    type="primary"
-                    @click="resumeItem(item)"
-                  >
-                    恢复轮询
-                  </n-button>
-                  <n-button
-                    class="retry-btn"
-                    secondary
-                    size="tiny"
-                    @click="abandonPendingItem(item)"
-                  >
-                    放弃
-                  </n-button>
-                  <n-button
-                    v-if="item.errorMessage"
-                    class="retry-btn"
-                    secondary
-                    size="tiny"
-                    @click="copyErrorText(item)"
-                  >
-                    复制错误
-                  </n-button>
-                </div>
+            </div>
+
+            <div v-else class="video-wrap tl-video">
+              <div class="video-actions">
+                <n-button
+                  aria-label="更多操作"
+                  circle
+                  class="touch-target"
+                  quaternary
+                  size="tiny"
+                  @click.stop="openCardActions(row.item)"
+                >
+                  <template #icon>
+                    <n-icon :component="EllipsisHorizontalOutline" :size="16" />
+                  </template>
+                </n-button>
               </div>
-              <div v-else-if="itemStatus(item) === 'error'" class="ai-error-block">
-                <div class="ai-error">{{ item.errorMessage || '生成失败' }}</div>
-                <div class="error-actions">
-                  <n-button class="retry-btn" secondary size="tiny" @click="copyErrorText(item)">
-                    复制错误
-                  </n-button>
-                  <n-button
-                    :disabled="gen.busy"
-                    class="retry-btn"
-                    secondary
-                    size="tiny"
-                    @click="retryItem(item)"
-                  >
-                    <template #icon>
-                      <n-icon :component="RefreshOutline" :size="14" />
-                    </template>
-                    重试
-                  </n-button>
-                </div>
-              </div>
-              <div v-else-if="!item.videoUrl || isVideoBroken(item)" class="ai-error-block">
-                <div class="ai-error">
-                  {{ videoPlaybackErrorText(item) }}
-                </div>
-                <div class="error-actions">
-                  <n-button class="retry-btn" secondary size="tiny" @click="copyErrorText(item)">
-                    复制错误
-                  </n-button>
-                  <n-button
-                    v-if="canReloadVideo(item)"
-                    class="retry-btn"
-                    secondary
-                    size="tiny"
-                    @click="reloadVideo(item)"
-                  >
-                    <template #icon>
-                      <n-icon :component="RefreshOutline" :size="14" />
-                    </template>
-                    重新加载
-                  </n-button>
-                  <n-button
-                    :disabled="gen.busy"
-                    class="retry-btn"
-                    secondary
-                    size="tiny"
-                    @click="retryItem(item)"
-                  >
-                    <template #icon>
-                      <n-icon :component="RefreshOutline" :size="14" />
-                    </template>
-                    重试
-                  </n-button>
-                </div>
-              </div>
-              <div v-else class="video-wrap">
-                <div class="video-actions">
-                  <n-button
-                    aria-label="更多操作"
-                    circle
-                    class="touch-target"
-                    quaternary
-                    size="tiny"
-                    @click.stop="openCardActions(item)"
-                  >
-                    <template #icon>
-                      <n-icon :component="EllipsisHorizontalOutline" :size="16" />
-                    </template>
-                  </n-button>
-                </div>
-                <video
-                  :src="item.videoUrl"
-                  class="video-player"
-                  controls
-                  playsinline
-                  preload="metadata"
-                  @error="onVideoError(item.id)"
-                />
-              </div>
+              <video
+                :src="row.item.videoUrl"
+                class="video-player"
+                controls
+                playsinline
+                preload="metadata"
+                @error="onVideoError(row.item.id)"
+              />
+            </div>
+
+            <div
+              v-if="
+                itemStatus(row.item) !== 'loading' && row.item.videoUrl && !isVideoBroken(row.item)
+              "
+              class="tl-actions"
+            >
+              <button class="mini" type="button" @click="downloadVideo(row.item)">下载</button>
+              <button class="mini" type="button" @click="onContinueShot(row.item)">续写镜头</button>
+              <button
+                class="mini primary"
+                type="button"
+                :disabled="gen.busy"
+                @click="onAgainBatch(row.item)"
+              >
+                再来一批
+              </button>
             </div>
           </div>
         </div>
@@ -468,23 +578,7 @@ function onCardAbandon() {
     <template #composer>
       <div class="composer">
         <div v-if="isGeneratingCurrent" class="composer-hint is-critical">生成中可点击停止</div>
-        <div class="composer-card">
-          <button class="params-summary" type="button" @click="paramsDrawerShow = true">
-            <n-icon :component="OptionsOutline" :size="16" class="params-summary-icon" />
-            <span class="params-summary-text">{{ paramsSummary }}</span>
-            <span class="params-summary-action">设置</span>
-          </button>
-
-          <button
-            v-if="mode === 'img2video' && previewUrl"
-            class="ref-chip ref-chip-mobile"
-            type="button"
-            @click="paramsDrawerShow = true"
-          >
-            <img :src="previewUrl" alt="reference" />
-            <span class="ref-name">参考图已选，点击可更换</span>
-          </button>
-
+        <div class="composer-card compose-box">
           <PromptAssist
             domain="video"
             :mode="mode"
@@ -503,9 +597,20 @@ function onCardAbandon() {
               type="textarea"
               @focus="onComposerFocus"
             />
+            <div class="composer-actions">
+              <ComposerSendStop
+                variant="label"
+                send-label="生成"
+                :disabled="!canGenerate"
+                :loading="isGeneratingCurrent"
+                :send-tooltip="sendTooltip"
+                @send="generate"
+                @stop="stopGenerate"
+              />
+            </div>
           </div>
 
-          <div class="prompt-tools">
+          <div class="compose-tools">
             <PromptEnhanceButton
               domain="video"
               :mode="mode"
@@ -523,15 +628,6 @@ function onCardAbandon() {
               <n-icon :component="GridOutline" :size="14" class="builder-entry-icon" />
               <span>结构化</span>
             </button>
-            <div class="prompt-tools-spacer" />
-            <ComposerSendStop
-              :disabled="!canGenerate"
-              :loading="isGeneratingCurrent"
-              :send-icon="SparklesOutline"
-              :send-tooltip="sendTooltip"
-              @send="generate"
-              @stop="stopGenerate"
-            />
           </div>
         </div>
       </div>
@@ -710,6 +806,12 @@ function onCardAbandon() {
           <div class="more-label">模型</div>
           <ModelSelect kind="video" sheet size="medium" />
         </div>
+        <n-button block secondary @click="onToolbarCreate">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
+          新建会话
+        </n-button>
         <n-button
           :disabled="!session?.items?.length"
           block

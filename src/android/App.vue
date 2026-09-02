@@ -219,10 +219,16 @@ async function goTab(tab) {
 
   &.active {
     color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    border-radius: 12px;
   }
 
   &:active {
     background: var(--surface-2);
+  }
+
+  &.active:active {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
   }
 }
 

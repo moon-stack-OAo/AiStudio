@@ -3,11 +3,17 @@
 
 /* Desktop 密度默认值已在 tokens.scss；此处仅窄屏 / 中屏覆写（须放全局，勿进 scoped） */
 
+:root {
+  --gen-params-w: 320px;
+  --gallery-thumb-min: 148px;
+}
+
 @media (max-width: 1279.98px) {
   :root {
     --pad-gallery-y: 14px;
     --pad-gallery-x: var(--space-4);
     --pad-gallery-bottom: 14px;
+    --gallery-thumb-min: 128px;
   }
 }
 
@@ -22,6 +28,8 @@
     --pad-bubble-x: var(--space-4);
     --radius-bubble: var(--radius-xl);
     --line-bubble: 1.55;
+    --size-avatar-sm: 28px;
+    --radius-avatar-sm: 8px;
     --pad-composer-y: var(--space-2);
     --pad-composer-x: var(--space-3);
     --pad-composer-bottom: 10px;

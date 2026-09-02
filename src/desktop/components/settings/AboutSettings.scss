@@ -20,20 +20,23 @@
   padding: 22px 20px;
   text-align: center;
   background:
-    radial-gradient(600px 180px at 50% 0%, var(--glow-primary), transparent 70%), var(--surface-1);
-  border: 1px solid var(--border-subtle);
+    radial-gradient(600px 180px at 50% 0%, var(--glow-primary), transparent 70%),
+    var(--color-bg-elevated);
+  border: 1px solid var(--border-muted);
 }
 
 .version-badge {
+  font-family: var(--font-display);
   font-size: 28px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-display);
   color: var(--color-primary-hover);
   line-height: 1.2;
 }
 
 .version-app {
   margin-top: 6px;
+  font-family: var(--font-display);
   font-size: 15px;
   font-weight: 600;
   color: var(--text-1);

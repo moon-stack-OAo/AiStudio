@@ -20,9 +20,10 @@
 .toolbar-title {
   flex: 1;
   min-width: 0;
+  font-family: var(--font-display);
   font-size: 17px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--tracking-display);
 }
 
 .toolbar-actions {

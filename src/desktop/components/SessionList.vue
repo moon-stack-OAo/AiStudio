@@ -1,7 +1,9 @@
 <script setup>
-import {h, ref} from 'vue'
+import {computed, h, ref} from 'vue'
 import {NInput, useDialog, useMessage} from 'naive-ui'
 import {AddOutline, EllipsisHorizontalOutline} from '@vicons/ionicons5'
+import {formatRelativeSessionTime} from '@core/utils/datetime'
+import {countChatTurns} from '@core/utils/chatContext'
 
 const props = defineProps({
   title: {type: String, default: '会话'},
@@ -9,6 +11,8 @@ const props = defineProps({
   activeId: {type: String, default: ''},
   /** 嵌入抽屉时铺满宽度 */
   embedded: {type: Boolean, default: false},
+  /** sidebar：侧栏单栏嵌入；default：独立会话轨 */
+  variant: {type: String, default: 'default'},
 })
 
 const emit = defineEmits(['create', 'select', 'rename', 'remove'])
@@ -16,6 +20,7 @@ const emit = defineEmits(['create', 'select', 'rename', 'remove'])
 const dialog = useDialog()
 const message = useMessage()
 const renameValue = ref('')
+const isSidebar = computed(() => props.variant === 'sidebar')
 
 const rowActionOptions = [
   {label: '重命名', key: 'rename'},
@@ -34,6 +39,21 @@ function onCreate() {
 function onRowAction(action, id) {
   if (action === 'rename') onRename(id)
   else if (action === 'remove') onRemove(id)
+}
+
+function sessionMeta(session) {
+  const type = String(session?.type || 'chat')
+  if (type === 'image') {
+    const n = Array.isArray(session?.items) ? session.items.length : 0
+    return n ? `生图 · ${n} 条` : '生图'
+  }
+  if (type === 'video') {
+    const n = Array.isArray(session?.items) ? session.items.length : 0
+    return n ? `生视频 · ${n} 条` : '生视频'
+  }
+  const turns = countChatTurns(session?.messages || [])
+  if (turns > 0) return `对话 · ${turns} 轮`
+  return '对话'
 }
 
 function onRename(id) {
@@ -78,10 +98,10 @@ function onRemove(id) {
 </script>
 
 <template>
-  <div :class="{embedded}" class="session-panel">
+  <div :class="{embedded, sidebar: isSidebar}" class="session-panel">
     <div class="session-header">
-      <div class="session-title">{{ title }}</div>
-      <div class="actions">
+      <div class="session-title">{{ isSidebar ? '最近会话' : title }}</div>
+      <div v-if="!isSidebar" class="actions">
         <n-button
           aria-label="新建会话"
           circle
@@ -109,7 +129,11 @@ function onRemove(id) {
         @click="onSelect(s.id)"
         @keydown.enter.prevent="onSelect(s.id)"
       >
-        <span class="session-item-title">{{ s.title || '未命名' }}</span>
+        <div class="session-item-main">
+          <span class="session-item-title">{{ s.title || '未命名' }}</span>
+          <span class="session-item-time">{{ formatRelativeSessionTime(s.updatedAt) }}</span>
+        </div>
+        <div class="session-item-meta">{{ sessionMeta(s) }}</div>
         <n-dropdown
           :options="rowActionOptions"
           placement="bottom-end"
@@ -150,6 +174,17 @@ function onRemove(id) {
     width: 100%;
     border-right: none;
   }
+
+  &.sidebar {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto;
+    flex: 1;
+    min-height: 0;
+    border-right: none;
+    background: transparent;
+  }
 }
 
 .session-header {
@@ -158,12 +193,25 @@ function onRemove(id) {
   justify-content: space-between;
   padding: 14px var(--space-3) var(--space-2);
   flex-shrink: 0;
+
+  .session-panel.sidebar & {
+    padding: 12px 8px 6px 10px;
+  }
 }
 
 .session-title {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-2);
+  letter-spacing: 0.02em;
+
+  .session-panel.sidebar & {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
 }
 
 .actions {
@@ -178,18 +226,25 @@ function onRemove(id) {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: var(--space-1) var(--space-2) var(--space-3);
+
+  .session-panel.sidebar & {
+    padding: 0 4px 8px;
+  }
 }
 
 .session-item {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: 40px;
-  padding: 0 var(--space-2) 0 var(--space-3);
-  border-radius: 6px;
+  flex-direction: column;
+  gap: 2px;
+  align-items: stretch;
+  min-height: 52px;
+  padding: 10px 36px 10px 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--text-2);
   user-select: none;
+  box-sizing: border-box;
 
   &:hover {
     background: var(--surface-2);
@@ -197,14 +252,26 @@ function onRemove(id) {
 
   &.active {
     background: var(--primary-soft);
-    color: var(--color-primary);
-    font-weight: 500;
+    color: var(--text-1);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px;
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
+
+  .session-panel.sidebar & {
+    min-height: 48px;
+    padding: 9px 32px 9px 10px;
+  }
+}
+
+.session-item-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .session-item-title {
@@ -213,11 +280,37 @@ function onRemove(id) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.session-item-time {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.3;
+}
+
+.session-item-meta {
+  font-size: 11px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+  padding-right: 4px;
+}
+
+.session-item.active .session-item-time,
+.session-item.active .session-item-meta {
+  color: color-mix(in srgb, var(--color-primary) 55%, var(--text-3));
 }
 
 .session-row-more {
+  position: absolute;
+  top: 8px;
+  right: 6px;
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.12s ease;
@@ -229,7 +322,8 @@ function onRemove(id) {
   opacity: 1;
 }
 
-.session-panel.embedded .session-row-more {
+.session-panel.embedded .session-row-more,
+.session-panel.sidebar .session-row-more {
   opacity: 1;
 }
 
@@ -238,12 +332,6 @@ function onRemove(id) {
   font-size: var(--text-sm);
   color: var(--text-3);
   text-align: center;
-}
-
-@media (max-width: 1279.98px) {
-  .session-panel:not(.embedded) {
-    width: var(--session-list-width-compact);
-  }
 }
 
 @media (max-width: 767.98px) {

@@ -6,7 +6,11 @@ import {defineStore} from 'pinia'
 import {loadJSON, saveJSON} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
 import {notifyStorageError, notifyStorageWarning} from '@core/utils/toast'
-import {CHAT_PAYLOAD_RETRY_CHARS, prepareChatPersistPayload, sanitizeChatSession} from '@core/utils/chatPersist'
+import {
+  CHAT_PAYLOAD_RETRY_CHARS,
+  prepareChatPersistPayload,
+  sanitizeChatSession,
+} from '@core/utils/chatPersist'
 
 function normalizeOverrides(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}

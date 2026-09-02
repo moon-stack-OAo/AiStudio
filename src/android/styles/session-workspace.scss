@@ -6,15 +6,45 @@
 }
 
 /* 移动端隐藏角色头像，把横向空间还给气泡 */
-.role {
+.role,
+.avatar-sm {
   display: none;
 }
 
+/* Chat composer：输入与发送始终同行 */
+.composer-card {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: var(--space-2) var(--space-2) var(--space-2) 10px;
+}
+
+.composer-tools {
+  display: none;
+}
+
+.composer-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.composer-foot {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 .composer-actions {
+  flex: 0 0 auto;
   flex-direction: row;
   justify-content: flex-end;
   width: auto;
   padding-bottom: 2px;
+}
+
+.composer-actions :deep(.composer-send-stop.is-label) {
+  min-width: 56px;
+  height: 36px;
 }
 
 /* 常态隐藏说明；仅 critical 时显示在输入区上方 */

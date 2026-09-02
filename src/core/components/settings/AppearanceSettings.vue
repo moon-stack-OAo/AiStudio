@@ -31,6 +31,12 @@ const densityOptions = [
   {label: '舒适', value: 'comfortable'},
   {label: '紧凑', value: 'compact'},
 ]
+
+const accentMeta = computed(() =>
+  settings.resolvedTheme === 'light'
+    ? {hex: '#c45c26', label: '暖橙 #c45c26（浅色 Style B）'}
+    : {hex: '#60a5fa', label: '冷蓝 #60a5fa（深色 Style A）'},
+)
 </script>
 
 <template>
@@ -57,6 +63,14 @@ const densityOptions = [
         </n-radio-group>
         <div v-if="settings.theme === 'system'" class="hint context-extra-hint">
           当前解析为：{{ settings.resolvedTheme === 'light' ? '浅色' : '深色' }}
+        </div>
+        <div class="settings-row accent-row">
+          <span class="accent-swatch" :title="accentMeta.hex" aria-hidden="true" />
+          <div class="grow">
+            <strong>强调色</strong>
+            <span class="row-meta">{{ accentMeta.label }}</span>
+          </div>
+          <span class="settings-status-pill">当前</span>
         </div>
       </div>
 

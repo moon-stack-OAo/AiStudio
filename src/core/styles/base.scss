@@ -12,15 +12,7 @@ body,
   height: 100dvh;
   height: var(--app-height, 100dvh);
   overflow: hidden;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    'Noto Sans SC',
-    'PingFang SC',
-    'Microsoft YaHei',
-    sans-serif;
+  font-family: var(--font-body);
   background: var(--color-bg);
   color: var(--color-text);
   background-color: var(--color-bg);
@@ -91,4 +83,19 @@ textarea,
 
 .n-config-provider {
   height: 100%;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible,
+.n-button:focus-visible,
+.n-menu-item-content:focus-visible,
+.session-item:focus-visible,
+.mode-item:focus-visible,
+.ctrl:focus-visible,
+.params-summary:focus-visible,
+.touch-target:focus-visible,
+.n-base-selection:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }

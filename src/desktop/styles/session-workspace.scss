@@ -5,17 +5,37 @@
   width: 160px;
 }
 
+.provider-select-muted {
+  width: 120px;
+  opacity: 0.78;
+
+  :deep(.n-base-selection) {
+    --n-height: 28px !important;
+    --n-font-size: 12px !important;
+    background: transparent;
+  }
+
+  :deep(.n-base-selection-label) {
+    color: var(--text-3);
+  }
+}
+
 /* 桌面端消费 safe-bottom；安卓底栏场景由端侧覆盖 */
 .composer {
   padding-bottom: max(var(--pad-composer-bottom), calc(8px + var(--safe-bottom)));
 }
 
-.composer-actions {
-  flex-direction: column;
-}
-
 .msg-actions {
   transition: opacity 0.15s ease;
+}
+
+.composer-field {
+  :deep(.n-input) {
+    --n-font-size: var(--text-base);
+    --n-padding-vertical: 8px;
+    --n-padding-left: 4px;
+    --n-padding-right: 4px;
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -40,12 +60,17 @@
     width: auto;
   }
 
-  .role {
+  .role,
+  .avatar-sm {
     display: none;
   }
 
   .composer {
     padding-bottom: max(10px, calc(var(--space-2) + var(--safe-bottom)));
+  }
+
+  .composer-tools {
+    display: none;
   }
 
   .composer-actions {

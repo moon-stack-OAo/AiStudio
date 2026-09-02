@@ -2,58 +2,60 @@
  * 须与 src/core/utils/theme.js 中 PALETTE 保持一致；改色请两边同步，可跑 npm run check:theme */
 :root,
 [data-theme='dark'] {
-  --color-bg: #0f1115; /* PALETTE.dark.bg */
-  --color-bg-elevated: rgba(16, 18, 24, 0.72); /* PALETTE.dark.card */
-  --color-text: #e8eaed;
-  --color-primary: #7c9cff; /* PALETTE.dark.primary */
-  --color-primary-hover: #9bb2ff; /* PALETTE.dark.primaryHover */
-  --color-primary-pressed: #5f7fe6; /* PALETTE.dark.primaryPressed */
-  --color-accent: #8b5cf6;
-  --color-success: #34d399;
-  --color-danger: #f87171;
+  --color-bg: #0b1020; /* PALETTE.dark.bg */
+  --color-bg-elevated: #131b2f; /* PALETTE.dark.card */
+  --color-text: #f8fafc;
+  --color-primary: #60a5fa; /* PALETTE.dark.primary */
+  --color-primary-hover: #7eb6fb; /* PALETTE.dark.primaryHover */
+  --color-primary-pressed: #4f8fe8; /* PALETTE.dark.primaryPressed */
+  --color-accent: #818cf8;
+  --color-success: #22c55e;
+  --color-danger: #fb7185;
   --color-warning: #fbbf24;
-  --color-titlebar: rgba(14, 16, 22, 0.92);
+  --color-titlebar: #0e1528;
 
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-muted: rgba(255, 255, 255, 0.08); /* PALETTE.dark.border */
-  --surface-1: rgba(255, 255, 255, 0.03);
-  --surface-2: rgba(255, 255, 255, 0.04);
-  --surface-3: rgba(255, 255, 255, 0.05);
-  --surface-pressed: rgba(255, 255, 255, 0.12);
-  --primary-soft: rgba(124, 156, 255, 0.14);
+  --border-subtle: #1e2a43;
+  --border-muted: #293653; /* PALETTE.dark.border */
+  --surface-1: #182343;
+  --surface-2: rgba(248, 250, 252, 0.04);
+  --surface-3: rgba(248, 250, 252, 0.06);
+  --surface-pressed: rgba(248, 250, 252, 0.12);
+  --primary-soft: rgba(96, 165, 250, 0.14);
 
-  --text-1: rgba(255, 255, 255, 0.92); /* PALETTE.dark.text1 */
-  --text-2: rgba(255, 255, 255, 0.72); /* PALETTE.dark.text2 */
-  --text-3: rgba(255, 255, 255, 0.55); /* PALETTE.dark.text3 */
-  --text-4: rgba(255, 255, 255, 0.5);
+  --text-1: rgba(248, 250, 252, 0.96); /* PALETTE.dark.text1 */
+  --text-2: #cbd5e1; /* PALETTE.dark.text2 */
+  --text-3: #8ea0b8; /* PALETTE.dark.text3 */
+  --text-4: rgba(142, 160, 184, 0.85);
 
   --scrollbar-size: 4px;
-  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 28%, transparent);
-  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 58%, transparent);
-  --scrollbar-thumb-active: color-mix(in srgb, var(--color-primary) 78%, transparent);
-  --glow-primary: rgba(124, 156, 255, 0.16);
-  --glow-accent: rgba(120, 80, 200, 0.12);
+  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 68%, transparent);
+  --scrollbar-thumb-active: color-mix(in srgb, var(--color-primary) 82%, transparent);
+  --glow-primary: rgba(96, 165, 250, 0.16);
+  --glow-accent: rgba(129, 140, 248, 0.12);
 
-  --role-ai-bg: rgba(124, 156, 255, 0.2);
-  --role-ai-fg: #c5d2ff;
-  --role-user-bg: rgba(52, 211, 153, 0.18);
-  --role-user-fg: #9af0c9;
-  --bubble-user-bg: rgba(124, 156, 255, 0.14);
+  --role-ai-bg: rgba(96, 165, 250, 0.2);
+  --role-ai-fg: #bfdbfe;
+  --role-user-bg: rgba(34, 197, 94, 0.18);
+  --role-user-fg: #86efac;
+  --bubble-user-bg: rgba(96, 165, 250, 0.16);
+  --bubble-ai-bg: #131b2f;
+  --focus-ring: 0 0 0 4px rgba(96, 165, 250, 0.28);
 
-  --composer-bg: rgba(22, 24, 32, 0.92);
-  --composer-border: rgba(255, 255, 255, 0.1);
-  --composer-focus-border: rgba(124, 156, 255, 0.45);
-  --composer-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --composer-focus-shadow: 0 12px 32px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(124, 156, 255, 0.18);
+  --composer-bg: #131b2f;
+  --composer-border: #293653;
+  --composer-focus-border: rgba(96, 165, 250, 0.45);
+  --composer-shadow: 0 10px 28px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(248, 250, 252, 0.04);
+  --composer-focus-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(96, 165, 250, 0.18);
 
-  --overlay-scrim: rgba(0, 0, 0, 0.45);
-  --chip-warning-bg: rgba(230, 162, 60, 0.9);
-  --on-primary: #fff;
-  --shadow-send: 0 6px 16px rgba(124, 156, 255, 0.28);
+  --overlay-scrim: rgba(0, 0, 0, 0.5);
+  --chip-warning-bg: rgba(251, 191, 36, 0.92);
+  --on-primary: #06111f;
+  --shadow-send: 0 6px 16px rgba(96, 165, 250, 0.28);
 
-  --code-bg: rgba(0, 0, 0, 0.45);
-  --code-inline-bg: rgba(0, 0, 0, 0.35);
-  --code-fg: #e6e6e6;
+  --code-bg: #070b16;
+  --code-inline-bg: rgba(7, 11, 22, 0.85);
+  --code-fg: #e2e8f0;
   --code-inline-fg: #f0c674;
   --hljs-comment: #7a828e;
   --hljs-keyword: #c678dd;
@@ -65,10 +67,10 @@
 
   --radius-xs: 5px;
   --radius-sm: 8px;
-  --radius-md: 10px; /* PALETTE.*.radius */
-  --radius-lg: 12px;
-  --radius-xl: 14px;
-  --radius-2xl: 18px;
+  --radius-md: 12px; /* PALETTE.dark.radius */
+  --radius-lg: 16px;
+  --radius-xl: 18px;
+  --radius-2xl: 20px;
   --radius-pill: 999px;
 
   --space-1: 4px;
@@ -78,6 +80,17 @@
   --space-5: 20px;
   --space-6: 24px;
 
+  --font-display: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body:
+    Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans SC', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --tracking-display: -0.02em;
+
+  --motion-fast: 130ms;
+  --motion-base: 220ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
   /* 界面字号比例（AppearanceSettings / App 同步） */
   --ui-font-scale: 1;
 
@@ -85,24 +98,29 @@
   --text-xs: calc(11px * var(--ui-font-scale));
   --text-sm: calc(13px * var(--ui-font-scale));
   --text-md: calc(15px * var(--ui-font-scale));
+  --text-base: calc(15px * var(--ui-font-scale));
+  --text-lg: calc(17px * var(--ui-font-scale));
+  --text-xl: calc(22px * var(--ui-font-scale));
 
   /*
    * 布局密度（默认 = Desktop 偏松）。
    * Android / 窄屏在端侧 main.scss 覆写为偏紧；结构规则走 base，数值走变量。
    */
-  --gap-msg: 10px;
+  --gap-msg: 12px;
   --gap-msg-body: var(--space-1);
-  --space-msg-y: var(--space-4);
+  --space-msg-y: 18px;
   --mt-msg-actions: 0px;
-  --pad-bubble-y: 10px;
-  --pad-bubble-x: var(--space-3);
+  --pad-bubble-y: 12px;
+  --pad-bubble-x: 14px;
   --radius-bubble: var(--radius-lg);
-  --line-bubble: normal;
+  --line-bubble: 1.55;
+  --size-avatar-sm: 32px;
+  --radius-avatar-sm: 10px;
   --pad-composer-y: 10px;
   --pad-composer-x: 18px;
   --pad-composer-bottom: 14px;
-  --pad-composer-card: 10px 10px 10px var(--space-3);
-  --radius-composer-card: var(--radius-2xl);
+  --pad-composer-card: 10px;
+  --radius-composer-card: var(--radius-lg);
   --gap-composer: var(--space-2);
   --size-send: 40px;
   --empty-offset-y: 18vh;
@@ -110,7 +128,7 @@
   --empty-title-gap: var(--space-2);
   --empty-pad-x: 0px;
   --line-empty-desc: normal;
-  --msg-body-max: calc(100% - 38px);
+  --msg-body-max: calc(100% - 44px);
 
   --pad-gallery-y: 18px;
   --pad-gallery-x: 22px;
@@ -131,11 +149,10 @@
   /* 移动端最小可点热区（约 44–48dp） */
   --touch-min: 44px;
 
-  --sidebar-width: 220px;
-  --sidebar-width-compact: 196px;
+  --sidebar-width: 264px;
   --sidebar-collapsed-width: 64px;
-  --session-list-width: 220px;
-  --session-list-width-compact: 180px;
+  --sidebar-bg: var(--color-titlebar);
+  --session-list-width: 240px;
 
   /* 层级：顶栏 / 媒体卡片浮层操作 */
   --z-toolbar: 10;
@@ -156,14 +173,16 @@
 }
 
 [data-density='compact'] {
-  --gap-msg: 8px;
-  --space-msg-y: var(--space-3);
-  --pad-bubble-y: 8px;
-  --pad-bubble-x: 10px;
+  --gap-msg: 10px;
+  --space-msg-y: 14px;
+  --pad-bubble-y: 10px;
+  --pad-bubble-x: 12px;
+  --size-avatar-sm: 28px;
+  --radius-avatar-sm: 8px;
   --pad-composer-y: 8px;
   --pad-composer-x: 14px;
   --pad-composer-bottom: 10px;
-  --pad-composer-card: 8px 8px 8px 10px;
+  --pad-composer-card: 8px;
   --gap-composer: 6px;
   --size-send: 36px;
   --pad-gallery-y: 12px;
@@ -172,64 +191,76 @@
 }
 
 [data-theme='light'] {
-  --color-bg: #f4f6fb; /* PALETTE.light.bg */
-  --color-bg-elevated: rgba(255, 255, 255, 0.86); /* PALETTE.light.card */
-  --color-text: #1a1d26;
-  --color-primary: #5b7cfa; /* PALETTE.light.primary */
-  --color-primary-hover: #7c9cff; /* PALETTE.light.primaryHover */
-  --color-primary-pressed: #4a68e0; /* PALETTE.light.primaryPressed */
-  --color-accent: #7c5cbf;
-  --color-success: #10b981;
-  --color-danger: #ef4444;
-  --color-warning: #d97706;
-  --color-titlebar: rgba(255, 255, 255, 0.92);
+  --color-bg: #f4efe6; /* PALETTE.light.bg */
+  --color-bg-elevated: #fffaf3; /* PALETTE.light.card */
+  --color-text: #2a2118;
+  --color-primary: #c45c26; /* PALETTE.light.primary */
+  --color-primary-hover: #d46b35; /* PALETTE.light.primaryHover */
+  --color-primary-pressed: #a34b1f; /* PALETTE.light.primaryPressed */
+  --color-accent: #b45309;
+  --color-success: #3f7d4e;
+  --color-danger: #c23b3b;
+  --color-warning: #b7791f;
+  --color-titlebar: #fffaf3;
+  --sidebar-bg: var(--surface-1);
 
-  --border-subtle: rgba(15, 23, 42, 0.06);
-  --border-muted: rgba(15, 23, 42, 0.1); /* PALETTE.light.border */
-  --surface-1: rgba(15, 23, 42, 0.03);
-  --surface-2: rgba(15, 23, 42, 0.045);
-  --surface-3: rgba(15, 23, 42, 0.06);
-  --surface-pressed: rgba(15, 23, 42, 0.1);
-  --primary-soft: rgba(91, 124, 250, 0.12);
+  --border-subtle: #ebe1d2;
+  --border-muted: #e2d5c3; /* PALETTE.light.border */
+  --surface-1: #efe6d8;
+  --surface-2: rgba(42, 33, 24, 0.04);
+  --surface-3: rgba(42, 33, 24, 0.06);
+  --surface-pressed: rgba(42, 33, 24, 0.1);
+  --primary-soft: rgba(196, 92, 38, 0.12);
 
-  --text-1: rgba(15, 23, 42, 0.92); /* PALETTE.light.text1 */
-  --text-2: rgba(15, 23, 42, 0.72); /* PALETTE.light.text2 */
-  --text-3: rgba(15, 23, 42, 0.58); /* PALETTE.light.text3 */
-  --text-4: rgba(15, 23, 42, 0.5);
+  --text-1: #2a2118; /* PALETTE.light.text1 */
+  --text-2: #5c4f42; /* PALETTE.light.text2 */
+  --text-3: #8a7b6b; /* PALETTE.light.text3 */
+  --text-4: rgba(138, 123, 107, 0.85);
 
   --scrollbar-size: 4px;
-  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 26%, transparent);
-  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 52%, transparent);
-  --scrollbar-thumb-active: color-mix(in srgb, var(--color-primary) 72%, transparent);
-  --glow-primary: rgba(91, 124, 250, 0.12);
-  --glow-accent: rgba(124, 92, 191, 0.08);
+  --scrollbar-thumb: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-primary) 68%, transparent);
+  --scrollbar-thumb-active: color-mix(in srgb, var(--color-primary) 82%, transparent);
+  --glow-primary: rgba(196, 92, 38, 0.14);
+  --glow-accent: rgba(180, 83, 9, 0.1);
 
-  --role-ai-bg: rgba(91, 124, 250, 0.16);
-  --role-ai-fg: #3b5bdb;
-  --role-user-bg: rgba(16, 185, 129, 0.14);
-  --role-user-fg: #059669;
-  --bubble-user-bg: rgba(91, 124, 250, 0.1);
+  --role-ai-bg: rgba(196, 92, 38, 0.16);
+  --role-ai-fg: #9a3412;
+  --role-user-bg: rgba(63, 125, 78, 0.14);
+  --role-user-fg: #3f7d4e;
+  --bubble-user-bg: #f3e0d4;
+  --bubble-ai-bg: #fffaf3;
+  --focus-ring: 0 0 0 4px rgba(196, 92, 38, 0.22);
 
-  --composer-bg: rgba(255, 255, 255, 0.96);
-  --composer-border: rgba(15, 23, 42, 0.1);
-  --composer-focus-border: rgba(91, 124, 250, 0.5);
-  --composer-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  --composer-focus-shadow: 0 10px 28px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(91, 124, 250, 0.2);
+  --composer-bg: #fffaf3;
+  --composer-border: #e2d5c3;
+  --composer-focus-border: rgba(196, 92, 38, 0.5);
+  --composer-shadow: 0 8px 24px rgba(74, 48, 24, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --composer-focus-shadow: 0 10px 28px rgba(74, 48, 24, 0.12), 0 0 0 1px rgba(196, 92, 38, 0.2);
 
-  --overlay-scrim: rgba(15, 23, 42, 0.4);
-  --chip-warning-bg: rgba(217, 119, 6, 0.92);
-  --on-primary: #fff;
-  --shadow-send: 0 6px 16px rgba(91, 124, 250, 0.28);
+  --overlay-scrim: rgba(42, 33, 24, 0.4);
+  --chip-warning-bg: rgba(183, 121, 31, 0.92);
+  --on-primary: #fff7f0;
+  --shadow-send: 0 6px 16px rgba(196, 92, 38, 0.28);
 
-  --code-bg: rgba(15, 23, 42, 0.06);
-  --code-inline-bg: rgba(15, 23, 42, 0.07);
-  --code-fg: rgba(15, 23, 42, 0.88);
+  --code-bg: #2a2118;
+  --code-inline-bg: rgba(42, 33, 24, 0.08);
+  --code-fg: #f6ecdf;
   --code-inline-fg: #b45309;
-  --hljs-comment: #6a737d;
+  --hljs-comment: #8a7b6b;
   --hljs-keyword: #a626a4;
-  --hljs-string: #22863a;
-  --hljs-title: #005cc5;
-  --hljs-attr: #e36209;
+  --hljs-string: #3f7d4e;
+  --hljs-title: #c45c26;
+  --hljs-attr: #b7791f;
   --hljs-built-in: #0550ae;
-  --hljs-deletion: #b31d28;
+  --hljs-deletion: #c23b3b;
+
+  --radius-sm: 10px;
+  --radius-md: 14px; /* PALETTE.light.radius */
+  --radius-lg: 20px;
+
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Songti SC', serif;
+  --tracking-display: -0.01em;
+  --motion-fast: 140ms;
+  --motion-base: 240ms;
 }

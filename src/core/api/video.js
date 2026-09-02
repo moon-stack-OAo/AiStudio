@@ -2,7 +2,11 @@ import {appFetch} from '@core/utils/http'
 import {compressImageFile} from '@core/utils/imageCompress'
 import {formatNetworkError, proxyHeaders, resolveBaseUrl} from '@core/utils/request'
 import {API_TIMEOUT_MS, VIDEO_DOWNLOAD_TIMEOUT_MS} from '@core/utils/constants'
-import {prepareCreateVideoJob, preparePollVideoJob, shouldFetchVideoContent} from '@core/providers/adapters/video'
+import {
+  prepareCreateVideoJob,
+  preparePollVideoJob,
+  shouldFetchVideoContent,
+} from '@core/providers/adapters/video'
 import {
   extractApiErrorMessage,
   HTTP_413_HINT,

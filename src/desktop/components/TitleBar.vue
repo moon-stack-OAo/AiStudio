@@ -159,8 +159,8 @@ onUnmounted(() => {
   }
 
   &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
-    outline-offset: -2px;
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
 
   &.close:hover {
@@ -174,7 +174,7 @@ onUnmounted(() => {
   }
 
   &.close:focus-visible {
-    outline-color: color-mix(in srgb, var(--color-danger) 80%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-danger) 28%, transparent);
   }
 }
 </style>
