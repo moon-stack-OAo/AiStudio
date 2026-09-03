@@ -7,6 +7,26 @@
 
 ## [Unreleased]
 
+## [1.0.5]
+
+### 新增
+
+- **媒体持久化守卫**：生图 / 生视频会话写入 `localStorage` 前按体积与条数预算裁剪，失败时降级重试并提示（对齐对话 `chatPersist`）
+- **Rust URL 硬拦**：Tauri `http` capabilities 增加与前端一致的元数据 / 链路本地等 `deny`；Android 媒体下载复用 `url_safety`（含重定向后校验）
+
+### 修复
+
+- **对话清空**：清空消息时中止进行中的流式请求并释放 `busy`，避免发送被锁死
+- **浏览器出网**：axios JSON API 统一经 `appFetch`，开发态也会执行 `assertSafeFetchUrl`
+- **错误脱敏**：补充裸 `sk-` / `xai-` / `gsk_` 等形态；API 抛错与视频 toast 统一走脱敏；axios 拦截器不再挂带 Authorization 的完整 response
+- **生视频 busy / resume**：对外 busy 统一看 `generationRuntime`；纯 `pending_resume` 不锁发送区；generate/retry 与 `canGenerate` 对齐；切页仅中止自动 resume、不打断跨页生成
+
+### 变更
+
+- **生视频状态机拆分**：`useVideoResume` / `useVideoJobRunner` / `useVideoPlayback` / `useVideoComposerParams`，门面 API 保持稳定
+- **双端展示工具下沉**：日期标签、时间线分组、视频下载 URL 解析抽到 core，减少 Image/Video View 重复
+- **界面**：双端会话工作区 / 生成区样式与 Android 组件结构优化（含 SessionTopBar 等）
+
 ## [1.0.4]
 
 ### 新增
