@@ -26,11 +26,35 @@ const {
 <template>
   <div class="tab-pane logs-pane">
     <div class="logs-wrap">
-      <div class="section-card data-card">
-        <div class="section-head">
-          <div>
+      <div class="section-card data-card logs-toolbar-card">
+        <div class="logs-head">
+          <div class="logs-head-text">
             <div class="section-title">运行日志</div>
-            <div class="section-desc">记录应用关键事件与控制台输出，仅保存在本机</div>
+            <div class="section-desc">本机关键事件与控制台输出</div>
+          </div>
+          <div class="logs-actions">
+            <n-button
+              :loading="copying"
+              :size="variant === 'desktop' ? 'tiny' : 'small'"
+              quaternary
+              @click="onCopyAll"
+            >
+              <template #icon>
+                <n-icon :component="CopyOutline" />
+              </template>
+              复制
+            </n-button>
+            <n-button
+              :size="variant === 'desktop' ? 'tiny' : 'small'"
+              quaternary
+              type="error"
+              @click="onClear"
+            >
+              <template #icon>
+                <n-icon :component="TrashOutline" />
+              </template>
+              清空
+            </n-button>
           </div>
         </div>
 
@@ -51,31 +75,6 @@ const {
             @update:value="(v) => logs.setQuery(v)"
           />
           <span class="logs-summary">{{ summaryText }}</span>
-        </div>
-
-        <div class="logs-actions">
-          <n-button
-            :loading="copying"
-            :size="variant === 'desktop' ? 'small' : undefined"
-            quaternary
-            @click="onCopyAll"
-          >
-            <template #icon>
-              <n-icon :component="CopyOutline" />
-            </template>
-            复制
-          </n-button>
-          <n-button
-            :size="variant === 'desktop' ? 'small' : undefined"
-            quaternary
-            type="error"
-            @click="onClear"
-          >
-            <template #icon>
-              <n-icon :component="TrashOutline" />
-            </template>
-            清空
-          </n-button>
         </div>
       </div>
 
