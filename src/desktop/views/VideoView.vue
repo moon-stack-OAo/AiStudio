@@ -21,7 +21,11 @@ import GenerateParamsPanel from '@/components/generate/GenerateParamsPanel.vue'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {useVideoSession} from '@core/composables/useVideoSession'
-import {downloadMediaBlob, resolveVideoDownloadSrc, resolveVideoFallbackSrc} from '@core/composables/useMediaDownload'
+import {
+  downloadMediaBlob,
+  resolveVideoDownloadSrc,
+  resolveVideoFallbackSrc,
+} from '@core/composables/useMediaDownload'
 import {useManualDropdown} from '@/composables/useManualDropdown'
 import {getPromptPlaceholder} from '@core/prompts'
 import {renderSelectLabel} from '@core/utils/selectRender'
