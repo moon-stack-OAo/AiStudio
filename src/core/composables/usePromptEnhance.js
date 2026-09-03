@@ -1,56 +1,83 @@
-import {onDeactivated, onUnmounted, ref} from 'vue'
+import {computed, onDeactivated, onUnmounted, ref, toValue} from 'vue'
 import {enhancePrompt, generatePromptFromLabel} from '@core/prompts/enhancePrompt'
 import {useSettingsStore} from '@core/stores/settings'
 import {API_TIMEOUT_MS} from '@core/utils/constants'
 
+// 共享状态：跨断点布局切换/组件重建时请求不中断，按 stateKey（会话）隔离；条目常驻，量极小不清理
+const sharedStates = new Map()
+
+function createEntry() {
+  return {
+    enhancing: ref(false),
+    /** @type {AbortController | null} */
+    controller: null,
+    /** @type {((outcome: {ok: false, error: Error}) => void) | null} */
+    settleGate: null,
+    /** @type {'enhance'|'generate'} */
+    activeKind: 'enhance',
+  }
+}
+
+function toAbortError() {
+  const err = new Error('已取消')
+  err.name = 'AbortError'
+  return err
+}
+
+function toTimeoutError(kind = 'enhance') {
+  const err = new Error(kind === 'generate' ? '生成超时，请稍后重试' : '优化超时，请稍后重试')
+  err.name = 'TimeoutError'
+  return err
+}
+
+/** 把 axios/拦截器的超时文案统一 */
+function normalizeEnhanceError(error, kind = 'enhance') {
+  if (!error) return toTimeoutError(kind)
+  if (error.name === 'TimeoutError' || error.name === 'AbortError') return error
+  const code = String(error.code || error?.cause?.code || '')
+  const msg = String(error.message || '')
+  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT' || /timeout|超时/i.test(msg)) {
+    return toTimeoutError(kind)
+  }
+  return error
+}
+
 /**
  * 提示词 AI 优化 / 按 label 生成：loading / abort / 硬超时，错误上抛，不绑定 UI message。
  * 桌面端 axios+Tauri fetch 偶发不兑现 timeout/abort，故用竞态兜底，避免 enhancing 永久卡住。
+ * @param {undefined | string | import('vue').Ref<string> | (() => string)} [stateKeySource]
+ *   传入时状态提升为按 key 共享：组件卸载/停用不中止请求，重建后延续同一状态；
+ *   未传时保持组件局部状态，卸载/停用即 abort（原语义）。
  */
-export function usePromptEnhance() {
+export function usePromptEnhance(stateKeySource) {
   const settings = useSettingsStore()
-  const enhancing = ref(false)
-  /** @type {AbortController | null} */
-  let controller = null
-  /** @type {((outcome: {ok: false, error: Error}) => void) | null} */
-  let settleGate = null
-  /** @type {'enhance'|'generate'} */
-  let activeKind = 'enhance'
+  const sharedKey = computed(() => {
+    if (stateKeySource == null) return ''
+    return String(toValue(stateKeySource) ?? '')
+  })
+  // 组件局部条目：无 key 时使用
+  const localEntry = createEntry()
 
-  function toAbortError() {
-    const err = new Error('已取消')
-    err.name = 'AbortError'
-    return err
-  }
-
-  function toTimeoutError(kind = activeKind) {
-    const err = new Error(kind === 'generate' ? '生成超时，请稍后重试' : '优化超时，请稍后重试')
-    err.name = 'TimeoutError'
-    return err
-  }
-
-  /** 把 axios/拦截器的超时文案统一 */
-  function normalizeEnhanceError(error, kind = activeKind) {
-    if (!error) return toTimeoutError(kind)
-    if (error.name === 'TimeoutError' || error.name === 'AbortError') return error
-    const code = String(error.code || error?.cause?.code || '')
-    const msg = String(error.message || '')
-    if (code === 'ECONNABORTED' || code === 'ETIMEDOUT' || /timeout|超时/i.test(msg)) {
-      return toTimeoutError(kind)
+  /** 取当前操作条目：key 变化即切换，未命中则创建并常驻共享 Map */
+  function currentEntry() {
+    const key = sharedKey.value
+    if (!key) return localEntry
+    let entry = sharedStates.get(key)
+    if (!entry) {
+      entry = createEntry()
+      sharedStates.set(key, entry)
     }
-    return error
+    return entry
   }
 
-  /**
-   * @param {'cancel'|'timeout'} [reason]
-   */
-  function abort(reason = 'cancel') {
-    const c = controller
-    const settle = settleGate
-    const kind = activeKind
-    controller = null
-    settleGate = null
-    enhancing.value = false
+  /** 中止指定条目上的在途请求并复位 enhancing */
+  function settleEntry(entry, reason = 'cancel') {
+    const c = entry.controller
+    const settle = entry.settleGate
+    const kind = entry.activeKind
+    entry.controller = null
+    entry.settleGate = null
+    entry.enhancing.value = false
     c?.abort()
     if (settle) {
       settle({
@@ -60,9 +87,18 @@ export function usePromptEnhance() {
     }
   }
 
-  onUnmounted(() => abort())
-  // keep-alive 切页走 deactivate，不会 unmount
-  onDeactivated(() => abort())
+  /**
+   * @param {'cancel'|'timeout'} [reason]
+   */
+  function abort(reason = 'cancel') {
+    settleEntry(currentEntry(), reason)
+  }
+
+  if (stateKeySource == null) {
+    onUnmounted(() => abort())
+    // keep-alive 切页走 deactivate，不会 unmount
+    onDeactivated(() => abort())
+  }
 
   /**
    * @param {'enhance'|'generate'} kind
@@ -71,19 +107,21 @@ export function usePromptEnhance() {
    * @returns {Promise<string>}
    */
   async function runWithGate(kind, run, options = {}) {
-    if (enhancing.value) {
+    // 发起时捕获条目引用：key 中途变化时收尾仍作用于发起时的条目
+    const entry = currentEntry()
+    if (entry.enhancing.value) {
       throw new Error(kind === 'generate' ? '正在生成中' : '正在优化中')
     }
 
     const {signal: outerSignal} = options
     const localController = new AbortController()
-    controller = localController
-    activeKind = kind
+    entry.controller = localController
+    entry.activeKind = kind
 
-    const onOuterAbort = () => abort()
+    const onOuterAbort = () => settleEntry(entry)
     if (outerSignal) {
       if (outerSignal.aborted) {
-        abort()
+        settleEntry(entry)
         throw toAbortError()
       }
       outerSignal.addEventListener('abort', onOuterAbort, {once: true})
@@ -95,11 +133,11 @@ export function usePromptEnhance() {
     /** @type {ReturnType<typeof setTimeout> | null} */
     let timer = null
     const gate = new Promise((resolve) => {
-      settleGate = resolve
-      timer = setTimeout(() => abort('timeout'), timeoutMs)
+      entry.settleGate = resolve
+      timer = setTimeout(() => settleEntry(entry, 'timeout'), timeoutMs)
     })
 
-    enhancing.value = true
+    entry.enhancing.value = true
     const primary = Promise.resolve()
       .then(() =>
         run({
@@ -125,13 +163,13 @@ export function usePromptEnhance() {
       if (outerSignal) {
         outerSignal.removeEventListener('abort', onOuterAbort)
       }
-      const settle = settleGate
-      settleGate = null
+      const settle = entry.settleGate
+      entry.settleGate = null
       // 主请求已胜出时收尾 gate，避免悬挂 Promise
       settle?.({ok: false, error: toAbortError()})
-      if (controller === localController) {
-        controller = null
-        enhancing.value = false
+      if (entry.controller === localController) {
+        entry.controller = null
+        entry.enhancing.value = false
       }
     }
   }
@@ -179,6 +217,8 @@ export function usePromptEnhance() {
       {signal},
     )
   }
+
+  const enhancing = computed(() => currentEntry().enhancing.value)
 
   return {
     enhancing,

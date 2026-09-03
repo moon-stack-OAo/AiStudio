@@ -85,6 +85,8 @@ const {
 const paramsDrawerShow = ref(false)
 const useStudioSplit = computed(() => isWide.value)
 
+const enhanceStateKey = computed(() => `image:${session.value?.id || 'default'}`)
+
 const promptPlaceholder = computed(() =>
   getPromptPlaceholder('image', mode.value, {isMobile: isMobile.value}),
 )
@@ -389,6 +391,7 @@ function onThumbContextMenu(e, cell) {
           <div class="params-prompt-tools">
             <PromptEnhanceButton
               domain="image"
+              :state-key="enhanceStateKey"
               :mode="mode"
               :text="prompt"
               :disabled="isGeneratingCurrent"
@@ -396,6 +399,7 @@ function onThumbContextMenu(e, cell) {
             />
             <PromptAssist
               domain="image"
+              :state-key="enhanceStateKey"
               :mode="mode"
               :disabled="isGeneratingCurrent"
               @apply="onApplyPrompt"
@@ -547,6 +551,7 @@ function onThumbContextMenu(e, cell) {
             <div class="prompt-assist-row">
               <PromptAssist
                 domain="image"
+                :state-key="enhanceStateKey"
                 :mode="mode"
                 :disabled="isGeneratingCurrent"
                 :compact="isMobile"
@@ -554,6 +559,7 @@ function onThumbContextMenu(e, cell) {
               />
               <PromptEnhanceButton
                 domain="image"
+                :state-key="enhanceStateKey"
                 :mode="mode"
                 :text="prompt"
                 :disabled="isGeneratingCurrent"

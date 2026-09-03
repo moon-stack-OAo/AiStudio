@@ -101,6 +101,8 @@ const {
 
 const {tooltipTrigger} = useTooltipTrigger()
 
+const enhanceStateKey = computed(() => `image:${session.value?.id || 'default'}`)
+
 const paramsDrawerShow = ref(false)
 const builderDrawerShow = ref(false)
 const moreShow = ref(false)
@@ -527,6 +529,7 @@ function onToolbarCreate() {
         <div class="composer-card compose-box">
           <PromptAssist
             domain="image"
+            :state-key="enhanceStateKey"
             :mode="mode"
             :disabled="isGeneratingCurrent"
             compact
@@ -559,6 +562,7 @@ function onToolbarCreate() {
           <div class="compose-tools">
             <PromptEnhanceButton
               domain="image"
+              :state-key="enhanceStateKey"
               :mode="mode"
               :text="prompt"
               :disabled="isGeneratingCurrent"

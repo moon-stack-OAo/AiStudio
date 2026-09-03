@@ -576,4 +576,9 @@ function onRemoveSession(id) {
   border-radius: var(--radius-md);
   inset: 0 4px !important;
 }
+
+/* 折叠态约束 menu 宽度：fit-content 会溢出 64px 轨道，导致图标偏离中轴 */
+.app-shell .sidebar.collapsed .n-menu {
+  width: var(--sidebar-collapsed-width);
+}
 </style>

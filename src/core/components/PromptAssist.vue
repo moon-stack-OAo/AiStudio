@@ -1,5 +1,5 @@
 <script setup>
-import {computed} from 'vue'
+import {computed, toRef} from 'vue'
 import {DiceOutline} from '@vicons/ionicons5'
 import {useMessage} from 'naive-ui'
 import {getPromptPresets, pickRandomPromptPreset} from '@core/prompts'
@@ -15,13 +15,14 @@ const props = defineProps({
   mode: {type: String, default: ''},
   disabled: {type: Boolean, default: false},
   compact: {type: Boolean, default: false},
+  stateKey: {type: String, default: ''},
 })
 
 const emit = defineEmits(['apply'])
 
 const message = useMessage()
 const {tooltipTrigger} = useTooltipTrigger()
-const {enhancing, generateFromLabel, abort} = usePromptEnhance()
+const {enhancing, generateFromLabel, abort} = usePromptEnhance(toRef(props, 'stateKey'))
 
 const presets = computed(() => getPromptPresets(props.domain, props.mode))
 const busy = computed(() => enhancing.value)

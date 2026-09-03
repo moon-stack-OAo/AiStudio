@@ -1,7 +1,7 @@
 <script setup>
 defineOptions({name: 'VideoView'})
 
-import {computed, ref, watch} from 'vue'
+import {computed, nextTick, ref, watch} from 'vue'
 import {
   DownloadOutline,
   ImageOutline,
@@ -90,6 +90,52 @@ const {
 const paramsDrawerShow = ref(false)
 const selectedTaskId = ref(null)
 const useStudioSplit = computed(() => isWide.value)
+
+// 跨 1280px 断点时 <video> 随 v-if/v-else 分支卸载重建，播放进度与暂停状态会丢失。
+// watch 默认 pre-flush：同步回调执行时旧分支 DOM 尚未卸载，可先捕获播放态；
+// nextTick 后新分支 DOM 已挂载，src 一致才恢复，避免误恢复到其他任务的视频。
+const playbackSnapshot = {src: '', currentTime: 0, paused: true}
+
+function findStageVideo(preferPlaying) {
+  const videos = document.querySelectorAll('.video-stage video.video-player')
+  if (!videos.length) return null
+  if (preferPlaying) {
+    const playing = Array.from(videos).find((v) => !v.paused && v.currentTime > 0)
+    if (playing) return playing
+  }
+  return videos[0]
+}
+
+watch(isWide, () => {
+  const current = findStageVideo(true)
+  if (current && current.currentTime > 0) {
+    playbackSnapshot.src = current.src
+    playbackSnapshot.currentTime = current.currentTime
+    playbackSnapshot.paused = current.paused
+  } else {
+    playbackSnapshot.src = ''
+  }
+
+  nextTick(() => {
+    if (!playbackSnapshot.src) return
+    const videos = document.querySelectorAll('.video-stage video.video-player')
+    const next = Array.from(videos).find((v) => v.src === playbackSnapshot.src)
+    if (!next) return
+    const restore = () => {
+      // keep-alive 下监听器可能晚于元素卸载触发，isConnected 兜底防泄漏副作用
+      if (!next.isConnected) return
+      next.currentTime = playbackSnapshot.currentTime
+      if (!playbackSnapshot.paused) next.play().catch(() => {})
+    }
+    if (next.readyState >= 1) {
+      restore()
+    } else {
+      next.addEventListener('loadedmetadata', restore, {once: true})
+    }
+  })
+})
+
+const enhanceStateKey = computed(() => `video:${session.value?.id || 'default'}`)
 
 const promptPlaceholder = computed(() =>
   getPromptPlaceholder('video', mode.value, {isMobile: isMobile.value}),
@@ -642,6 +688,7 @@ function onTaskContextMenu(e, item) {
           <div class="params-prompt-tools">
             <PromptEnhanceButton
               domain="video"
+              :state-key="enhanceStateKey"
               :mode="mode"
               :text="prompt"
               :disabled="isGeneratingCurrent"
@@ -649,6 +696,7 @@ function onTaskContextMenu(e, item) {
             />
             <PromptAssist
               domain="video"
+              :state-key="enhanceStateKey"
               :mode="mode"
               :disabled="isGeneratingCurrent"
               @apply="onApplyPrompt"
@@ -801,6 +849,7 @@ function onTaskContextMenu(e, item) {
             <div class="prompt-assist-row">
               <PromptAssist
                 domain="video"
+                :state-key="enhanceStateKey"
                 :mode="mode"
                 :disabled="isGeneratingCurrent"
                 :compact="isMobile"
@@ -808,6 +857,7 @@ function onTaskContextMenu(e, item) {
               />
               <PromptEnhanceButton
                 domain="video"
+                :state-key="enhanceStateKey"
                 :mode="mode"
                 :text="prompt"
                 :disabled="isGeneratingCurrent"

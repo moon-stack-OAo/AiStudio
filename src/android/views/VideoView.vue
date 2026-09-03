@@ -102,6 +102,8 @@ const {
 
 const {tooltipTrigger} = useTooltipTrigger()
 
+const enhanceStateKey = computed(() => `video:${session.value?.id || 'default'}`)
+
 const paramsDrawerShow = ref(false)
 const builderDrawerShow = ref(false)
 const moreShow = ref(false)
@@ -545,6 +547,7 @@ async function onAgainBatch(item) {
         <div class="composer-card compose-box">
           <PromptAssist
             domain="video"
+            :state-key="enhanceStateKey"
             :mode="mode"
             :disabled="isGeneratingCurrent"
             compact
@@ -577,6 +580,7 @@ async function onAgainBatch(item) {
           <div class="compose-tools">
             <PromptEnhanceButton
               domain="video"
+              :state-key="enhanceStateKey"
               :mode="mode"
               :text="prompt"
               :disabled="isGeneratingCurrent"

@@ -1,5 +1,5 @@
 <script setup>
-import {computed} from 'vue'
+import {computed, toRef} from 'vue'
 import {SparklesOutline} from '@vicons/ionicons5'
 import {useMessage} from 'naive-ui'
 import {toErrorMessage} from '@core/api/client'
@@ -17,13 +17,14 @@ const props = defineProps({
   disabled: {type: Boolean, default: false},
   emptyWarning: {type: String, default: '请先输入提示词'},
   compact: {type: Boolean, default: false},
+  stateKey: {type: String, default: ''},
 })
 
 const emit = defineEmits(['apply'])
 
 const message = useMessage()
 const {tooltipTrigger} = useTooltipTrigger()
-const {enhancing, enhance, abort} = usePromptEnhance()
+const {enhancing, enhance, abort} = usePromptEnhance(toRef(props, 'stateKey'))
 
 const tooltipText = computed(() => (enhancing.value ? '点击取消优化' : 'AI 优化提示词'))
 const iconSize = computed(() => (props.compact ? 14 : 16))
