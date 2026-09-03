@@ -1,7 +1,7 @@
 import {isTauri} from '@core/utils/request'
 
 /** 与 src-tauri/tauri.conf.json 的 version 保持一致（Web / 回退） */
-export const APP_VERSION = '1.0.6'
+export const APP_VERSION = '1.0.7'
 
 export async function getAppVersion() {
   if (isTauri()) {
