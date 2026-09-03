@@ -4,7 +4,7 @@
 
 可用浏览器进行 Web 开发，也可通过 Tauri 2 打包为 Windows 桌面应用，并由 CI 产出可侧载的 Android APK（arm64）。
 
-当前版本： **1.0.5**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
+当前版本： **1.0.6**（变更详见 [`CHANGELOG.md`](./CHANGELOG.md)）。
 
 ## 功能概览
 

@@ -123,6 +123,9 @@ export function formatNetworkError(error, useCorsProxy) {
   if (code === 'ECONNABORTED' || code === 'ETIMEDOUT' || /timeout/i.test(msg)) {
     return '请求超时：生图可能需数秒到数分钟，请稍后重试；Agnes 建议客户端超时 60s–360s'
   }
+  if (/url not allowed on the configured scope/i.test(msg)) {
+    return '请求地址被应用安全策略拦截（HTTP scope）。请检查 Base URL 是否指向云元数据/链路本地等受保护地址'
+  }
   const detail =
     msg &&
     msg !== 'Network Error' &&

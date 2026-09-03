@@ -47,31 +47,7 @@
         {"url": "http://0.0.0.0"},
         {"url": "https://0.0.0.0"},
         {"url": "http://0.0.0.0:*"},
-        {"url": "https://0.0.0.0:*"},
-        {"url": "http://[::]"},
-        {"url": "https://[::]"},
-        {"url": "http://[::]:*"},
-        {"url": "https://[::]:*"},
-        {"url": "http://[::1]"},
-        {"url": "https://[::1]"},
-        {"url": "http://[::1]:*"},
-        {"url": "https://[::1]:*"},
-        {"url": "http://[fd00:ec2::254]"},
-        {"url": "https://[fd00:ec2::254]"},
-        {"url": "http://[fd00:ec2::254]:*"},
-        {"url": "https://[fd00:ec2::254]:*"},
-        {"url": "http://[::ffff:169.254.169.254]"},
-        {"url": "https://[::ffff:169.254.169.254]"},
-        {"url": "http://[::ffff:169.254.169.254]:*"},
-        {"url": "https://[::ffff:169.254.169.254]:*"},
-        {"url": "http://[::ffff:a9fe:a9fe]"},
-        {"url": "https://[::ffff:a9fe:a9fe]"},
-        {"url": "http://[::ffff:a9fe:a9fe]:*"},
-        {"url": "https://[::ffff:a9fe:a9fe]:*"},
-        {"url": "http://[::ffff:169.254.*.*]"},
-        {"url": "https://[::ffff:169.254.*.*]"},
-        {"url": "http://[::ffff:169.254.*.*]:*"},
-        {"url": "https://[::ffff:169.254.*.*]:*"}
+        {"url": "https://0.0.0.0:*"}
       ]
     }
   ]

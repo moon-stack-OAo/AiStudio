@@ -7,6 +7,12 @@
 
 ## [Unreleased]
 
+## [1.0.6]
+
+### 修复
+
+- **桌面 HTTP**：移除 capabilities 中非法 IPv6 deny pattern（`[::1]` 等会导致整个 `http` scope 解析失败，打包版连接测试表现为「网络失败」）；IPv6 变体仍由 JS / Rust `url_safety` 覆盖
+
 ## [1.0.5]
 
 ### 新增

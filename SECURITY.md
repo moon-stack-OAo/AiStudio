@@ -36,7 +36,7 @@
 
 - 支持自定义 OpenAI 兼容接口是产品能力。
 - 运行时 `assertSafeFetchUrl` 与开发代理共用同一套黑名单：拦截云元数据（含 `169.254.*`、IPv6 IMDS）、`0.0.0.0` / `::` / `::1`、kubernetes 默认主机等；**不**硬拦 localhost / RFC1918（本地与内网中转仍可用），设置页会对明文 HTTP / 非公网地址给出风险提示。
-- **打包态（Tauri）**：`capabilities` 中 `http:default` 在宽 `allow`（`http(s)://**`）之上追加同目标 `deny` URL Pattern（deny 优先于 allow）。校验只针对 **初始请求 URL**；`plugin-http` **不会**对 redirect 目标复验 scope，该盲区仍依赖前端 `assertSafeFetchUrl`（及 Android 媒体下载等自建路径上的二次校验）。私网与 localhost 仍放行。
+- **打包态（Tauri）**：`capabilities` 中 `http:default` 在宽 `allow`（`http(s)://**`）之上追加同目标 `deny` URL Pattern（deny 优先于 allow）。校验只针对 **初始请求 URL**；`plugin-http` **不会**对 redirect 目标复验 scope，该盲区仍依赖前端 `assertSafeFetchUrl`（及 Android 媒体下载等自建路径上的二次校验）。私网与 localhost 仍放行。**注意**：`urlpattern` 对带方括号的 IPv6 字面量 pattern（如 `http://[::1]`）会解析失败；非法 deny 条目会导致整个 HTTP scope 无法加载。IPv6 / `::ffff:` 变体改由 JS `urlSafety` 与 Rust `url_safety`（如 Android 媒体下载）覆盖，不要写入 capabilities deny。
 - 这 **不能**替代对中转站本身的信任判断；请自行核实隐私与合规；密钥会发往你配置的上游。
 
 ### 发版与签名材料
