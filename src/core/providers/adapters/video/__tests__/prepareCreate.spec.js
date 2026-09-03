@@ -41,4 +41,24 @@ describe('video prepareCreate', () => {
     expect(prepared.body.resolution).toBe('720p')
     expect(prepared.body.aspect_ratio).toBe('16:9')
   })
+
+  it('xai img2video uses image.url only (no type)', async () => {
+    const file = new Blob(['x'], {type: 'image/jpeg'})
+    const prepared = await prepareXai(
+      {videoModel: 'grok-imagine-video'},
+      {
+        mode: 'img2video',
+        prompt: 'animate',
+        imageFile: file,
+        duration: 8,
+        aspectRatio: '16:9',
+        resolution: '720p',
+      },
+      deps,
+    )
+    expect(prepared.transport).toBe('json')
+    expect(prepared.path).toBe('/videos/generations')
+    expect(prepared.body.image).toEqual({url: 'data:image/jpeg;base64,abc'})
+    expect(prepared.body.image).not.toHaveProperty('type')
+  })
 })

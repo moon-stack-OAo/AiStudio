@@ -1,9 +1,10 @@
 import {ref, watch} from 'vue'
+import {ensureJobVideoMaterialized, isVideoContentPath, toErrorMessage} from '@core/api/client'
 
 /**
  * 生视频播放：remote https 记忆、播放失败回退、「重新加载」、参考图 lightbox。
  */
-export function useVideoPlayback({videoStore, message, getSession}) {
+export function useVideoPlayback({videoStore, message, getSession, getProviderById}) {
   /** video 元素加载失败的 itemId */
   const videoErrorIds = ref({})
   /** 内存双保险：itemId → 远程 https，防 persist/patch 丢 remoteVideoUrl */
@@ -12,6 +13,8 @@ export function useVideoPlayback({videoStore, message, getSession}) {
   const triedRemoteByItemId = ref({})
   /** https 播放失败后已尝试 materialize 为 blob 的 itemId */
   const triedBlobByItemId = ref({})
+  /** 正在重新加载的 itemId，避免重复点击 */
+  const reloadingIds = ref({})
 
   const lightboxShow = ref(false)
   const lightboxSrc = ref('')
@@ -85,9 +88,34 @@ export function useVideoPlayback({videoStore, message, getSession}) {
     videoErrorIds.value = next
   }
 
+  function clearItemPlaybackCache(itemId) {
+    if (!itemId) return
+    clearVideoError(itemId)
+    if (remoteVideoByItemId.value[itemId]) {
+      const next = {...remoteVideoByItemId.value}
+      delete next[itemId]
+      remoteVideoByItemId.value = next
+    }
+    if (triedRemoteByItemId.value[itemId]) {
+      const next = {...triedRemoteByItemId.value}
+      delete next[itemId]
+      triedRemoteByItemId.value = next
+    }
+    if (triedBlobByItemId.value[itemId]) {
+      const next = {...triedBlobByItemId.value}
+      delete next[itemId]
+      triedBlobByItemId.value = next
+    }
+    if (reloadingIds.value[itemId]) {
+      const next = {...reloadingIds.value}
+      delete next[itemId]
+      reloadingIds.value = next
+    }
+  }
+
   /**
-   * 播放失败：保留/恢复 https，不自动转 blob（WebView2 上 blob 反而不稳）。
-   * 有 remote 时标 needsMaterialize，露出「重新加载」。
+   * 播放失败：可直链 https 再试一次；/content 需鉴权，勿塞给 <video>。
+   * 有 remote / jobId 时标 needsMaterialize，露出「重新加载」。
    */
   function onVideoError(itemId) {
     const session = getSession()
@@ -101,12 +129,13 @@ export function useVideoPlayback({videoStore, message, getSession}) {
     if (remote) rememberRemoteVideoUrl(itemId, remote)
 
     const currentSrc = String(item?.videoUrl || '')
-    // blob 失败：切回 https 再给一次机会
-    if (currentSrc.startsWith('blob:') && remote && !triedRemoteByItemId.value[itemId]) {
+    const remoteDirect = remote && !isVideoContentPath(remote) ? remote : ''
+    // blob 失败：仅当 remote 可直链时再切回 https
+    if (currentSrc.startsWith('blob:') && remoteDirect && !triedRemoteByItemId.value[itemId]) {
       triedRemoteByItemId.value = {...triedRemoteByItemId.value, [itemId]: true}
       videoStore.updateItem(sessionId, itemId, {
-        videoUrl: remote,
-        remoteVideoUrl: remote,
+        videoUrl: remoteDirect,
+        remoteVideoUrl: remoteDirect,
         needsMaterialize: false,
         errorMessage: '',
       })
@@ -114,13 +143,15 @@ export function useVideoPlayback({videoStore, message, getSession}) {
       return
     }
 
-    if (remote) {
-      videoStore.updateItem(sessionId, itemId, {
-        videoUrl: remote,
-        remoteVideoUrl: remote,
+    if (remote || item?.jobId) {
+      const patch = {
+        remoteVideoUrl: remote || item?.remoteVideoUrl || '',
         needsMaterialize: true,
         errorMessage: '',
-      })
+      }
+      // /content 不能直接给 <video>，保留当前 src 并标错，等用户重新加载鉴权拉流
+      if (remoteDirect) patch.videoUrl = remoteDirect
+      videoStore.updateItem(sessionId, itemId, patch)
     }
     videoErrorIds.value = {...videoErrorIds.value, [itemId]: true}
   }
@@ -131,30 +162,91 @@ export function useVideoPlayback({videoStore, message, getSession}) {
   }
 
   function canReloadVideo(item) {
-    return Boolean(resolveRemoteVideoUrl(item))
+    if (reloadingIds.value[item?.id]) return false
+    return Boolean(resolveRemoteVideoUrl(item) || item?.jobId)
   }
 
   /**
-   * 用 appFetch 重新拉取远程视频为强制 mp4 的 blob（Tauri WebView 直连失败时的补救）
+   * 重新鉴权拉取 / materialize 为强制 mp4 的 blob；直链失败时也会重拉。
    * @param {object} item
    */
   async function reloadVideo(item) {
     const session = getSession()
     if (!item?.id || !session) return
     const sessionId = session.id
+    if (reloadingIds.value[item.id]) return
+
     const remote = resolveRemoteVideoUrl(item)
-    if (!remote) {
-      message.warning('无法重新加载，请重新生成')
-      return
-    }
-    rememberRemoteVideoUrl(item.id, remote)
-    // 重新加载优先切回远程 https；若再失败由 onVideoError materialize 回退
+    const provider = typeof getProviderById === 'function' ? getProviderById(item.providerId) : null
+    const canAuthFetch = Boolean(provider?.baseUrl && (item.jobId || isVideoContentPath(remote)))
+
     const triedRemote = {...triedRemoteByItemId.value}
     const triedBlob = {...triedBlobByItemId.value}
     delete triedRemote[item.id]
     delete triedBlob[item.id]
     triedRemoteByItemId.value = triedRemote
     triedBlobByItemId.value = triedBlob
+
+    if (canAuthFetch) {
+      reloadingIds.value = {...reloadingIds.value, [item.id]: true}
+      try {
+        const src =
+          remote || (item.jobId ? `/videos/${encodeURIComponent(item.jobId)}/content` : '')
+        if (!src) {
+          message.warning('无法重新加载，请重新生成')
+          return
+        }
+        if (remote) rememberRemoteVideoUrl(item.id, remote)
+        const out = await ensureJobVideoMaterialized(
+          {
+            status: 'completed',
+            jobId: item.jobId || '',
+            videoUrl: src,
+            remoteVideoUrl: remote || '',
+          },
+          undefined,
+          provider,
+        )
+        const playable = String(out.videoUrl || '')
+        if (playable.startsWith('blob:') || (playable && !isVideoContentPath(playable))) {
+          videoStore.updateItem(sessionId, item.id, {
+            videoUrl: playable,
+            remoteVideoUrl: out.remoteVideoUrl || remote || item.remoteVideoUrl || '',
+            needsMaterialize: false,
+            errorMessage: '',
+            status: item.status === 'error' ? 'success' : item.status,
+          })
+          clearVideoError(item.id)
+          message.success('视频已重新加载')
+          return
+        }
+        const errText = out.errorMessage || '重新加载失败，请重新生成'
+        videoStore.updateItem(sessionId, item.id, {
+          needsMaterialize: true,
+          errorMessage: errText,
+        })
+        message.error(errText)
+      } catch (e) {
+        if (e?.name === 'AbortError') return
+        const errText = toErrorMessage(e, '重新加载失败')
+        videoStore.updateItem(sessionId, item.id, {
+          needsMaterialize: true,
+          errorMessage: errText,
+        })
+        message.error(errText)
+      } finally {
+        const next = {...reloadingIds.value}
+        delete next[item.id]
+        reloadingIds.value = next
+      }
+      return
+    }
+
+    if (!remote || isVideoContentPath(remote)) {
+      message.warning('无法重新加载，请重新生成')
+      return
+    }
+    rememberRemoteVideoUrl(item.id, remote)
     videoStore.updateItem(sessionId, item.id, {
       videoUrl: remote,
       remoteVideoUrl: remote,
@@ -195,6 +287,7 @@ export function useVideoPlayback({videoStore, message, getSession}) {
     videoPlaybackErrorText,
     onVideoError,
     clearVideoError,
+    clearItemPlaybackCache,
     isVideoBroken,
     canReloadVideo,
     reloadVideo,

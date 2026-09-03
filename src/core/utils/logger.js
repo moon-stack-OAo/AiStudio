@@ -1,6 +1,7 @@
 import {loadJSON, saveJSON, removeKey} from '@core/utils/storage'
 import {createId} from '@core/utils/id'
 import {sanitizeErrorText} from '@core/api/errors'
+import {formatDateTimeSeconds} from '@core/utils/datetime'
 
 export const LOG_LEVELS = ['debug', 'info', 'warn', 'error']
 export const LOG_STORAGE_KEY = 'app_logs'
@@ -212,7 +213,7 @@ export function filterLogs(list, {level = 'all', query = ''} = {}) {
 export function logsToText(list = entries) {
   return list
     .map((item) => {
-      const time = new Date(item.ts).toISOString()
+      const time = formatDateTimeSeconds(item.ts)
       const detail = item.detail ? ` | ${item.detail}` : ''
       return `[${time}] [${item.level.toUpperCase()}] [${item.source}] ${item.message}${detail}`
     })

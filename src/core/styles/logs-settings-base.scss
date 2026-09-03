@@ -128,6 +128,7 @@
 .log-item-time {
   grid-column: 1;
   flex-shrink: 0;
+  min-width: 19ch;
   font-variant-numeric: tabular-nums;
   color: var(--text-4);
   white-space: nowrap;

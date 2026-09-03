@@ -347,10 +347,18 @@ async function fetchOpenAiVideoContentUrl(provider, jobId, signal) {
         `HTTP ${res.status}`,
     )
   }
-  const blob = await res.blob()
-  if (!blob || blob.size === 0) {
+  let buf
+  try {
+    buf = await res.arrayBuffer()
+  } catch (error) {
+    if (isAbortLike(error, signal)) throw toAbortError()
+    throw new Error(toErrorMessage(error, '读取视频内容失败'))
+  }
+  if (!buf || buf.byteLength === 0) {
     throw new Error('视频内容为空')
   }
+  // 与 materializeRemoteVideoUrl 一致：强制 video/mp4，避免 WebView2 对 octet-stream 直接 @error
+  const blob = new Blob([buf], {type: 'video/mp4'})
   return URL.createObjectURL(blob)
 }
 
@@ -451,6 +459,9 @@ export async function getVideoJob(provider, jobId, options = {}) {
   if (allowContent && job.status === 'completed' && !job.videoUrl) {
     try {
       job.videoUrl = await fetchOpenAiVideoContentUrl(provider, id, signal)
+      job.remoteVideoUrl =
+        job.remoteVideoUrl || resolveVideoContentUrl(`/videos/${id}/content`, provider.baseUrl)
+      job.needsMaterialize = false
     } catch (e) {
       if (e?.name === 'AbortError') throw e
       job.errorMessage = toErrorMessage(e, '下载视频内容失败')
@@ -466,6 +477,9 @@ export async function getVideoJob(provider, jobId, options = {}) {
   if (job.status === 'completed' && !job.videoUrl && job.jobId && provider?.baseUrl) {
     try {
       job.videoUrl = await fetchOpenAiVideoContentUrl(provider, job.jobId, signal)
+      job.remoteVideoUrl =
+        job.remoteVideoUrl ||
+        resolveVideoContentUrl(`/videos/${job.jobId}/content`, provider.baseUrl)
       job.needsMaterialize = false
     } catch (e) {
       if (e?.name === 'AbortError') throw e

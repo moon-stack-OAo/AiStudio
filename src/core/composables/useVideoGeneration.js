@@ -145,28 +145,40 @@ export function useVideoGeneration() {
           }
           return ''
         }
+        const pickAnyHttps = (...cands) => {
+          for (const c of cands) {
+            const s = String(c || '').trim()
+            if (/^https?:\/\//i.test(s)) return s
+          }
+          return ''
+        }
         const playable =
           (String(job.videoUrl || '').startsWith('blob:') ? job.videoUrl : '') ||
           pickDirectHttps(job.videoUrl, job.remoteVideoUrl, job.raw?.video?.url) ||
-          job.videoUrl
+          ''
+        // remote 保留 /content 以便重新加载鉴权拉流；播放地址绝不直接塞 /content
         const remoteVideoUrl =
           pickDirectHttps(job.remoteVideoUrl, job.videoUrl, job.raw?.video?.url) ||
+          pickAnyHttps(job.remoteVideoUrl, job.videoUrl, job.raw?.video?.url) ||
           item.remoteVideoUrl ||
           ''
-        if (!/^https?:\/\//i.test(String(playable)) && !String(playable).startsWith('blob:')) {
+        const needsMaterialize = Boolean(job.needsMaterialize) || !playable
+        if (!playable) {
           logWarn('视频完成但无可播放地址', {
             source: 'video',
             detail: `jobId=${job.jobId || ''} hasVideoUrl=${Boolean(job.videoUrl)}`,
           })
         }
         videoStore.updateItem(sessionId, item.id, {
-          status: 'success',
+          status: playable ? 'success' : 'error',
           progress: 100,
           jobId: job.jobId || item.jobId,
-          videoUrl: playable,
+          videoUrl: playable || '',
           remoteVideoUrl,
-          needsMaterialize: false,
-          errorMessage: '',
+          needsMaterialize,
+          errorMessage: playable
+            ? ''
+            : job.errorMessage || '视频已生成但本地加载失败，可尝试重新加载',
         })
         notifyTimeline?.()
       } else if (job.status === 'completed' && !job.videoUrl) {

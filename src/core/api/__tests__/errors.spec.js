@@ -29,6 +29,22 @@ describe('toErrorMessage', () => {
     expect(toErrorMessage({status: 401, response: {status: 401}})).toMatch(/鉴权失败/)
   })
 
+  it('HTTP 415 映射为媒体类型提示', () => {
+    expect(toErrorMessage({status: 415, response: {status: 415}})).toMatch(/415|媒体类型/)
+  })
+
+  it('No eligible Grok media accounts 映射为中转媒体池提示', () => {
+    expect(toErrorMessage('No eligible Grok media accounts')).toMatch(/Grok 媒体账号/)
+    expect(
+      toErrorMessage({
+        response: {
+          status: 503,
+          data: {error: {message: 'No eligible Grok media accounts'}},
+        },
+      }),
+    ).toMatch(/中转.*媒体/)
+  })
+
   it('response 含 Bearer sk- 时不泄露密钥', () => {
     const msg = toErrorMessage({
       response: {

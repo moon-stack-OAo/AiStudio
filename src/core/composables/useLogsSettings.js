@@ -1,7 +1,7 @@
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useDialog, useMessage} from 'naive-ui'
 import {useLogsStore} from '@core/stores/logs'
-import {formatClockTime, formatDayLabel} from '@core/utils/datetime'
+import {formatDateTimeSeconds} from '@core/utils/datetime'
 import {LOG_LEVELS} from '@core/utils/logger'
 
 const LEVEL_LABEL = {
@@ -103,10 +103,7 @@ export function useLogsSettings() {
   })
 
   function formatEntryTime(ts) {
-    const day = formatDayLabel(ts)
-    const clock = formatClockTime(ts)
-    if (!day || !clock) return ''
-    return day === '今天' ? clock : `${day} ${clock}`
+    return formatDateTimeSeconds(ts)
   }
 
   function levelTagType(level) {
@@ -157,7 +154,7 @@ export function useLogsSettings() {
   async function onCopyEntry(entry) {
     const detail = entry?.detail ? `\n${entry.detail}` : ''
     const ok = await copyText(
-      `[${new Date(entry.ts).toISOString()}] [${String(entry.level).toUpperCase()}] [${entry.source}] ${entry.message}${detail}`,
+      `[${formatDateTimeSeconds(entry.ts)}] [${String(entry.level).toUpperCase()}] [${entry.source}] ${entry.message}${detail}`,
     )
     if (ok) message.success('已复制')
   }

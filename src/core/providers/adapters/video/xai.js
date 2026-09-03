@@ -34,10 +34,7 @@ export async function prepareCreate(provider, options, deps) {
       : {maxEdge: 1024, quality: 0.75, skipBelowBytes: 0}
     const compressed = await compressImageFile(imageFile, compressOpts)
     const dataUrl = await fileToDataUrl(compressed)
-    body.image = {
-      url: dataUrl,
-      type: 'image_url',
-    }
+    body.image = {url: dataUrl}
   }
 
   return {

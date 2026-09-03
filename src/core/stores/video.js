@@ -351,43 +351,75 @@ export const useVideoStore = defineStore('video', {
                 progress: j.progress,
                 jobId: j.jobId || item.jobId,
               }
-              const earlyHttps =
-                (typeof j?.remoteVideoUrl === 'string' && /^https?:\/\//i.test(j.remoteVideoUrl)
-                  ? j.remoteVideoUrl
-                  : '') ||
-                (typeof j?.videoUrl === 'string' && /^https?:\/\//i.test(j.videoUrl)
+              const isContentUrl = (u) =>
+                /(?:\/v1)?\/videos\/[^/]+\/content\/?$/i.test(String(u || ''))
+              const earlyPlayable =
+                (typeof j?.videoUrl === 'string' && String(j.videoUrl).startsWith('blob:')
                   ? j.videoUrl
                   : '') ||
-                (typeof j?.raw?.video?.url === 'string' && /^https?:\/\//i.test(j.raw.video.url)
+                (typeof j?.remoteVideoUrl === 'string' &&
+                /^https?:\/\//i.test(j.remoteVideoUrl) &&
+                !isContentUrl(j.remoteVideoUrl)
+                  ? j.remoteVideoUrl
+                  : '') ||
+                (typeof j?.videoUrl === 'string' &&
+                /^https?:\/\//i.test(j.videoUrl) &&
+                !isContentUrl(j.videoUrl)
+                  ? j.videoUrl
+                  : '') ||
+                (typeof j?.raw?.video?.url === 'string' &&
+                /^https?:\/\//i.test(j.raw.video.url) &&
+                !isContentUrl(j.raw.video.url)
                   ? j.raw.video.url
                   : '')
-              if (earlyHttps) {
-                patch.remoteVideoUrl = earlyHttps
-                patch.videoUrl = earlyHttps
+              if (earlyPlayable) {
+                patch.videoUrl = earlyPlayable
+                if (/^https?:\/\//i.test(earlyPlayable)) patch.remoteVideoUrl = earlyPlayable
+                else if (
+                  typeof j?.remoteVideoUrl === 'string' &&
+                  /^https?:\/\//i.test(j.remoteVideoUrl)
+                ) {
+                  patch.remoteVideoUrl = j.remoteVideoUrl
+                }
               }
               this.updateItem(sessionId, item.id, patch, {persist: false})
               onProgress?.(sessionId, item.id, j)
             },
           })
           if (job.status === 'completed' && job.videoUrl) {
-            const httpsFromJob =
-              (typeof job.remoteVideoUrl === 'string' && /^https?:\/\//i.test(job.remoteVideoUrl)
-                ? job.remoteVideoUrl
-                : '') ||
-              (/^https?:\/\//i.test(String(job.videoUrl || '')) ? String(job.videoUrl) : '') ||
-              (typeof job.raw?.video?.url === 'string' && /^https?:\/\//i.test(job.raw.video.url)
-                ? job.raw.video.url
-                : '') ||
+            const isContent = (u) => /(?:\/v1)?\/videos\/[^/]+\/content\/?$/i.test(String(u || ''))
+            const pickDirect = (...cands) => {
+              for (const c of cands) {
+                const s = String(c || '').trim()
+                if (/^https?:\/\//i.test(s) && !isContent(s)) return s
+              }
+              return ''
+            }
+            const pickAnyHttps = (...cands) => {
+              for (const c of cands) {
+                const s = String(c || '').trim()
+                if (/^https?:\/\//i.test(s)) return s
+              }
+              return ''
+            }
+            const playable =
+              (String(job.videoUrl || '').startsWith('blob:') ? job.videoUrl : '') ||
+              pickDirect(job.videoUrl, job.remoteVideoUrl, job.raw?.video?.url) ||
               ''
-            const remoteVideoUrl = httpsFromJob || item.remoteVideoUrl || ''
-            const videoUrl = remoteVideoUrl || job.videoUrl
+            const remoteVideoUrl =
+              pickDirect(job.remoteVideoUrl, job.videoUrl, job.raw?.video?.url) ||
+              pickAnyHttps(job.remoteVideoUrl, job.videoUrl, job.raw?.video?.url) ||
+              item.remoteVideoUrl ||
+              ''
             this.updateItem(sessionId, item.id, {
-              status: 'success',
+              status: playable ? 'success' : 'error',
               progress: 100,
-              videoUrl,
+              videoUrl: playable || '',
               remoteVideoUrl,
-              needsMaterialize: false,
-              errorMessage: '',
+              needsMaterialize: Boolean(job.needsMaterialize) || !playable,
+              errorMessage: playable
+                ? ''
+                : job.errorMessage || '视频已生成但本地加载失败，可尝试重新加载',
               needsResume: false,
             })
           } else {

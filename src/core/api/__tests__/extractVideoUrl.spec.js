@@ -168,4 +168,41 @@ describe('ensureJobVideoMaterialized', () => {
     expect(out.remoteVideoUrl).toBeUndefined()
     expect(out.videoUrl).toBe('https://vidgen.x.ai/x.mp4')
   })
+
+  it('绝对 /content 带鉴权拉流并强制 video/mp4 MIME', async () => {
+    const ftyp = new Uint8Array([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x00,
+      0x00, 0x69, 0x73, 0x6f, 0x6d, 0x69, 0x73, 0x6f, 0x32,
+    ])
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () =>
+          ftyp.buffer.slice(ftyp.byteOffset, ftyp.byteOffset + ftyp.byteLength),
+        text: async () => '',
+      })),
+    )
+    if (typeof URL.createObjectURL !== 'function') {
+      URL.createObjectURL = vi.fn(() => 'blob:content-video')
+    } else {
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:content-video')
+    }
+
+    const out = await ensureJobVideoMaterialized(
+      {
+        status: 'completed',
+        jobId: 'job-1',
+        videoUrl: 'https://proxy.example/v1/videos/job-1/content',
+      },
+      undefined,
+      {baseUrl: 'https://proxy.example/v1', apiKey: 'sk-test'},
+    )
+    expect(out.videoUrl).toBe('blob:content-video')
+    expect(out.remoteVideoUrl).toBe('https://proxy.example/v1/videos/job-1/content')
+    expect(out.needsMaterialize).toBe(false)
+    const blobArg = URL.createObjectURL.mock.calls.at(-1)[0]
+    expect(blobArg).toBeInstanceOf(Blob)
+    expect(blobArg.type).toBe('video/mp4')
+  })
 })

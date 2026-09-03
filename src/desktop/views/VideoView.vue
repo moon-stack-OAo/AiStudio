@@ -21,11 +21,7 @@ import GenerateParamsPanel from '@/components/generate/GenerateParamsPanel.vue'
 import {useBreakpoints} from '@core/composables/useBreakpoints'
 import {useTooltipTrigger} from '@core/composables/useTooltipTrigger'
 import {useVideoSession} from '@core/composables/useVideoSession'
-import {
-  downloadMediaBlob,
-  resolveVideoDownloadSrc,
-  resolveVideoFallbackSrc,
-} from '@core/composables/useMediaDownload'
+import {downloadMediaBlob, resolveVideoDownloadSrc, resolveVideoFallbackSrc} from '@core/composables/useMediaDownload'
 import {useManualDropdown} from '@/composables/useManualDropdown'
 import {getPromptPlaceholder} from '@core/prompts'
 import {renderSelectLabel} from '@core/utils/selectRender'
@@ -77,6 +73,7 @@ const {
   removeSession,
   copyErrorText,
   clearItems,
+  removeQueueItem,
   onVideoError,
   isVideoBroken,
   canReloadVideo,
@@ -302,19 +299,22 @@ function selectTask(item) {
 
 function onTaskContextMenu(e, item) {
   const status = itemStatus(item)
-  if (status === 'loading') return
-
   const options = []
-  if (status === 'pending_resume') {
+  if (status === 'loading') {
+    options.push({label: '删除', key: 'delete'})
+  } else if (status === 'pending_resume') {
     options.push({label: '恢复轮询', key: 'resume', disabled: gen.busy})
     options.push({label: '放弃', key: 'abandon'})
     if (item?.errorMessage) options.push({label: '复制错误信息', key: 'copy-error'})
+    options.push({label: '删除', key: 'delete'})
   } else if (status === 'error' || isVideoBroken(item)) {
     options.push({label: '复制错误信息', key: 'copy-error'})
     if (canReloadVideo(item)) options.push({label: '重新加载', key: 'reload'})
     options.push({label: '重试', key: 'retry', disabled: gen.busy})
-  } else if (resolveVideoDownloadSrc(item)) {
-    options.push({label: '下载', key: 'download'})
+    options.push({label: '删除', key: 'delete'})
+  } else {
+    if (resolveVideoDownloadSrc(item)) options.push({label: '下载', key: 'download'})
+    options.push({label: '删除', key: 'delete'})
   }
   if (!options.length) return
 
@@ -325,6 +325,7 @@ function onTaskContextMenu(e, item) {
     else if (key === 'resume') resumeItem(item)
     else if (key === 'abandon') abandonPendingItem(item)
     else if (key === 'download') downloadVideo(item, `video-${item.id}.mp4`)
+    else if (key === 'delete') removeQueueItem(item)
   })
 }
 </script>
@@ -486,56 +487,60 @@ function onTaskContextMenu(e, item) {
             </div>
           </div>
 
-          <div class="section-label">任务队列</div>
-          <div v-if="!queueItems.length" class="empty empty-state gallery-empty">
-            <div class="empty-art" aria-hidden="true">▶</div>
-            <div class="empty-title">开始创作</div>
-            <div class="empty-desc">{{ emptyDesc.replace('时间线', '任务队列') }}</div>
-          </div>
-          <div v-else class="task-list">
-            <button
-              v-for="item in queueItems"
-              :key="item.id"
-              type="button"
-              :class="['task-item', {'is-active': selectedItem?.id === item.id}]"
-              @click="selectTask(item)"
-              @contextmenu="onTaskContextMenu($event, item)"
-            >
-              <strong class="task-item-title">{{ taskTitle(item) }}</strong>
-              <span :class="['status-pill', taskStatusMeta(item).pill]">
-                {{ taskStatusMeta(item).pillText }}
-              </span>
-              <span class="task-item-meta">{{ taskStatusMeta(item).meta }}</span>
-              <div
-                v-if="
-                  itemStatus(item) === 'error' ||
-                  itemStatus(item) === 'pending_resume' ||
-                  isVideoBroken(item)
-                "
-                class="task-item-actions"
-                @click.stop
-              >
-                <n-button
-                  v-if="itemStatus(item) === 'pending_resume'"
-                  :disabled="gen.busy"
-                  secondary
-                  size="tiny"
-                  type="primary"
-                  @click="resumeItem(item)"
-                >
-                  恢复
-                </n-button>
-                <n-button
-                  v-if="itemStatus(item) === 'error' || isVideoBroken(item)"
-                  :disabled="gen.busy"
-                  secondary
-                  size="tiny"
-                  @click="retryItem(item)"
-                >
-                  重试
-                </n-button>
+          <div class="video-queue">
+            <div class="section-label">任务队列</div>
+            <div class="video-queue-scroll">
+              <div v-if="!queueItems.length" class="empty empty-state gallery-empty">
+                <div class="empty-art" aria-hidden="true">▶</div>
+                <div class="empty-title">开始创作</div>
+                <div class="empty-desc">{{ emptyDesc.replace('时间线', '任务队列') }}</div>
               </div>
-            </button>
+              <div v-else class="task-list">
+                <button
+                  v-for="item in queueItems"
+                  :key="item.id"
+                  type="button"
+                  :class="['task-item', {'is-active': selectedItem?.id === item.id}]"
+                  @click="selectTask(item)"
+                  @contextmenu="onTaskContextMenu($event, item)"
+                >
+                  <strong class="task-item-title">{{ taskTitle(item) }}</strong>
+                  <span :class="['status-pill', taskStatusMeta(item).pill]">
+                    {{ taskStatusMeta(item).pillText }}
+                  </span>
+                  <span class="task-item-meta">{{ taskStatusMeta(item).meta }}</span>
+                  <div
+                    v-if="
+                      itemStatus(item) === 'error' ||
+                      itemStatus(item) === 'pending_resume' ||
+                      isVideoBroken(item)
+                    "
+                    class="task-item-actions"
+                    @click.stop
+                  >
+                    <n-button
+                      v-if="itemStatus(item) === 'pending_resume'"
+                      :disabled="gen.busy"
+                      secondary
+                      size="tiny"
+                      type="primary"
+                      @click="resumeItem(item)"
+                    >
+                      恢复
+                    </n-button>
+                    <n-button
+                      v-if="itemStatus(item) === 'error' || isVideoBroken(item)"
+                      :disabled="gen.busy"
+                      secondary
+                      size="tiny"
+                      @click="retryItem(item)"
+                    >
+                      重试
+                    </n-button>
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
         </template>
 

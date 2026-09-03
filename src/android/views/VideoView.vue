@@ -86,6 +86,7 @@ const {
   copyPrompt,
   copyErrorText,
   clearItems: clearItemsCore,
+  removeQueueItem,
   onVideoError,
   isVideoBroken,
   canReloadVideo,
@@ -284,6 +285,13 @@ function onCardAbandon() {
   cardActionShow.value = false
   if (!item) return
   abandonPendingItem(item)
+}
+
+function onCardDelete() {
+  const item = cardActionTarget.value
+  cardActionShow.value = false
+  if (!item) return
+  removeQueueItem(item)
 }
 
 async function onAgainBatch(item) {
@@ -867,6 +875,12 @@ async function onAgainBatch(item) {
             <n-icon :component="DownloadOutline" />
           </template>
           下载
+        </n-button>
+        <n-button v-if="cardActionTarget" block secondary type="error" @click="onCardDelete">
+          <template #icon>
+            <n-icon :component="TrashOutline" />
+          </template>
+          删除
         </n-button>
       </div>
     </n-drawer-content>

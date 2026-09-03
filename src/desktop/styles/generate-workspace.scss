@@ -20,6 +20,10 @@
   min-height: 0;
 }
 
+.content.gen-split > .video-stage {
+  overflow: hidden;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .gallery-thumb .gallery-thumb-actions {
     opacity: 0;

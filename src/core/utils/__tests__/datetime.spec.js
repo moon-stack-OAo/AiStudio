@@ -2,6 +2,7 @@ import {describe, expect, it, vi, afterEach} from 'vitest'
 import {
   formatBatchSectionLabel,
   formatClockTime,
+  formatDateTimeSeconds,
   formatDayLabel,
   formatRelativeSessionTime,
 } from '../datetime'
@@ -10,6 +11,17 @@ describe('formatClockTime', () => {
   it('formats HH:mm', () => {
     expect(formatClockTime(new Date(2026, 0, 1, 9, 5).getTime())).toBe('09:05')
     expect(formatClockTime(new Date(2026, 0, 1, 23, 59).getTime())).toBe('23:59')
+  })
+})
+
+describe('formatDateTimeSeconds', () => {
+  it('formats YYYY-MM-DD HH:mm:ss', () => {
+    expect(formatDateTimeSeconds(new Date(2026, 8, 3, 9, 5, 7).getTime())).toBe(
+      '2026-09-03 09:05:07',
+    )
+    expect(formatDateTimeSeconds(new Date(2026, 0, 1, 23, 59, 1).getTime())).toBe(
+      '2026-01-01 23:59:01',
+    )
   })
 })
 

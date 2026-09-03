@@ -78,6 +78,7 @@ export function useVideoSession(options = {}) {
     rememberRefFile,
     setRefThumb,
     clearSessionRefCache,
+    clearItemRefCache,
     applyItemParams,
     setReferenceFromFile,
     onUpload,
@@ -102,12 +103,14 @@ export function useVideoSession(options = {}) {
     isVideoBroken,
     canReloadVideo,
     reloadVideo,
+    clearItemPlaybackCache,
     openRefLightbox,
     closeLightbox,
   } = useVideoPlayback({
     videoStore,
     message,
     getSession: () => session.value,
+    getProviderById,
   })
 
   const {isResuming, abortResumeOnly, startResumeIfNeeded, resumeItem, abandonPendingItem} =
@@ -236,8 +239,44 @@ export function useVideoSession(options = {}) {
       negativeText: '取消',
       onPositiveClick: () => {
         const sid = session.value?.id
+        if (!sid) return
+        abortResumeOnly()
+        if (gen.isCurrent(sid)) {
+          gen.abort()
+          gen.end(sid)
+        }
         clearSessionRefCache(sid)
         videoStore.clearItems(sid)
+      },
+    })
+  }
+
+  function removeQueueItem(item) {
+    if (!item?.id) return
+    const sid = session.value?.id
+    if (!sid) return
+    const status = itemStatus(item)
+    const isActiveJob = status === 'loading'
+    dialog.warning({
+      title: '删除任务',
+      content: isActiveJob
+        ? '该任务正在生成，删除将中止当前轮询。确定删除？'
+        : '确定删除这条视频任务？删除后不可恢复。',
+      positiveText: '删除',
+      negativeText: '取消',
+      onPositiveClick: () => {
+        if (isActiveJob) {
+          abortResumeOnly()
+          if (gen.isCurrent(sid)) {
+            gen.abort()
+            gen.end(sid)
+          }
+        } else if (status === 'pending_resume') {
+          abortResumeOnly()
+        }
+        clearItemRefCache(sid, item.id)
+        clearItemPlaybackCache(item.id)
+        videoStore.removeItem(sid, item.id)
       },
     })
   }
@@ -313,6 +352,7 @@ export function useVideoSession(options = {}) {
     copyErrorText,
     videoPlaybackErrorText,
     clearItems,
+    removeQueueItem,
     onVideoError,
     isVideoBroken,
     canReloadVideo,

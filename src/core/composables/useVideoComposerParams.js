@@ -192,6 +192,17 @@ export function useVideoComposerParams({settings, message, getSessionId}) {
     refFileBySession.value = files
   }
 
+  function clearItemRefCache(sessionId, itemId) {
+    if (!sessionId || !itemId) return
+    const thumbBucket = {...(refThumbBySession.value[sessionId] || {})}
+    const fileBucket = {...(refFileBySession.value[sessionId] || {})}
+    if (!(itemId in thumbBucket) && !(itemId in fileBucket)) return
+    delete thumbBucket[itemId]
+    delete fileBucket[itemId]
+    refThumbBySession.value = {...refThumbBySession.value, [sessionId]: thumbBucket}
+    refFileBySession.value = {...refFileBySession.value, [sessionId]: fileBucket}
+  }
+
   function applyItemParams(item) {
     const p = item?.params || {}
     const sec = p.seconds ?? p.duration
@@ -336,6 +347,7 @@ export function useVideoComposerParams({settings, message, getSessionId}) {
     rememberRefFile,
     setRefThumb,
     clearSessionRefCache,
+    clearItemRefCache,
     applyItemParams,
     setReferenceFromFile,
     onUpload,

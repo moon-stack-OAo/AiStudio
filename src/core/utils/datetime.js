@@ -12,6 +12,23 @@ export function formatClockTime(ts) {
 }
 
 /**
+ * 本地日期时间 YYYY-MM-DD HH:mm:ss（日志等）
+ * @param {number|string|Date} [ts]
+ * @returns {string}
+ */
+export function formatDateTimeSeconds(ts) {
+  const d = new Date(Number(ts) || Date.now())
+  if (Number.isNaN(d.getTime())) return ''
+  const yyyy = String(d.getFullYear())
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  return `${yyyy}-${mo}-${dd} ${hh}:${mm}:${ss}`
+}
+
+/**
  * 时间线日分隔：今天 / 昨天 / M/D
  * @param {number|string|Date} [ts]
  * @returns {string}

@@ -1,7 +1,19 @@
 export const HTTP_413_HINT =
   '上传内容过大（HTTP 413）。请换更小的参考图，或已自动压缩仍失败则换图重试。'
 
+export const GROK_MEDIA_NO_ACCOUNT_HINT =
+  '中转侧暂无可用的 Grok 媒体账号（图/视频）。请检查中转媒体池、换线路，或改用官方 api.x.ai。'
+
 const MAX_ERROR_TEXT_LEN = 240
+
+/** 将上游/中转常见英文错误映射为可读中文提示 */
+export function mapKnownUpstreamHint(text) {
+  const s = String(text || '')
+  if (/no eligible grok media accounts|grok_media_no_eligible_account/i.test(s)) {
+    return GROK_MEDIA_NO_ACCOUNT_HINT
+  }
+  return ''
+}
 
 /** 统一识别取消：浏览器 AbortError、axios canceled、Tauri plugin-http「Request cancelled/canceled」 */
 export function isAbortLike(error, signal) {
@@ -72,16 +84,23 @@ export function extractApiErrorMessage(data) {
 /** 将 HTTP 状态与响应体整理为可读错误文案 */
 export function httpStatusErrorMessage(status, bodyMessage = '') {
   if (status === 413) return HTTP_413_HINT
+  const known = mapKnownUpstreamHint(bodyMessage)
+  if (known) return known
   const fromBody = sanitizeErrorText(bodyMessage, '')
   if (
     fromBody &&
     !/^HTTP\s*413\b/i.test(fromBody) &&
-    !/payload too large|request entity too large/i.test(fromBody)
+    !/payload too large|request entity too large/i.test(fromBody) &&
+    !/^HTTP\s*415\b/i.test(fromBody) &&
+    !/unsupported media type/i.test(fromBody)
   ) {
     return fromBody
   }
   if (status === 413 || /payload too large|request entity too large/i.test(fromBody)) {
     return HTTP_413_HINT
+  }
+  if (status === 415 || /unsupported media type/i.test(fromBody)) {
+    return '媒体类型不被接受（HTTP 415）。图生视频请确认参考图格式；自定义兼容请核对接口类型与请求格式。'
   }
   if (status === 401 || status === 403) return '鉴权失败，请检查 API Key'
   if (status === 404) return '接口不存在（404），请核对 Base URL 与模型'
@@ -100,7 +119,7 @@ export function httpStatusErrorMessage(status, bodyMessage = '') {
 export function toErrorMessage(error, fallback = '未知错误') {
   if (error == null) return fallback
   if (typeof error === 'string') {
-    return sanitizeErrorText(error, fallback) || fallback
+    return mapKnownUpstreamHint(error) || sanitizeErrorText(error, fallback) || fallback
   }
 
   const status = error?.status || error?.response?.status
@@ -112,6 +131,8 @@ export function toErrorMessage(error, fallback = '未知错误') {
   if (fromResponse) return sanitizeErrorText(fromResponse, fallback) || fallback
 
   if (error instanceof Error) {
+    const known = mapKnownUpstreamHint(error.message)
+    if (known) return known
     const msg = sanitizeErrorText(error.message, '')
     if (msg) return msg
   }
