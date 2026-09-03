@@ -1,4 +1,5 @@
 import {computed, ref} from 'vue'
+import {logWarn} from '@core/utils/logger'
 
 /** 视频 pending_resume 恢复子系统（与 generate 经 gen runtime 互斥） */
 export function useVideoResume({videoStore, gen, message, getProviderById, getSessionId}) {
@@ -47,7 +48,7 @@ export function useVideoResume({videoStore, gen, message, getProviderById, getSe
       .resumePendingJobs(getProviderById, {signal: controller.signal})
       .catch((e) => {
         if (e?.name === 'AbortError') return
-        console.warn('[video] resumePendingJobs', e)
+        logWarn(e?.message || '恢复视频任务失败', {source: 'video'})
       })
       .finally(() => {
         if (resumeAbortRef.value === controller) {

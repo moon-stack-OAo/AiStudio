@@ -255,6 +255,8 @@
 .preview-frame {
   position: relative;
   aspect-ratio: 16 / 9;
+  width: 100%;
+  max-height: min(48vh, 440px);
   background:
     radial-gradient(
       circle at 50% 40%,
@@ -270,6 +272,7 @@
   place-items: center;
   color: var(--text-3);
   min-width: 0;
+  overflow: hidden;
 }
 
 .preview-frame-empty {

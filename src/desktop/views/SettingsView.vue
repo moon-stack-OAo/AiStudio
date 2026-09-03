@@ -8,6 +8,7 @@ import {useSettingsStore} from '@core/stores/settings'
 import ProvidersSettings from '@/components/settings/ProvidersSettings.vue'
 import ChatSettings from '@/components/settings/ChatSettings.vue'
 import AppearanceSettings from '@/components/settings/AppearanceSettings.vue'
+import LogsSettings from '@/components/settings/LogsSettings.vue'
 import AboutSettings from '@/components/settings/AboutSettings.vue'
 
 const settings = useSettingsStore()
@@ -76,6 +77,10 @@ function addCustom() {
 
         <n-tab-pane display-directive="show" name="appearance" tab="外观">
           <AppearanceSettings />
+        </n-tab-pane>
+
+        <n-tab-pane display-directive="show" name="logs" tab="日志">
+          <LogsSettings />
         </n-tab-pane>
 
         <n-tab-pane display-directive="show" name="about" :tab="aboutTabLabel">

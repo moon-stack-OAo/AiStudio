@@ -161,7 +161,7 @@ function onClearAll() {
   dialog.warning({
     title: '全部清除',
     content:
-      '将清除提供商配置、对话 / 生图 / 生视频记录（含 API Key 与图片缓存）。清除后页面会刷新。',
+      '将清除提供商配置、对话 / 生图 / 生视频记录、运行日志（含 API Key 与图片缓存）。清除后页面会刷新。',
     positiveText: '确认清除',
     negativeText: '取消',
     onPositiveClick: async () => {

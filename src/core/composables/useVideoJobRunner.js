@@ -1,5 +1,6 @@
 import {nextTick} from 'vue'
 import {fileToPreview, toErrorMessage} from '@core/api/client'
+import {logError} from '@core/utils/logger'
 
 /** 视频 generate / retry / stop 共用生命周期 */
 export function useVideoJobRunner(deps) {
@@ -104,8 +105,10 @@ export function useVideoJobRunner(deps) {
       if (err?.name === 'AbortError' || err?.message === 'canceled' || controller.signal.aborted) {
         return
       }
+      const errText = toErrorMessage(err, errorFallback)
+      logError(errText, {source: 'video'})
       if (mounted.value && videoStore.activeId === sessionId) {
-        message.error(toErrorMessage(err, errorFallback))
+        message.error(errText)
       }
     } finally {
       gen.end(sessionId, controller)

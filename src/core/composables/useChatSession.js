@@ -8,6 +8,7 @@ import {useScrollToBottom} from '@core/composables/useScrollToBottom'
 import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
 import {trimChatMessages} from '@core/utils/chatContext'
 import {chatGeneration} from '@core/runtime/generationRuntime'
+import {logError} from '@core/utils/logger'
 
 /**
  * 格式化上下文裁剪提示文案。
@@ -333,6 +334,7 @@ export function useChatSession(options = {}) {
           error: true,
           errorMessage: errText,
         })
+        logError(errText, {source: 'chat'})
         message.error(errText)
       }
     } finally {

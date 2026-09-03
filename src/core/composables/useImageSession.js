@@ -17,6 +17,7 @@ import {useClipboardImage} from '@core/composables/useClipboardImage'
 import {srcToBlob} from '@core/composables/useMediaDownload'
 import {imageGeneration} from '@core/runtime/generationRuntime'
 import {useGenerationRuntime} from '@core/composables/useGenerationRuntime'
+import {logError} from '@core/utils/logger'
 
 const SIZE_OPTIONS_DEFAULT = [
   {label: '1920×1080', value: '1920x1080'},
@@ -515,6 +516,7 @@ export function useImageSession(options = {}) {
         status: 'error',
         errorMessage: errText,
       })
+      logError(errText, {source: 'image'})
       if (imageStore.activeId === sessionId) scheduleScrollToBottom()
       if (mounted.value && imageStore.activeId === sessionId) {
         message.error(errText)

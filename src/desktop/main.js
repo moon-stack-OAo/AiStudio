@@ -4,8 +4,10 @@ import App from './App.vue'
 import router from './router'
 import './styles/main.scss'
 import {applyAndroidSafeAreaInsets} from '@core/utils/safeArea'
+import {initAppLogger} from '@core/utils/logger'
 
 applyAndroidSafeAreaInsets()
+initAppLogger()
 
 // 禁用默认右键菜单；输入框 / 可选文本 / 消息气泡放行。
 // 气泡上若业务侧打开了自定义菜单，会自行 preventDefault；否则保留原生复制。

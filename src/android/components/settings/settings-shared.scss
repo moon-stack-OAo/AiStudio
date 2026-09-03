@@ -7,6 +7,10 @@
 
 .section-card {
   padding: 0 14px 12px;
+
+  &.logs-list-card {
+    padding: 0;
+  }
 }
 
 .section-head {

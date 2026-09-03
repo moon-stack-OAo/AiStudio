@@ -8,6 +8,7 @@ import {
 } from '@core/api/client'
 import {compressImageFile} from '@core/utils/imageCompress'
 import {useVideoStore} from '@core/stores/video'
+import {logWarn} from '@core/utils/logger'
 
 async function buildRefThumbDataUrl(file) {
   if (!file) return ''
@@ -153,10 +154,9 @@ export function useVideoGeneration() {
           item.remoteVideoUrl ||
           ''
         if (!/^https?:\/\//i.test(String(playable)) && !String(playable).startsWith('blob:')) {
-          console.warn('[video] completed without playable url', {
-            jobId: job.jobId,
-            hasVideoUrl: Boolean(job.videoUrl),
-            rawKeys: job.raw && typeof job.raw === 'object' ? Object.keys(job.raw) : [],
+          logWarn('视频完成但无可播放地址', {
+            source: 'video',
+            detail: `jobId=${job.jobId || ''} hasVideoUrl=${Boolean(job.videoUrl)}`,
           })
         }
         videoStore.updateItem(sessionId, item.id, {
@@ -171,10 +171,9 @@ export function useVideoGeneration() {
         notifyTimeline?.()
       } else if (job.status === 'completed' && !job.videoUrl) {
         const msg = '视频已完成但未返回播放地址'
-        console.warn('[video] completed without videoUrl', {
-          jobId: job.jobId,
-          status: job.status,
-          rawKeys: job.raw && typeof job.raw === 'object' ? Object.keys(job.raw) : [],
+        logWarn(msg, {
+          source: 'video',
+          detail: `jobId=${job.jobId || ''} status=${job.status || ''}`,
         })
         videoStore.updateItem(sessionId, item.id, {
           status: 'error',
